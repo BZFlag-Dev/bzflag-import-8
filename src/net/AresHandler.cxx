@@ -16,8 +16,10 @@
 /* system implementation headers */
 #include <cerrno>
 #include <cstring>
+#include <mutex>
 
 bool AresHandler::globallyInited = false;
+std::mutex callback_mutex;
 
 AresHandler::AresHandler(int _index)
     : index(_index), status(None)
@@ -28,7 +30,15 @@ AresHandler::AresHandler(int _index)
     /* ask for local "hosts" lookups too */
     static char lookups[] = "fb";
     struct ares_options opts;
+    memset(&opts, 0, sizeof(opts));
+    int    flags = 0;
+
     opts.lookups = lookups;
+    flags       |= ARES_OPT_LOOKUPS;
+#if ARES_VERSION_MAJOR > 1 || ARES_VERSION_MINOR >= 26
+    opts.evsys   = ARES_EVSYS_DEFAULT;
+    flags       |= ARES_OPT_EVENT_THREAD;
+#endif
 
     /* start up our resolver */
     if (!globallyInited)
@@ -42,7 +52,7 @@ AresHandler::AresHandler(int _index)
     }
 
     /* start up our resolver */
-    int code = ares_init_options (&aresChannel, &opts, ARES_OPT_LOOKUPS);
+    int code = ares_init_options (&aresChannel, &opts, flags);
     aresFailed = (code != ARES_SUCCESS);
     if (aresFailed)
     {
@@ -114,7 +124,7 @@ void AresHandler::queryHost(const char *name)
                        (void *)this);
 }
 
-#if ARES_VERSION_MAJOR >= 1 && ARES_VERSION_MINOR >= 5
+#if ARES_VERSION_MAJOR > 1 || ARES_VERSION_MINOR >= 5
 void AresHandler::staticCallback(void *arg, int callbackStatus,
                                  int, struct hostent *hostent)
 #else
@@ -129,6 +139,9 @@ void AresHandler::callback(int callbackStatus, struct hostent *hostent)
 {
     if (callbackStatus == ARES_EDESTRUCTION)
         return;
+
+    const std::lock_guard<std::mutex> lock(callback_mutex);
+
     if (callbackStatus != ARES_SUCCESS)
     {
         logDebugMessage(1,"Player [%d] failed to resolve: error %d\n", index,
@@ -150,17 +163,35 @@ void AresHandler::callback(int callbackStatus, struct hostent *hostent)
 
 const char *AresHandler::getHostname()
 {
-    return hostName.c_str();
+    if (!callback_mutex.try_lock())
+        return "";
+    const char *host = hostName.c_str();
+    callback_mutex.unlock();
+    return host;
 }
 
 AresHandler::ResolutionStatus AresHandler::getHostAddress(struct in_addr
         *clientAddr)
 {
+    if (!callback_mutex.try_lock())
+        return HbNPending;
+
+    const ResolutionStatus oldStatus = status;
     if (status == HbNSucceeded)
         memcpy(clientAddr, &hostAddress, sizeof(hostAddress));
-    return status;
+    callback_mutex.unlock();
+
+    return oldStatus;
 }
 
+#if ARES_VERSION_MAJOR > 1 || ARES_VERSION_MINOR >= 26
+void AresHandler::setFd(fd_set *, fd_set *, int &)
+{
+}
+void AresHandler::process(fd_set *, fd_set *)
+{
+}
+#else
 void AresHandler::setFd(fd_set *read_set, fd_set *write_set, int &maxFile)
 {
     if (aresFailed)
@@ -176,6 +207,7 @@ void AresHandler::process(fd_set *read_set, fd_set *write_set)
         return;
     ares_process(aresChannel, read_set, write_set);
 }
+#endif
 
 // Local Variables: ***
 // mode: C++ ***
