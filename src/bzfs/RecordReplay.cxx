@@ -153,7 +153,7 @@ static bool savePacket(RRpacket *p, FILE *f);
 static RRpacket *loadPacket(FILE *f);       // makes a new packet
 
 static bool saveHeader(int playerIndex, RRtime filetime, FILE *f);
-static bool loadHeader(ReplayHeader *h, FILE *f);
+static bool loadHeader(ReplayHeader *h, FILE *f, bool *incompatible);
 static bool saveFileTime(RRtime filetime, FILE *f);
 static bool loadFileTime(RRtime *filetime, FILE *f);
 static bool replaceFlagTypes(ReplayHeader *h);
@@ -759,7 +759,8 @@ bool Replay::loadFile(int playerIndex, const char *filename)
         return false;
     }
 
-    if (!loadHeader(&header, ReplayFile))
+    bool incompatible = false;
+    if (!loadHeader(&header, ReplayFile, &incompatible))
     {
         snprintf(buffer, MessageLen, "Could not open header: %s", name.c_str());
         sendMessage(ServerPlayer, playerIndex, buffer);
@@ -831,6 +832,71 @@ bool Replay::loadFile(int playerIndex, const char *filename)
         (time_t)((header.filetime + ReplayPos->timestamp) / 1000000);
     snprintf(buffer, MessageLen, "  end:        %s", ctime(&endTime));
     sendMessage(ServerPlayer, playerIndex, buffer);
+
+    // If this is an incompatible replay, kick all the viewers
+    if (incompatible)
+    {
+        /* FIXME -- having to rejoin when replay files are loaded
+         *
+         * Ok, this is where it gets a bit borked. The bzflag client
+         * has dynamic arrays for some of its objects (players, flags,
+         * shots, etc...) If the client array is too small, there will
+         * be memory overruns. The maxPlayers problem is already dealt
+         * with, because it is set to (MaxPlayers + ReplayObservers)
+         * as soon as the -replay flag is used. The rest of them are
+         * still an issue.
+         *
+         * Here are a few of options:
+         *
+         * 1) make the command line option  -replay <filename>, and
+         *    only allow loading of world DB's that match the one
+         *    from the command line file. This is probably how this
+         *    feature will get used for the most part anyways.
+         *
+         * 2) kick all observers off of the server if an incompatible
+         *    record file is loaded (with an appropriate warning).
+         *    then they can reload with the original DB upon rejoining
+         *    (DB with modified maxPlayers).
+         *
+         * 3) make fixed sized arrays on the client side
+         *    (but what if someone really needs 1000 flags?)
+         *
+         * 4) implement a world reload feature on the client side,
+         *    so that if the server sends a MsgGetWorld to the client
+         *    when it isn't expecting one, it reacquires and regenerates
+         *    its world DB. this would be the slick way to do it.
+         *
+         * 5) implement a resizing command, but that's icky.
+         *
+         * 6) leave it be, and let clients fall where they may.
+         *
+         * 7) MAC: get to the client to use STL, so segv's aren't a problem
+         *     (and kick 'em anyways, to force a map reload)
+         *
+         *
+         * maxPlayers [from WorldBuilder.cxx]
+         *   world->players = new RemotePlayer*[world->maxPlayers];
+         *
+         * maxFlags [from WorldBuilder.cxx]
+         *   world->flags = new Flag[world->maxFlags];
+         *   world->flagNodes = new FlagSceneNode*[world->maxFlags];
+         *   world->flagWarpNodes = new FlagWarpSceneNode*[world->maxFlags];
+         *
+         * maxShots [from RemotePlayer.cxx]
+         *   numShots = World::getWorld()->getMaxShots();
+         *   shots = new RemoteShotPath*[numShots];
+         */
+
+        // Notify the players that they will need to rejoin
+        sendMessage(ServerPlayer, AllPlayers,
+                    "An incompatible recording has been loaded");
+        sendMessage(ServerPlayer, AllPlayers,
+                    "Please rejoin the replay server");
+
+        // Replay player IDs start at MaxPlayers.
+        for (int i = MaxPlayers; i < curMaxPlayers; i++)
+            removePlayer(i, "/replay load");
+    }
 
     return true;
 }
@@ -2107,7 +2173,7 @@ static bool saveHeader(int p, RRtime filetime, FILE *f)
 }
 
 
-static bool loadHeader(ReplayHeader *h, FILE *f)
+static bool loadHeader(ReplayHeader *h, FILE *f, bool *incompatible)
 {
     char buffer[ReplayHeaderSize];
     const void *buf;
@@ -2154,80 +2220,21 @@ static bool loadHeader(ReplayHeader *h, FILE *f)
     ReplayFileStart = ftell(f);
 
     // do the worldDatabase or flagTypes need to be replaced?
-    bool replaced = false;
     if (replaceFlagTypes(h))
     {
         logDebugMessage(1,"Replay: replaced flags\n");
-        replaced = true;
+        *incompatible = true;
     }
     if (replaceSettings(h))
     {
         logDebugMessage(1,"Replay: replaced settings\n");
-        replaced = true;
+        *incompatible = true;
     }
     if (replaceWorldDatabase(h))
     {
         logDebugMessage(1,"Replay: replaced world database\n");
-        replaced = true;
+        *incompatible = true;
     }
-
-    if (replaced)
-    {
-        sendMessage(ServerPlayer, AllPlayers,
-                    "An incompatible recording has been loaded");
-        sendMessage(ServerPlayer, AllPlayers,
-                    "Please rejoin or face the consequences (client crashes)");
-    }
-    /* FIXME -- having to rejoin when replay files are loaded
-     *
-     * Ok, this is where it gets a bit borked. The bzflag client
-     * has dynamic arrays for some of its objects (players, flags,
-     * shots, etc...) If the client array is too small, there will
-     * be memory overruns. The maxPlayers problem is already dealt
-     * with, because it is set to (MaxPlayers + ReplayObservers)
-     * as soon as the -replay flag is used. The rest of them are
-     * still an issue.
-     *
-     * Here are a few of options:
-     *
-     * 1) make the command line option  -replay <filename>, and
-     *    only allow loading of world DB's that match the one
-     *    from the command line file. This is probably how this
-     *    feature will get used for the most part anyways.
-     *
-     * 2) kick all observers off of the server if an incompatible
-     *    record file is loaded (with an appropriate warning).
-     *    then they can reload with the original DB upon rejoining
-     *    (DB with modified maxPlayers).
-     *
-     * 3) make fixed sized arrays on the client side
-     *    (but what if someone really needs 1000 flags?)
-     *
-     * 4) implement a world reload feature on the client side,
-     *    so that if the server sends a MsgGetWorld to the client
-     *    when it isn't expecting one, it reacquires and regenerates
-     *    its world DB. this would be the slick way to do it.
-     *
-     * 5) implement a resizing command, but that's icky.
-     *
-     * 6) leave it be, and let clients fall where they may.
-     *
-     * 7) MAC: get to the client to use STL, so segv's aren't a problem
-     *     (and kick 'em anyways, to force a map reload)
-     *
-     *
-     * maxPlayers [from WorldBuilder.cxx]
-     *   world->players = new RemotePlayer*[world->maxPlayers];
-     *
-     * maxFlags [from WorldBuilder.cxx]
-     *   world->flags = new Flag[world->maxFlags];
-     *   world->flagNodes = new FlagSceneNode*[world->maxFlags];
-     *   world->flagWarpNodes = new FlagWarpSceneNode*[world->maxFlags];
-     *
-     * maxShots [from RemotePlayer.cxx]
-     *   numShots = World::getWorld()->getMaxShots();
-     *   shots = new RemoteShotPath*[numShots];
-     */
 
     return true;
 }
