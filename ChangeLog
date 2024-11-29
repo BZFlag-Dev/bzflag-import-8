@@ -18,6 +18,7 @@ BZFlag 2.4.27
 * Fix skewed textures that occurred when the window size changed
     - Scott Wichser
 * Add support for pasting text into text inputs - Scott Wichser
+* Kick all replay viewers when an incompatible replay is loaded - Scott Wichser
 
 
 BZFlag 2.4.26  "Tanksgiving" (2022-11-20)
@@ -1498,3 +1499,4 @@ BZFlag 1.7c release 1
 ---------------------
 
 preliminary open source release.
+
