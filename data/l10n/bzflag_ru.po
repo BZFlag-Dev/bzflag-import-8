@@ -2329,7 +2329,7 @@ msgstr "<** UDP Kod paketa %x dlina %x\n"
 msgid "Fallback to normal TCP receive"
 msgstr "Vozvrat k obychnomu priyomu TCP"
 
-msgid "Communication error joining game [No immediate respose]."
+msgid "Communication error joining game [No immediate response]."
 msgstr "Oshibka ustanovki svyazi s igroj [net nemedlennogo otveta]"
 
 msgid "Server forced disconnection."

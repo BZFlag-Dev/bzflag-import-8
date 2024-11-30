@@ -2030,7 +2030,7 @@ msgstr "<** Código de paquete UDP %x tamaño %x\n"
 msgid "Fallback to normal TCP receive"
 msgstr "Retraso en recepción TCP normal"
 
-msgid "Communication error joining game [No immediate respose]."
+msgid "Communication error joining game [No immediate response]."
 msgstr "Error de comunicación al unirse a la partida [No hay respuesta inmediata]."
 
 msgid "Server forced disconnection."
