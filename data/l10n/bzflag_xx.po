@@ -2681,7 +2681,7 @@ msgstr ""
 msgid "Shock"
 msgstr ""
 
-msgid "Wave."
+msgid "Wave"
 msgstr ""
 
 msgid "Hit%"
@@ -2699,7 +2699,8 @@ msgstr ""
 msgid "Bullet"
 msgstr ""
 
-msgid "Wave"
+# Abbreviated version of "Favorite" for the Shot Statistics screen
+msgid "Fave."
 msgstr ""
 
 msgid "Flag"

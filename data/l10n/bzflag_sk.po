@@ -2623,7 +2623,7 @@ msgstr "Super"
 msgid "Shock"
 msgstr "Sok"
 
-msgid "Wave."
+msgid "Fave."
 msgstr "Oblub."
 
 msgid "Hit%"
