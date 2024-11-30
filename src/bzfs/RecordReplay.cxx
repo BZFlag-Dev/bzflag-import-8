@@ -2205,7 +2205,7 @@ static bool loadHeader(ReplayHeader *h, FILE *f)
      *
      * 4) implement a world reload feature on the client side,
      *    so that if the server sends a MsgGetWorld to the client
-     *    when it isn't expecting one, it requires and regenerates
+     *    when it isn't expecting one, it reacquires and regenerates
      *    its world DB. this would be the slick way to do it.
      *
      * 5) implement a resizing command, but that's icky.
