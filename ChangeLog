@@ -15,7 +15,8 @@ BZFlag 2.4.27
 * Add Dockerfile for bzfs container - Vladimir Jimenez, Scott Wichser
 * Fix various memory leaks, crashes, buffer overflows, divide by zero errors
     - Alfredo Tupone
-* Fix skewed textures that occurred when the window size changed - Scott Wichser
+* Fix skewed textures that occurred when the window size changed
+    - Scott Wichser
 * Add support for pasting text into text inputs - Scott Wichser
 
 
