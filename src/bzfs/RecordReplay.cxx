@@ -48,6 +48,7 @@
 #include "StateDatabase.h"
 #include "DirectoryNames.h"
 #include "NetHandler.h"
+#include "WorldEventManager.h"
 #include "md5.h"
 #include "Score.h"
 #include "version.h"
@@ -249,6 +250,11 @@ bool Record::start(int playerIndex)
     saveStates();
     sendMessage(ServerPlayer, playerIndex, "Recording started");
 
+    bz_RecordingStartedEventData_V1 eventData;
+    eventData.playerID = playerIndex;
+
+    worldEventManager.callEvents(bz_eRecordingStartedEvent, &eventData);
+
     return true;
 }
 
@@ -260,6 +266,11 @@ bool Record::stop(int playerIndex)
         sendMessage(ServerPlayer, playerIndex, "Couldn't stop capturing");
         return false;
     }
+
+    bz_RecordingEndedEventData_V1 eventData;
+    eventData.playerID = playerIndex;
+
+    worldEventManager.callEvents(bz_eRecordingEndedEvent, &eventData);
 
     sendMessage(ServerPlayer, playerIndex, "Recording stopped");
 
@@ -748,32 +759,40 @@ bool Replay::loadFile(int playerIndex, const char *filename)
     std::string name = RecordDir;
     name += filename;
 
-    replayReset();
-    resetStates();
+    unloadFile(playerIndex);
+
+    bz_ReplayRequestedEventData_V1 requestedEventData;
+    requestedEventData.filename = filename;
+    requestedEventData.playerID = playerIndex;
 
     ReplayFile = openFile(filename, "rb");
+
     if (ReplayFile == NULL)
     {
         snprintf(buffer, MessageLen, "Could not open: %s", name.c_str());
-        sendMessage(ServerPlayer, playerIndex, buffer);
-        return false;
+        requestedEventData.success = false;
     }
-
-    if (!loadHeader(&header, ReplayFile))
+    else if (!loadHeader(&header, ReplayFile))
     {
         snprintf(buffer, MessageLen, "Could not open header: %s", name.c_str());
-        sendMessage(ServerPlayer, playerIndex, buffer);
         fclose(ReplayFile);
         ReplayFile = NULL;
-        return false;
+        requestedEventData.success = false;
     }
-
-    if (header.magic != ReplayMagic)
+    else if (header.magic != ReplayMagic)
     {
         snprintf(buffer, MessageLen, "Not a bzflag replay file: %s", name.c_str());
-        sendMessage(ServerPlayer, playerIndex, buffer);
         fclose(ReplayFile);
         ReplayFile = NULL;
+        requestedEventData.success = false;
+    }
+
+    if (!requestedEventData.success)
+    {
+        sendMessage(ServerPlayer, playerIndex, requestedEventData.errorMsg = buffer);
+
+        worldEventManager.callEvents(bz_eReplayRequestedEvent, &requestedEventData);
+
         return false;
     }
 
@@ -790,49 +809,72 @@ bool Replay::loadFile(int playerIndex, const char *filename)
     if (ReplayBuf.tail == NULL)
     {
         snprintf(buffer, MessageLen, "No valid data: %s", name.c_str());
-        sendMessage(ServerPlayer, playerIndex, buffer);
         replayReset();
-        return false;
+
+        requestedEventData.success = false;
     }
-
-    ReplayPos = ReplayBuf.tail; // setup the initial position
-    ReplayFileTime = header.filetime;
-    ReplayStartTime = ReplayPos->timestamp;
-
-    if (!preloadVariables())
+    else
     {
-        snprintf(buffer, MessageLen, "Could not preload variables: %s",
-                 name.c_str());
-        sendMessage(ServerPlayer, playerIndex, buffer);
-        replayReset();
-        return false;
+        ReplayPos = ReplayBuf.tail; // setup the initial position
+        ReplayFileTime = header.filetime;
+        ReplayStartTime = ReplayPos->timestamp;
+
+        if (!preloadVariables())
+        {
+            snprintf(buffer, MessageLen, "Could not preload variables: %s", name.c_str());
+            replayReset();
+
+            requestedEventData.success = false;
+        }
     }
+
+    if (strlen(requestedEventData.errorMsg = buffer) > 0)
+        sendMessage(ServerPlayer, playerIndex, requestedEventData.errorMsg);
+
+    worldEventManager.callEvents(bz_eReplayRequestedEvent, &requestedEventData);
+
+    if (!requestedEventData.success)
+        return false;
 
     ReplayFilename = filename;
 
-    snprintf(buffer, MessageLen, "Loaded file:  %s", name.c_str());
+    bz_ReplayLoadedEventData_V1 loadedEventData;
+    loadedEventData.filename = name.c_str();
+    loadedEventData.authorCallsign = header.callSign;
+    loadedEventData.authorMotto = header.motto;
+    loadedEventData.protocol = header.ServerVersion;
+    loadedEventData.serverVersion = header.appVersion;
+    loadedEventData.seconds = (float)header.filetime / 1000000.0f;
+
+    snprintf(buffer, MessageLen, "Loaded file:  %s", loadedEventData.filename);
     sendMessage(ServerPlayer, playerIndex, buffer);
-    snprintf(buffer, MessageLen, "  author:     %s (%.79s)",
-             header.callSign, header.motto);
+    snprintf(buffer, MessageLen, "  author:     %s (%.79s)", loadedEventData.authorCallsign, loadedEventData.authorMotto);
     sendMessage(ServerPlayer, playerIndex, buffer);
-    snprintf(buffer, MessageLen, "  protocol:   %.8s", header.ServerVersion);
+    snprintf(buffer, MessageLen, "  protocol:   %.8s", loadedEventData.protocol);
     sendMessage(ServerPlayer, playerIndex, buffer);
-    snprintf(buffer, MessageLen, "  server:     %.113s", header.appVersion);
+    snprintf(buffer, MessageLen, "  server:     %.113s", loadedEventData.serverVersion);
     sendMessage(ServerPlayer, playerIndex, buffer);
-    snprintf(buffer, MessageLen, "  seconds:    %.1f",
-             (float)header.filetime/1000000.0f);
+    snprintf(buffer, MessageLen, "  seconds:    %.1f", loadedEventData.seconds);
     sendMessage(ServerPlayer, playerIndex, buffer);
 
     time_t startTime = (time_t)(ReplayPos->timestamp / 1000000);
+    bz_makeApiTime(startTime, loadedEventData.start);
     snprintf(buffer, MessageLen, "  start:      %s", ctime(&startTime));
     sendMessage(ServerPlayer, playerIndex, buffer);
 
-    time_t endTime =
-        (time_t)((header.filetime + ReplayPos->timestamp) / 1000000);
+    time_t endTime = (time_t)((header.filetime + ReplayPos->timestamp) / 1000000);
+    bz_makeApiTime(endTime, loadedEventData.end);
     snprintf(buffer, MessageLen, "  end:        %s", ctime(&endTime));
     sendMessage(ServerPlayer, playerIndex, buffer);
 
+    worldEventManager.callEvents(bz_eReplayLoadedEvent, &loadedEventData);
+
     return true;
+}
+
+bool Replay::unloadFile(int playerIndex)
+{
+    return replayReset() && resetStates();
 }
 
 
@@ -1053,6 +1095,55 @@ bool Replay::sendFileList(int playerIndex, const char* options)
     return true;
 }
 
+bool Replay::exists(const char* filename)
+{
+#ifndef _MSC_VER
+
+    DIR *dir;
+    struct dirent *de;
+
+    if (!makeDirExist(RecordDir.c_str()))
+        return false;
+
+    dir = opendir(RecordDir.c_str());
+    if (dir == NULL)
+        return false;
+
+    while ((de = readdir(dir)) != NULL)
+    {
+        if (strcmp(de->d_name, filename) == 0)
+            return true;
+    }
+
+    closedir(dir);
+
+    return false;
+
+#else  // _MSC_VER
+
+    if (!makeDirExist(RecordDir.c_str()))
+        return false;
+
+    std::string pattern = RecordDir;
+    pattern += "*";
+    WIN32_FIND_DATA findData;
+    HANDLE h = FindFirstFile(pattern.c_str(), &findData);
+    if (h != INVALID_HANDLE_VALUE)
+    {
+        do
+        {
+            if (strcmp(findData.cFileName, filename))
+                return true;
+        }
+        while (FindNextFile(h, &findData));
+
+        FindClose(h);
+    }
+
+    return false
+
+#endif // _MSC_VER
+}
 
 bool Replay::play(int playerIndex)
 {

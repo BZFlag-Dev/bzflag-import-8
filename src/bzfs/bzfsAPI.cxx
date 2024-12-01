@@ -1936,6 +1936,20 @@ BZF_API void bz_getUTCtime ( bz_Time    *ts )
                         &ts->daylightSavings);
 }
 
+BZF_API void bz_makeApiTime(time_t time, bz_Time* apiTime)
+{
+    tm *tsStruct = gmtime(&time);
+
+    apiTime->year = tsStruct->tm_year;
+    apiTime->month = tsStruct->tm_mon;
+    apiTime->day = tsStruct->tm_mday;
+    apiTime->hour = tsStruct->tm_hour;
+    apiTime->minute = tsStruct->tm_min;
+    apiTime->second = tsStruct->tm_sec;
+    apiTime->dayofweek = tsStruct->tm_wday;
+    apiTime->daylightSavings = tsStruct->tm_isdst;
+}
+
 // info
 BZF_API double bz_getBZDBDouble ( const char* variable )
 {
@@ -4147,6 +4161,35 @@ BZF_API bool bz_stopRecBuf( void )
         return false;
 
     return Record::stop(ServerPlayer);
+}
+
+BZF_API bool bz_isReplayServer( void )
+{
+    return Replay::enabled();
+}
+
+BZF_API bool bz_loadReplay( const char* _filename, int playerIndex )
+{
+    if (!Replay::enabled())
+        return false;
+
+    return Replay::loadFile(playerIndex, _filename);
+}
+
+BZF_API bool bz_replayExists( const char* _filename )
+{
+    if (!Replay::enabled())
+        return false;
+
+    return Replay::exists(_filename);
+}
+
+BZF_API bool bz_unloadReplay( int playerIndex )
+{
+    if (!Replay::enabled())
+        return false;
+
+    return Replay::unloadFile(playerIndex);
 }
 
 BZF_API const char *bz_format(const char* fmt, ...)

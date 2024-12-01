@@ -61,6 +61,7 @@ extern bool init (); // must be done before any players join
 extern bool kill ();
 
 extern bool sendFileList (int playerIndex, const char* options);
+extern bool exists(const char* filename);
 extern bool loadFile (int playerIndex, const char *filename);
 extern bool unloadFile (int playerIndex);
 extern bool play (int playerIndex);

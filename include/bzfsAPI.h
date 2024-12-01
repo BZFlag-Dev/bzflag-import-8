@@ -343,6 +343,10 @@ typedef enum
     bz_ePermissionModificationEvent,
     bz_eAllowServerShotFiredEvent,
     bz_ePlayerDeathFinalizedEvent,
+    bz_eReplayRequestedEvent,
+    bz_eReplayLoadedEvent,
+    bz_eRecordingStartedEvent,
+    bz_eRecordingEndedEvent,
     bz_eLastEvent    //this is never used as an event, just show it's the last one
 } bz_eEventType;
 
@@ -488,6 +492,23 @@ typedef struct bz_PlayerUpdateState
 
 
 BZF_API bool bz_freePlayerRecord ( bz_BasePlayerRecord *playerRecord );
+
+// Time utilities
+typedef struct
+{
+    int year;
+    int month;
+    int day;
+    int hour;
+    int minute;
+    int second;
+    int dayofweek;
+    bool daylightSavings;
+} bz_Time;
+
+BZF_API void bz_getLocaltime(bz_Time *ts);
+BZF_API void bz_getUTCtime(bz_Time *ts);
+BZF_API void bz_makeApiTime(time_t time, bz_Time* apiTime);
 
 // event data types
 class BZF_API bz_EventData
@@ -1465,6 +1486,65 @@ public:
     bool customPerm;
 };
 
+class BZF_API bz_RecordingStartedEventData_V1 : public bz_EventData
+{
+public:
+    bz_RecordingStartedEventData_V1() : bz_EventData(bz_eRecordingStartedEvent)
+        , playerID(-1)
+    {}
+
+    int playerID;
+};
+
+class BZF_API bz_RecordingEndedEventData_V1 : public bz_EventData
+{
+public:
+    bz_RecordingEndedEventData_V1() : bz_EventData(bz_eRecordingEndedEvent)
+        , playerID(-1)
+    {}
+
+    int playerID;
+};
+
+class BZF_API bz_ReplayRequestedEventData_V1 : public bz_EventData
+{
+public:
+    bz_ReplayRequestedEventData_V1() : bz_EventData(bz_eReplayRequestedEvent)
+        , playerID(-1)
+        , success(true)
+        , errorMsg("")
+        , filename("")
+    {}
+
+    int playerID;
+    bool success;
+    const char* errorMsg;
+    const char* filename;
+};
+
+class BZF_API bz_ReplayLoadedEventData_V1 : public bz_EventData
+{
+public:
+    bz_ReplayLoadedEventData_V1() : bz_EventData(bz_eReplayLoadedEvent)
+        , filename("")
+        , authorCallsign("")
+        , authorMotto("")
+        , serverVersion("")
+        , seconds(-1.0)
+        , start(NULL)
+        , end(NULL)
+    {}
+
+    const char* filename;
+    const char* authorCallsign;
+    const char* authorMotto;
+    const char* protocol;
+    const char* serverVersion;
+    float seconds;
+    bz_Time* start;
+    bz_Time* end;
+};
+
 // logging
 BZF_API void bz_debugMessage ( int debugLevel, const char* message );
 BZF_API void bz_debugMessagef( int debugLevel, const char* fmt, ... );
@@ -1741,21 +1821,6 @@ BZF_API uint32_t bz_getShotGUID (int fromPlayer, int shotID);
 // geometry utils
 BZF_API bool bz_vectorFromPoints(const float p1[3], const float p2[3], float outVec[3]);
 BZF_API bool bz_vectorFromRotations(const float tilt, const float rotation, float outVec[3]);
-
-typedef struct
-{
-    int year;
-    int month;
-    int day;
-    int hour;
-    int minute;
-    int second;
-    int dayofweek;
-    bool daylightSavings;
-} bz_Time;
-
-BZF_API void bz_getLocaltime(bz_Time *ts);
-BZF_API void bz_getUTCtime(bz_Time *ts);
 
 // BZDB API
 BZF_API double bz_getBZDBDouble ( const char* variable );
@@ -2145,6 +2210,10 @@ BZF_API bz_ApiString bz_filterPath ( const char* path );
 BZF_API bool bz_saveRecBuf( const char * _filename, int seconds  = 0);
 BZF_API bool bz_startRecBuf( void );
 BZF_API bool bz_stopRecBuf( void );
+BZF_API bool bz_isReplayServer( void );
+BZF_API bool bz_loadReplay( const char* _filename, int playerIndex = BZ_SERVERPLAYER );
+BZF_API bool bz_replayExists( const char* _filename );
+BZF_API bool bz_unloadReplay( int playerIndex = BZ_SERVERPLAYER );
 
 // cheap Text Utils
 BZF_API const char *bz_format(const char* fmt, ...);
