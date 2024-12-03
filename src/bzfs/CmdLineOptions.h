@@ -223,6 +223,8 @@ struct CmdLineOptions
     } pluginDef;
 
     std::vector<pluginDef>    pluginList;
+
+    pluginDef pythonPlugin;
 };
 
 

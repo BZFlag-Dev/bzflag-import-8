@@ -53,6 +53,7 @@
 
 // bzfs specific headers
 #include "bzfs.h"
+#include "bzfsPython.h"
 
 
 BZWReader::BZWReader(std::string filename) : cURLManager(), location(filename),
@@ -203,6 +204,7 @@ bool BZWReader::readWorldStream(std::vector<WorldFileObject*>& wlist,
 
     std::string customObject;
     std::vector<std::string>  customLines;
+    bool fromPython = false;
 
     bool gotWorld = false;
 
@@ -217,7 +219,7 @@ bool BZWReader::readWorldStream(std::vector<WorldFileObject*>& wlist,
                     std::string("discarding incomplete object"), line);
                 if (object != fakeObject)
                     delete object;
-                else if (customObject.size())
+                else if (not customObject.empty())
                 {
                     customObject = "";
                     customLines.clear();
@@ -259,14 +261,18 @@ bool BZWReader::readWorldStream(std::vector<WorldFileObject*>& wlist,
                     else
                         wlist.push_back(object);
                 }
-                else if (customObject.size())
+                else if (not customObject.empty())
                 {
-                    bz_CustomMapObjectInfo data;
-                    data.name = bz_ApiString(customObject);
-                    for (unsigned int i = 0; i < customLines.size(); i++)
-                        data.data.push_back(customLines[i]);
-                    customObjectMap[customObject]->MapObject(bz_ApiString(customObject),&data);
-                    object = NULL;
+                    if (fromPython)
+                        bzPython_customZoneMapObject(customObject, customLines);
+                    else
+                    {
+                        bz_CustomMapObjectInfo data;
+                        data.name = bz_ApiString(customObject);
+                        for (unsigned int i = 0; i < customLines.size(); i++)
+                            data.data.push_back(customLines[i]);
+                        customObjectMap[customObject]->MapObject(bz_ApiString(customObject),&data);
+                    }
                 }
                 object = NULL;
             }
@@ -411,7 +417,7 @@ bool BZWReader::readWorldStream(std::vector<WorldFileObject*>& wlist,
                     // return false;
                 }
             }
-            else if (customObject.size())
+            else if (not customObject.empty())
             {
                 std::string thisline = buffer;
                 thisline += " ";
@@ -430,12 +436,21 @@ bool BZWReader::readWorldStream(std::vector<WorldFileObject*>& wlist,
         }
         else     // filling the current object
         {
+            std::string currObject = TextUtils::toupper(std::string(buffer));
             // unknown token
-            if (customObjectMap.find(TextUtils::toupper(std::string(buffer))) != customObjectMap.end())
+            if (customObjectMap.find(currObject) != customObjectMap.end())
             {
-                customObject = TextUtils::toupper(std::string(buffer));
+                customObject = currObject;
                 object = fakeObject;
                 customLines.clear();
+                fromPython = false;
+            }
+            else if (bzPython_CheckIfCustomMap(currObject))
+            {
+                customObject = currObject;
+                object = fakeObject;
+                customLines.clear();
+                fromPython = true;
             }
             else
             {

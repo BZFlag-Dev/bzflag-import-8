@@ -4,9 +4,11 @@ AM_CPPFLAGS = -DINSIDE_BZ \
 	-DINSTALL_LIB_DIR=\"$(libdir)/\" \
 	$(LIBCURL_CPPFLAGS) \
 	$(CONF_CPPFLAGS) \
+	`pkg-config --cflags python-$(PYTHON_VERSION)` \
 	-I$(top_srcdir)/include
 AM_CFLAGS = $(CONF_CFLAGS)
-AM_CXXFLAGS = $(CONF_CXXFLAGS)
+AM_CXXFLAGS = $(CONF_CXXFLAGS) \
+	      -Wno-redundant-decls
 
 MAINTAINERCLEANFILES = \
 	Makefile.in
@@ -21,6 +23,8 @@ bzfs_LDFLAGS = -export-dynamic -static
 
 bzfs_SOURCES =				\
 	${plugin_files}			\
+	bzfsPython.cxx			\
+	bzfsPython.h			\
 	AccessControlList.cxx		\
 	AccessControlList.h		\
 	Authentication.cxx		\
@@ -149,4 +153,5 @@ LDADD =					\
 	$(LIBZ)				\
 	$(LIBDL)			\
 	$(LIBMINIUPNPC)			\
+	-lpython$(PYTHON_VERSION)	\
 	../date/libDate.la

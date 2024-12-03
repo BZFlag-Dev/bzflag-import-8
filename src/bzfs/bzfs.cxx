@@ -50,6 +50,7 @@
 #include "Filter.h"
 #include "WorldEventManager.h"
 #include "WorldGenerators.h"
+#include "bzfsPython.h"
 
 
 // common implementation headers
@@ -6535,6 +6536,11 @@ int main(int argc, char **argv)
 
     loggingCallback = &apiLoggingCallback;
 
+#ifdef BZ_PYTHON
+    initPython(argc, argv);
+#endif
+
+
     netLogCB.Init();
 #ifndef _WIN32
     setvbuf(stdout, (char *)NULL, _IOLBF, 0);
@@ -6631,8 +6637,6 @@ int main(int argc, char **argv)
 #ifdef BZ_PLUGINS
     // see if we are going to load any plugins
     initPlugins();
-    // check for python by default
-    //    loadPlugin(std::string("python"),std::string(""));
     for (unsigned int plugin = 0; plugin < clOptions->pluginList.size(); plugin++)
     {
         if (!loadPlugin(clOptions->pluginList[plugin].plugin,
@@ -6645,11 +6649,21 @@ int main(int argc, char **argv)
     }
 #endif
 
+#ifdef BZ_PYTHON
+    // load python plugin
+    if (!clOptions->pythonPlugin.plugin.empty())
+        startPython(clOptions->pythonPlugin.plugin.c_str(),
+                    clOptions->pythonPlugin.command.c_str());
+#endif
+
     // start listening and prepare world database
     if (!defineWorld())
     {
 #ifdef BZ_PLUGINS
         unloadPlugins();
+#endif
+#ifdef BZ_PYTHON
+        stopPython();
 #endif
 #if defined(_WIN32)
         WSACleanup();
@@ -6884,6 +6898,9 @@ int main(int argc, char **argv)
 #ifdef BZ_PLUGINS
         unloadPlugins();
 #endif
+#ifdef BZ_PYTHON
+        stopPython();
+#endif
 #if defined(_WIN32)
         WSACleanup();
 #endif /* defined(_WIN32) */
@@ -6999,6 +7016,11 @@ int main(int argc, char **argv)
         const float pluginMaxWait = getPluginMinWaitTime();
         if (waitTime > pluginMaxWait)
             waitTime = pluginMaxWait;
+#endif
+#ifdef BZ_PYTHON
+        const float pythonMaxWait = getPythonMinWaitTime();
+        if (waitTime > pythonMaxWait)
+            waitTime = pythonMaxWait;
 #endif
 
         if (!netConnectedPeers.empty())
@@ -7315,11 +7337,21 @@ int main(int argc, char **argv)
                         apiEventCalled = true;
                     }
 
-                    if (!calledCustomHandler && customPollTypes.find(votingarbiter->getPollAction()) != customPollTypes.end())
+                    if (!calledCustomHandler)
                     {
-                        customPollTypes[votingarbiter->getPollAction()].pollHandler->PollClose(votingarbiter->getPollAction().c_str(),
-                                votingarbiter->getPollTarget().c_str(), votingarbiter->isPollSuccessful());
-                        calledCustomHandler = true;
+                        if (customPollTypes.find(votingarbiter->getPollAction()) != customPollTypes.end())
+                        {
+                            customPollTypes[votingarbiter->getPollAction()].pollHandler->PollClose(votingarbiter->getPollAction().c_str(),
+                                    votingarbiter->getPollTarget().c_str(), votingarbiter->isPollSuccessful());
+                            calledCustomHandler = true;
+                        }
+                        else if (bzPython_isPollActive(votingarbiter->getPollAction()))
+                        {
+                            bzPython_PollClose(votingarbiter->getPollAction(),
+                                               votingarbiter->getPollTarget().c_str(),
+                                               votingarbiter->isPollSuccessful());
+                            calledCustomHandler = true;
+                        }
                     }
 
                     if (!announcedResults)
@@ -7850,6 +7882,9 @@ int main(int argc, char **argv)
     bzUPnP.stop();
 #ifdef BZ_PLUGINS
     unloadPlugins();
+#endif
+#ifdef BZ_PYTHON
+    stopPython();
 #endif
 
     // print uptime

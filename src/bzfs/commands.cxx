@@ -52,6 +52,7 @@
 #include "RecordReplay.h"
 #include "bzfs.h"
 #include "PackVars.h"   // uses directMessage() from bzfs.h
+#include "bzfsPython.h"
 
 
 #if defined(_WIN32)
@@ -510,6 +511,23 @@ public:
                              GameKeeper::Player *playerData);
 };
 
+class LoadPyCommand : ServerCommand
+{
+public:
+    LoadPyCommand();
+
+    virtual bool operator() (const char    *commandLine,
+                             GameKeeper::Player *playerData);
+};
+
+class UnloadPyCommand : ServerCommand
+{
+public:
+    UnloadPyCommand();
+
+    virtual bool operator() (const char    *commandLine,
+                             GameKeeper::Player *playerData);
+};
 
 static MsgCommand     msgCommand;
 static ServerQueryCommand serverQueryCommand;
@@ -562,6 +580,8 @@ static CmdHelp        cmdHelp;
 static ModCountCommand    modCountCommand;
 static DebugCommand       debugCommand;
 static OwnerCommand       ownerCommand;
+static LoadPyCommand      loadPyCommand;
+static UnloadPyCommand    unloadPyCommand;
 
 CmdHelp::CmdHelp()           : ServerCommand("") {} // fake entry
 CmdList::CmdList()           : ServerCommand("/?",
@@ -662,6 +682,10 @@ DebugCommand::DebugCommand()         : ServerCommand("/serverdebug",
             "[value] - set debug level or display the current setting") {}
 OwnerCommand::OwnerCommand()         : ServerCommand("/owner",
             "display the server owner's BZBB name") {}
+LoadPyCommand::LoadPyCommand()       : ServerCommand("/loadpython",
+            "[arg] - load python file") {}
+UnloadPyCommand::UnloadPyCommand()   : ServerCommand("/unloadpython",
+            "[arg] - unload python file") {}
 
 
 class NoDigit
@@ -3171,8 +3195,10 @@ bool PollCommand::operator() (const char     *message,
 
     /* handle subcommands */
 
-    bool customPollType = customPollTypes.find(cmd) != customPollTypes.end();
-    if ((cmd == "ban") || (cmd == "kick") || (cmd == "kill") || (cmd == "set") || (cmd == "flagreset") || customPollType)
+    bool python_Poll    = bzPython_isPollActive(cmd);
+    bool customPollType = (customPollTypes.find(cmd) != customPollTypes.end());
+    if ((cmd == "ban") || (cmd == "kick") || (cmd == "kill") || (cmd == "set") || (cmd == "flagreset") || customPollType
+            || python_Poll)
     {
         std::string target;
         std::string targetIP = "";
@@ -3272,8 +3298,16 @@ bool PollCommand::operator() (const char     *message,
             if (stopPoll)
                 return true;
         }
+        else if (python_Poll)
+        {
+            bool stopPoll = !bzPython_PollOpen(cmd, t, target.c_str());
 
-        if ((cmd != "set") && (cmd != "flagreset") && !customPollType)
+            if (stopPoll)
+                return true;
+        }
+
+
+        if ((cmd != "set") && (cmd != "flagreset") && !customPollType && !python_Poll)
         {
             // kick, kill, and ban polls take a player name
 
@@ -3362,7 +3396,7 @@ bool PollCommand::operator() (const char     *message,
 
         /* create and announce the new poll */
         bool canDo = false;
-        if (customPollType)
+        if (customPollType || python_Poll)
             canDo = (arbiter->poll(target, t, cmd));
         else if (cmd == "ban")
             canDo = (arbiter->pollToBan(target, t, targetIP));
@@ -3459,6 +3493,8 @@ bool PollCommand::operator() (const char     *message,
             snprintf(reply, MessageLen, "    or /poll %s %s", pollType->first.c_str(), pollType->second.pollParameters.c_str());
             sendMessage(ServerPlayer, t, reply);
         }
+
+        bzPython_PollHelp(t);
 
     } /* end handling of poll subcommands */
 
@@ -3929,6 +3965,12 @@ void parseServerCommand(const char *message, int t, int sourceChannel)
             return;
     }
 
+#ifdef BZ_PYTHON
+    // If python handles, it is ok
+    if (bzPython_SlashCommand(t, command, APIMessage, &APIParams))
+        return;
+#endif
+
     // if it wasn't a custom command, so fallback to built-in commands
     if (ServerCommand::execute(message, playerData))
         return;
@@ -4006,6 +4048,51 @@ bool OwnerCommand::operator() (const char* UNUSED(message),
         msg += owner;
         sendMessage(ServerPlayer, playerIndex, msg.c_str());
     }
+    return true;
+}
+
+bool LoadPyCommand::operator() (const char* message,
+                                GameKeeper::Player *playerData)
+{
+    const int playerIndex = playerData->getIndex();
+
+    stopPython();
+
+    const char *moduleName;
+
+    for (moduleName = message;
+            (*moduleName != 0) && (*moduleName != ' ');
+            moduleName++)
+        ;
+    for (; (*moduleName != 0) && (*moduleName == ' ') ; moduleName++)
+        ;
+    if (!(*moduleName))
+    {
+        sendMessage(ServerPlayer, playerIndex, "python module not specified");
+        return true;
+    }
+
+    const char *endModule;
+    for (endModule = moduleName;
+            (*endModule != 0) && (*endModule != ' ');
+            endModule++)
+        ;
+
+    char module[128];
+    memcpy(module, moduleName, endModule - moduleName);
+    module[endModule - moduleName] = 0;
+
+    for (; (*endModule != 0) && (*endModule == ' ') ; endModule++)
+        ;
+
+    startPython(module, endModule);
+    return true;
+}
+
+bool UnloadPyCommand::operator() (const char* UNUSED(message),
+                                  GameKeeper::Player *UNUSED(playerData))
+{
+    stopPython();
     return true;
 }
 
