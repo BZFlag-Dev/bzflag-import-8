@@ -2762,6 +2762,12 @@ bool ReloadCommand::operator() (const char   *message,
 
     logDebugMessage(3,"Command is %s\n", cmd.c_str());
 
+    bz_ReloadData_V1 event;
+    event.playerID = t;
+    event.target = cmd.c_str();
+
+    worldEventManager.callEvents(bz_eReloadEvent, &event);
+
     /* handle subcommands */
 
     bool reload_bans = false;
@@ -2769,6 +2775,7 @@ bool ReloadCommand::operator() (const char   *message,
     bool reload_users = false;
     bool reload_helpfiles = false;
     bool reload_badwords = false;
+
     if ((cmd == "") || (cmd == "all"))
     {
         logDebugMessage(3,"Reload all\n");
@@ -2805,8 +2812,14 @@ bool ReloadCommand::operator() (const char   *message,
     }
     else
     {
+        // Allow a plug-in to take over
+        if (event.handled) {
+            return true;
+        }
+
         sendMessage(ServerPlayer, t, "Invalid option for the reload command");
         sendMessage(ServerPlayer, t, "Usage: /reload [all|bans|badwords|helpfiles|groups|users]");
+
         return true; // Bail out
     }
 

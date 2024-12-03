@@ -343,6 +343,7 @@ typedef enum
     bz_ePermissionModificationEvent,
     bz_eAllowServerShotFiredEvent,
     bz_ePlayerDeathFinalizedEvent,
+    bz_eReloadEvent,
     bz_eLastEvent    //this is never used as an event, just show it's the last one
 } bz_eEventType;
 
@@ -1465,6 +1466,20 @@ public:
     bool customPerm;
 };
 
+class BZF_API bz_ReloadData_V1 : public bz_EventData
+{
+public:
+    bz_ReloadData_V1() : bz_EventData(bz_eReloadEvent)
+        , playerID(-1)
+        , target("all")
+        , handled(false)
+    {}
+
+    int playerID;
+    const char* target;
+    bool handled;
+};
+
 // logging
 BZF_API void bz_debugMessage ( int debugLevel, const char* message );
 BZF_API void bz_debugMessagef( int debugLevel, const char* fmt, ... );
@@ -2179,6 +2194,7 @@ BZF_API void bz_gameOver(int playerID, bz_eTeamType team = eNoTeam);
 BZF_API bool bz_restart ( void );
 BZF_API const char* bz_getServerOwner();
 
+BZF_API void bz_reloadAll();
 BZF_API void bz_reloadLocalBans();
 BZF_API void bz_reloadMasterBans();
 BZF_API void bz_reloadGroups();
