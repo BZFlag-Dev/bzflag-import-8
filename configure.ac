@@ -185,6 +185,10 @@ if test x$enable_debug = xyes; then
     user_CXXFLAGS="$CXXFLAGS"	# ac_save_CXXFLAGS is not set yet
 fi
 
+# sanitizer
+AC_ARG_ENABLE(asan,      [  --enable-asan           address sanitizer])
+AC_ARG_ENABLE(ubsan,     [  --enable-ubsan          undefined behaviour sanitizer])
+
 # do we want the bzflag  client?
 AC_ARG_ENABLE(client, [  --disable-client        server-only build])
 
@@ -765,6 +769,16 @@ else
 	esac
     fi
     AC_DEFINE(NDEBUG, 1, [Debugging disabled])
+fi
+
+if test "x$enable_asan" = xyes; then
+    CONF_CFLAGS="$CONF_CFLAGS -fsanitize=address"
+    CONF_CXXFLAGS="$CONF_CXXFLAGS -fsanitize=address"
+fi
+
+if test "x$enable_ubsan" = xyes; then
+    CONF_CFLAGS="$CONF_CFLAGS -fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow"
+    CONF_CXXFLAGS="$CONF_CXXFLAGS -fsanitize=undefined -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow"
 fi
 
 dnl check for -search_paths_first linker flag when making dynamic libraries
