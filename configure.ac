@@ -746,10 +746,6 @@ fi
 if test x$enable_debug = xyes ; then
     CONF_CFLAGS="$CONF_CFLAGS -Werror -g -O0"
     CONF_CXXFLAGS="$CONF_CXXFLAGS -Werror -g -O0"
-    # revert automatic setting of CFLAGS and CXXFLAGS to prevent
-    # override of "-g -O0" put into CONF_CFLAGS and CONF_CXXFLAGS above
-    CFLAGS="$user_CFLAGS"
-    CXXFLAGS="$user_CXXFLAGS"
     AC_DEFINE(DEBUG, 1, [Debugging enabled])
 else
     if test "$GCC" = yes ; then
@@ -764,8 +760,16 @@ else
 		;;
 	esac
     fi
+    CONF_CFLAGS="$CONF_CFLAGS -O2"
+    CONF_CXXFLAGS="$CONF_CXXFLAGS -O2"
     AC_DEFINE(NDEBUG, 1, [Debugging disabled])
 fi
+
+# revert automatic setting of CFLAGS and CXXFLAGS to prevent
+# override of debug or optimization settings in CONF_CFLAGS
+# and CONF_CXXFLAGS above
+CFLAGS="$user_CFLAGS"
+CXXFLAGS="$user_CXXFLAGS"
 
 dnl check for -search_paths_first linker flag when making dynamic libraries
 search_paths_first_flag="-Wl,-search_paths_first -mdynamic-no-pic"
