@@ -65,6 +65,7 @@ public:
     static Int   radarStyle;
     static Float radarTankPixels;
     static Int   leadingShotLine;
+    static Int   radarForwardMarker;
     static Float linedRadarShots;
     static Float sizedRadarShots;
     static Int   radarPosition;

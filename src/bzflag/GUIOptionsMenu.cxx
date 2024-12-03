@@ -132,6 +132,17 @@ GUIOptionsMenu::GUIOptionsMenu()
     option->update();
     listHUD.push_back(option);
 
+    // radar marker for forward direction
+    option = new HUDuiList;
+    option->setFontFace(fontFace);
+    option->setLabel("Radar Forward Marker:");
+    option->setCallback(callback, "m");
+    options = &option->getList();
+    options->push_back(std::string("Tick"));
+    options->push_back(std::string("Line"));
+    option->update();
+    listHUD.push_back(option);
+
     // set radar position
     option = new HUDuiList;
     option->setFontFace(fontFace);
@@ -403,6 +414,8 @@ void            GUIOptionsMenu::resize(int _width, int _height)
         ((HUDuiList*)listHUD[i++])->setIndex(static_cast<int>(BZDB.eval("linedradarshots")));
         // Radar Shot Line
         ((HUDuiList*)listHUD[i++])->setIndex(static_cast<int>(BZDB.eval("leadingShotLine")));
+        // Radar Forward Marker
+        ((HUDuiList*)listHUD[i++])->setIndex(static_cast<int>(BZDB.eval("radarForwardMarker")));
         // Radar Position
         ((HUDuiList*)listHUD[i++])->setIndex(static_cast<int>(BZDB.eval("radarPosition")));
         // Colored shots on radar
@@ -524,6 +537,10 @@ void            GUIOptionsMenu::callback(HUDuiControl* w, const void* data)
 
     case 'F':
         BZDB.setInt("leadingShotLine", list->getIndex());
+        break;
+
+    case 'm':
+        BZDB.setInt("radarForwardMarker", list->getIndex());
         break;
 
     case 'P':
