@@ -22,6 +22,7 @@
 
 // system headers
 #include <vector>
+#include <glm/fwd.hpp>
 
 // common headers
 #include "bzfgl.h"
@@ -36,15 +37,16 @@ public:
     ~OpenGLLight();
     OpenGLLight&    operator=(const OpenGLLight&);
 
-    const GLfloat*  getPosition() const;
-    const GLfloat*  getColor() const;
+    const glm::vec4 &getPosition() const;
+    const glm::vec4 &getColor() const;
     const GLfloat*  getAttenuation() const;
     GLfloat     getMaxDist() const;
 
-    void        setDirection(const GLfloat* xyz);
-    void        setPosition(const GLfloat* xyz);
+    void        setDirection(const glm::vec3 &xyz);
+    void        setPosition(const glm::vec3 &xyz);
     void        setColor(GLfloat r, GLfloat g, GLfloat b);
     void        setColor(const GLfloat* rgb);
+    void        setColor(const glm::vec3 &rgb);
     void        setAttenuation(const GLfloat* clq);
     void        setAttenuation(int index, GLfloat value);
 
@@ -71,8 +73,8 @@ private:
     static void     initContext(void*);
 
 private:
-    GLfloat     pos[4];
-    GLfloat     color[4];
+    glm::vec4   pos;
+    glm::vec4   color;
     GLfloat     atten[3];
     GLfloat     maxDist;
     GLfloat     importance;
@@ -86,12 +88,12 @@ private:
 // OpenGLLight
 //
 
-inline const GLfloat*   OpenGLLight::getPosition() const
+inline const glm::vec4 &OpenGLLight::getPosition() const
 {
     return pos;
 }
 
-inline const GLfloat*   OpenGLLight::getColor() const
+inline const glm::vec4 &OpenGLLight::getColor() const
 {
     return color;
 }

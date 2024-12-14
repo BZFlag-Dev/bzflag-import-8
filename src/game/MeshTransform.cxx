@@ -10,8 +10,6 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "common.h"
-
 // implementation header
 #include "MeshTransform.h"
 
@@ -23,6 +21,8 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
+#include <glm/vec3.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 // common headers
 #include "Pack.h"
@@ -151,77 +151,42 @@ void MeshTransformManager::print(std::ostream& out, const std::string& indent) c
 // Mesh Transform Tool
 //
 
-static void multiply(float m[4][4], const float n[4][4])
+static void shift(glm::mat4 &m, const float p[3])
 {
-    float t[4][4];
-    for (int i = 0; i < 4; i++)
-    {
-        for (int j = 0; j < 4; j++)
-        {
-            t[i][j] = (m[0][j] * n[i][0]) + (m[1][j] * n[i][1]) +
-                      (m[2][j] * n[i][2]) + (m[3][j] * n[i][3]);
-        }
-    }
-    memcpy (m, t, sizeof(float[4][4]));
-    return;
-}
-
-
-static void shift(float m[4][4], const float p[3])
-{
-    const float t[4][4] = {{1.0f, 0.0f, 0.0f, p[0]},
+    const glm::mat4 t = {{1.0f, 0.0f, 0.0f, p[0]},
         {0.0f, 1.0f, 0.0f, p[1]},
         {0.0f, 0.0f, 1.0f, p[2]},
         {0.0f, 0.0f, 0.0f, 1.0f}
     };
-    multiply(m, t);
+    m *= t;
     return;
 }
 
 
-static void scale(float m[4][4], const float p[3])
+static void shear(glm::mat4 &m, const float p[3])
 {
-    const float t[4][4] = {{p[0], 0.0f, 0.0f, 0.0f},
-        {0.0f, p[1], 0.0f, 0.0f},
-        {0.0f, 0.0f, p[2], 0.0f},
-        {0.0f, 0.0f, 0.0f, 1.0f}
-    };
-    multiply(m, t);
-    return;
-}
-
-
-static void shear(float m[4][4], const float p[3])
-{
-    const float t[4][4] = {{1.0f, 0.0f, p[0], 0.0f},
+    const glm::mat4 t = {{1.0f, 0.0f, p[0], 0.0f},
         {0.0f, 1.0f, p[1], 0.0f},
         {p[2], 0.0f, 1.0f, 0.0f},
         {0.0f, 0.0f, 0.0f, 1.0f}
     };
-    multiply(m, t);
+    m *= t;
     return;
 }
 
 
-static void spin(float m[4][4], const float radians, const float normal[3])
+static void spin(glm::mat4 &m, const float radians, const glm::vec3 normal)
 {
     // normalize
-    const float len = (normal[0] * normal[0]) +
-                      (normal[1] * normal[1]) +
-                      (normal[2] * normal[2]);
-    if (len <= 0.0f)
+    if (!(normal.x || normal.y || normal.z))
         return;
-    const float scale = 1.0f / sqrtf(len);
-    const float n[3] = {normal[0] * scale,
-                        normal[1] * scale,
-                        normal[2] * scale
-                       };
+    const auto n = glm::normalize(normal);
 
     // setup
     const float cos_val = cosf(radians);
     const float sin_val = sinf(radians);
     const float icos_val = (1.0f - cos_val);
-    float t[4][4];
+    glm::mat4 t;
     t[3][3] = 1.0f;
     t[0][3] = t[1][3] = t[2][3] = 0.0f;
     t[3][0] = t[3][1] = t[3][2] = 0.0f;
@@ -236,7 +201,7 @@ static void spin(float m[4][4], const float radians, const float normal[3])
     t[2][2] = (n[2] * n[2] * icos_val) + cos_val;
 
     // execute
-    multiply(m, t);
+    m *= t;
 
     return;
 }
@@ -245,27 +210,8 @@ static void spin(float m[4][4], const float radians, const float normal[3])
 MeshTransform::Tool::Tool(const MeshTransform& xform)
 {
     // load the identity matrices
-    int i, j;
-    for (i = 0; i < 4; i++)
-    {
-        for (j = 0; j < 4; j++)
-        {
-            if (i == j)
-                vertexMatrix[i][j] = 1.0f;
-            else
-                vertexMatrix[i][j] = 0.0f;
-        }
-    }
-    for (i = 0; i < 3; i++)
-    {
-        for (j = 0; j < 3; j++)
-        {
-            if (i == j)
-                normalMatrix[i][j] = 1.0f;
-            else
-                normalMatrix[i][j] = 0.0f;
-        }
-    }
+    vertexMatrix = glm::mat4(1.0f);
+    normalMatrix = glm::mat3(1.0f);
 
     skewed = false;
     if (xform.transforms.size() > 0)
@@ -281,7 +227,7 @@ MeshTransform::Tool::Tool(const MeshTransform& xform)
     processTransforms(xform.transforms);
 
     // generate the normal matrix
-    const float (*vm)[4] = vertexMatrix;
+    const auto &vm = vertexMatrix;
     normalMatrix[0][0] = (vm[1][1] * vm[2][2]) - (vm[1][2] * vm[2][1]);
     normalMatrix[0][1] = (vm[1][2] * vm[2][0]) - (vm[1][0] * vm[2][2]);
     normalMatrix[0][2] = (vm[1][0] * vm[2][1]) - (vm[1][1] * vm[2][0]);
@@ -293,10 +239,7 @@ MeshTransform::Tool::Tool(const MeshTransform& xform)
     normalMatrix[2][2] = (vm[0][0] * vm[1][1]) - (vm[0][1] * vm[1][0]);
 
     // setup the polarity
-    const float determinant =
-        (vm[0][0] * ((vm[1][1] * vm[2][2]) - (vm[1][2] * vm[2][1]))) +
-        (vm[0][1] * ((vm[1][2] * vm[2][0]) - (vm[1][0] * vm[2][2]))) +
-        (vm[0][2] * ((vm[1][0] * vm[2][1]) - (vm[1][1] * vm[2][0])));
+    const float determinant = glm::determinant(glm::mat3(vm));
     if (determinant < 0.0f)
         inverted = true;
     else
@@ -328,7 +271,10 @@ void MeshTransform::Tool::processTransforms(
         case ScaleTransform:
         {
             skewed = true;
-            scale(vertexMatrix, transform.data);
+            const auto scaling = glm::vec3(transform.data[0],
+                                           transform.data[1],
+                                           transform.data[2]);
+            vertexMatrix = glm::scale(vertexMatrix, scaling);
             break;
         }
         case ShearTransform:
@@ -339,7 +285,10 @@ void MeshTransform::Tool::processTransforms(
         }
         case SpinTransform:
         {
-            spin(vertexMatrix, transform.data[3], transform.data);
+            const auto normal = glm::vec3(transform.data[0],
+                                          transform.data[1],
+                                          transform.data[2]);
+            spin(vertexMatrix, transform.data[3], normal);
             break;
         }
         case IndexTransform:
@@ -363,57 +312,36 @@ void MeshTransform::Tool::processTransforms(
 }
 
 
-void MeshTransform::Tool::modifyVertex(float v[3]) const
+void MeshTransform::Tool::modifyVertex(glm::vec3 &v) const
 {
     if (empty)
         return;
 
-    float t[3];
-    const float (*vm)[4] = vertexMatrix;
-    t[0] = (v[0] * vm[0][0]) + (v[1] * vm[0][1]) + (v[2] * vm[0][2]) + vm[0][3];
-    t[1] = (v[0] * vm[1][0]) + (v[1] * vm[1][1]) + (v[2] * vm[1][2]) + vm[1][3];
-    t[2] = (v[0] * vm[2][0]) + (v[1] * vm[2][1]) + (v[2] * vm[2][2]) + vm[2][3];
-    memcpy(v, t, sizeof(float[3]));
+    v = glm::vec3(glm::vec4(v, 1.0f) * vertexMatrix);
 }
 
 
-void MeshTransform::Tool::modifyNormal(float n[3]) const
+void MeshTransform::Tool::modifyNormal(glm::vec3 &n) const
 {
     if (empty)
         return;
 
-    float t[3];
-    const float (*nm)[3] = normalMatrix;
-    t[0] = (n[0] * nm[0][0]) + (n[1] * nm[0][1]) + (n[2] * nm[0][2]);
-    t[1] = (n[0] * nm[1][0]) + (n[1] * nm[1][1]) + (n[2] * nm[1][2]);
-    t[2] = (n[0] * nm[2][0]) + (n[1] * nm[2][1]) + (n[2] * nm[2][2]);
+    glm::vec3 t;
+    t = n * normalMatrix;
     // normalize
-    const float len = (t[0] * t[0]) + (t[1] * t[1]) + (t[2] * t[2]);
-    if (len > 0.0f)
-    {
-        const float scale = 1.0f / sqrtf(len);
-        n[0] = t[0] * scale;
-        n[1] = t[1] * scale;
-        n[2] = t[2] * scale;
-    }
+    if (t.x || t.y || t.z)
+        n = glm::normalize(t);
     else
-    {
-        n[0] = n[1] = 0.0f; // dunno, going with Z...
-        n[2] = 1.0f;
-    }
+        n = glm::vec3(0.0f, 0.0f, 1.0f); // dunno, going with Z...
 
     if (inverted)
-    {
-        n[0] = -n[0];
-        n[1] = -n[1];
-        n[2] = -n[2];
-    }
+        n = -n;
 
     return;
 }
 
 
-void MeshTransform::Tool::modifyOldStyle(float pos[3], float size[3],
+void MeshTransform::Tool::modifyOldStyle(glm::vec3 &pos, glm::vec3 &size,
         float& angle, bool& flipz) const
 {
     if (empty)
@@ -428,8 +356,8 @@ void MeshTransform::Tool::modifyOldStyle(float pos[3], float size[3],
     // transform the object's axis unit vectors
     const float cos_val = cosf (angle);
     const float sin_val = sinf (angle);
-    float x[3], y[3], z[3];
-    const float (*vm)[4] = vertexMatrix;
+    glm::vec3 x, y, z;
+    const auto &vm = vertexMatrix;
     // NOTE - the translation (shift) elements are not used
     x[0] = (+cos_val * vm[0][0]) + (+sin_val * vm[0][1]);
     x[1] = (+cos_val * vm[1][0]) + (+sin_val * vm[1][1]);
@@ -440,9 +368,9 @@ void MeshTransform::Tool::modifyOldStyle(float pos[3], float size[3],
     z[0] = vm[0][2];
     z[1] = vm[1][2];
     z[2] = vm[2][2];
-    const float xlen = sqrtf ((x[0] * x[0]) + (x[1] * x[1]) + (x[2] * x[2]));
-    const float ylen = sqrtf ((y[0] * y[0]) + (y[1] * y[1]) + (y[2] * y[2]));
-    const float zlen = sqrtf ((z[0] * z[0]) + (z[1] * z[1]) + (z[2] * z[2]));
+    const float xlen = glm::length(x);
+    const float ylen = glm::length(y);
+    const float zlen = glm::length(z);
     size[0] *= xlen;
     size[1] *= ylen;
     size[2] *= zlen;
@@ -552,10 +480,12 @@ const std::string& MeshTransform::getName() const
 }
 
 
-void MeshTransform::addShift(const float shift[3])
+void MeshTransform::addShift(const glm::vec3 &shift)
 {
     TransformData transform;
-    memcpy(transform.data, shift, sizeof(float[3]));
+    transform.data[0] = shift[0];
+    transform.data[1] = shift[1];
+    transform.data[2] = shift[2];
     transform.data[3] = 0.0f;
     transform.type = ShiftTransform;
     transform.index = -1;
@@ -564,10 +494,12 @@ void MeshTransform::addShift(const float shift[3])
 }
 
 
-void MeshTransform::addScale(const float scale[3])
+void MeshTransform::addScale(const glm::vec3 &scale)
 {
     TransformData transform;
-    memcpy(transform.data, scale, sizeof(float[3]));
+    transform.data[0] = scale[0];
+    transform.data[1] = scale[1];
+    transform.data[2] = scale[2];
     transform.data[3] = 0.0f;
     transform.type = ScaleTransform;
     transform.index = -1;
@@ -588,11 +520,13 @@ void MeshTransform::addShear(const float shear[3])
 }
 
 
-void MeshTransform::addSpin(const float degrees, const float normal[3])
+void MeshTransform::addSpin(const float degrees, const glm::vec3 &normal)
 {
     const float radians = (float)(degrees * (M_PI / 180.0));
     TransformData transform;
-    memcpy(transform.data, normal, sizeof(float[3]));
+    transform.data[0] = normal[0];
+    transform.data[1] = normal[1];
+    transform.data[2] = normal[2];
     transform.data[3] = radians;
     transform.type = SpinTransform;
     transform.index = -1;

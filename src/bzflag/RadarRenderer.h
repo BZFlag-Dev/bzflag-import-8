@@ -33,7 +33,7 @@ public:
     RadarRenderer(const SceneRenderer&, World* _world);
     void        setWorld(World* _world);
 
-    void        setControlColor(const GLfloat *color = NULL);
+    void        setControlColor(const glm::vec3 &color = glm::vec3(0.0f));
 
     int         getX() const;
     int         getY() const;
@@ -63,11 +63,11 @@ private:
     RadarRenderer&  operator=(const RadarRenderer&);
 
     void        setTankColor(const class Player* player);
-    void        drawTank(const float pos[3],
+    void        drawTank(const glm::vec3 &pos,
                          const class Player* player,
                          bool useSquares);
     void        drawFancyTank(const class Player* player);
-    void        drawFlag(const float pos[3]);
+    void        drawFlag(const glm::vec3 &pos);
     void        drawFlagOnTank();
 
     static float    colorScale(const float z, const float h);
@@ -81,7 +81,7 @@ private:
     float       ps;
     float       range;
     double      decay;
-    GLfloat     teamColor[3];
+    glm::vec3   teamColor;
     bool        smooth;
     bool        jammed;
     bool        useTankModels;

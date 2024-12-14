@@ -32,6 +32,7 @@
 #endif
 #include <time.h>
 #include <ctype.h>
+#include <glm/gtc/type_ptr.hpp>
 
 // common implementation headers
 #include "bzglob.h"
@@ -1440,7 +1441,9 @@ bool FlagCommand::operator() (const char     *message,
                     data.playerID = player;
                     data.flagID = flag.getIndex();
                     data.flagType = flag.flag.type->flagAbbv.c_str();
-                    memcpy(data.pos, flag.flag.position, sizeof(float)*3);
+                    data.pos[0] = flag.flag.position[0];
+                    data.pos[1] = flag.flag.position[1];
+                    data.pos[2] = flag.flag.position[2];
 
                     worldEventManager.callEvents(bz_eFlagDroppedEvent,&data);
                 }

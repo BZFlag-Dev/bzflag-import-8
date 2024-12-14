@@ -14,6 +14,7 @@ MAINTAINERCLEANFILES = \
 
 libGLKit_la_LDFLAGS = -static
 libGLKit_la_SOURCES =			\
+	OpenGLAPI.cxx			\
 	OpenGLFramebuffer.cxx		\
 	OpenGLGState.cxx		\
 	OpenGLLight.cxx			\

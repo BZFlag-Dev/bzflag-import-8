@@ -24,12 +24,9 @@ BaseLocalPlayer::BaseLocalPlayer(const PlayerId& _id,
     lastTime(TimeKeeper::getTick()),
     salt(0)
 {
-    lastPosition[0] = 0.0f;
-    lastPosition[1] = 0.0f;
-    lastPosition[2] = 0.0f;
-    bbox[0][0] = bbox[1][0] = 0.0f;
-    bbox[0][1] = bbox[1][1] = 0.0f;
-    bbox[0][2] = bbox[1][2] = 0.0f;
+    lastPosition = glm::vec3(0.0f);
+    bbox[0]      = glm::vec3(0.0f);
+    bbox[1]      = glm::vec3(0.0f);
 }
 
 BaseLocalPlayer::~BaseLocalPlayer()
@@ -46,16 +43,14 @@ int BaseLocalPlayer::getSalt()
 void BaseLocalPlayer::update(float inputDT)
 {
     // save last position
-    const float* oldPosition = getPosition();
+    const auto &oldPosition = getPosition();
 
     // update by time step
     float dt = float(TimeKeeper::getTick() - lastTime);
     if (dt < MIN_DT_LIMIT)
         return;
 
-    lastPosition[0] = oldPosition[0];
-    lastPosition[1] = oldPosition[1];
-    lastPosition[2] = oldPosition[2];
+    lastPosition = oldPosition;
 
     lastTime = TimeKeeper::getTick();
 
@@ -80,22 +75,20 @@ void BaseLocalPlayer::update(float inputDT)
         doUpdateMotion(dt);
 
         // compute motion's bounding box around center of tank
-        const float* newVelocity = getVelocity();
-        bbox[0][0] = bbox[1][0] = oldPosition[0];
-        bbox[0][1] = bbox[1][1] = oldPosition[1];
-        bbox[0][2] = bbox[1][2] = oldPosition[2];
-        if (newVelocity[0] > 0.0f)
-            bbox[1][0] += dt * newVelocity[0];
+        const auto movement = dt * getVelocity();
+        bbox[0] = bbox[1] = oldPosition;
+        if (movement[0] > 0.0f)
+            bbox[1][0] += movement[0];
         else
-            bbox[0][0] += dt * newVelocity[0];
-        if (newVelocity[1] > 0.0f)
-            bbox[1][1] += dt * newVelocity[1];
+            bbox[0][0] += movement[0];
+        if (movement[1] > 0.0f)
+            bbox[1][1] += movement[1];
         else
-            bbox[0][1] += dt * newVelocity[1];
-        if (newVelocity[2] > 0.0f)
-            bbox[1][2] += dt * newVelocity[2];
+            bbox[0][1] += movement[1];
+        if (movement[2] > 0.0f)
+            bbox[1][2] += movement[2];
         else
-            bbox[0][2] += dt * newVelocity[2];
+            bbox[0][2] += movement[2];
 
         // expand bounding box to include entire tank
         float size = BZDBCache::tankRadius;
@@ -125,7 +118,7 @@ Ray BaseLocalPlayer::getLastMotion() const
     return Ray(lastPosition, getVelocity());
 }
 
-const float (*BaseLocalPlayer::getLastMotionBBox() const)[3]
+const glm::vec3 *BaseLocalPlayer::getLastMotionBBox() const
 {
     return bbox;
 }

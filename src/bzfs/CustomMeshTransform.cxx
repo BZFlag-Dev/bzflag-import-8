@@ -41,7 +41,7 @@ bool CustomMeshTransform::read(const char *cmd, std::istream& input)
 {
     if (strcasecmp ("shift", cmd) == 0)
     {
-        float data[3];
+        glm::vec3 data;
         if (!(input >> data[0] >> data[1] >> data[2]))
         {
             std::cout << "parameters errors " << std::endl;
@@ -51,7 +51,7 @@ bool CustomMeshTransform::read(const char *cmd, std::istream& input)
     }
     else if (strcasecmp ("scale", cmd) == 0)
     {
-        float data[3];
+        glm::vec3 data;
         if (!(input >> data[0] >> data[1] >> data[2]))
         {
             std::cout << "parameters errors " << std::endl;
@@ -72,12 +72,13 @@ bool CustomMeshTransform::read(const char *cmd, std::istream& input)
     else if (strcasecmp ("spin", cmd) == 0)
     {
         float data[4];
-        if (!(input >> data[0] >> data[1] >> data[2] >> data[3]))
+        glm::vec3 dat;
+        if (!(input >> data[0] >> dat[0] >> dat[1] >> dat[2]))
         {
             std::cout << "parameters errors " << std::endl;
             return false;
         }
-        transform->addSpin(data[0], &data[1]);
+        transform->addSpin(data[0], dat);
     }
     else if (strcasecmp ("xform", cmd) == 0)
     {

@@ -10,9 +10,6 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-// bzflag common header
-#include "common.h"
-
 // interface header
 #include "LaserSceneNode.h"
 
@@ -22,22 +19,22 @@
 // common implementation headers
 #include "StateDatabase.h"
 #include "BZDBCache.h"
+#include "OpenGLAPI.h"
 
 // FIXME (SceneRenderer.cxx is in src/bzflag)
 #include "SceneRenderer.h"
 
-#include "vectors.h"
-
 const GLfloat       LaserRadius = 0.1f;
 
-LaserSceneNode::LaserSceneNode(const GLfloat pos[3], const GLfloat forward[3]) :
+LaserSceneNode::LaserSceneNode(const glm::vec3 &pos, const glm::vec3 &forward) :
     texturing(false),
     renderNode(this)
 {
     // prepare rendering info
+    const float xy_dist = hypotf(forward.x, forward.y);
     azimuth = (float)(180.0 / M_PI*atan2f(forward[1], forward[0]));
-    elevation = (float)(-180.0 / M_PI*atan2f(forward[2], hypotf(forward[0],forward[1])));
-    length = hypotf(forward[0], hypotf(forward[1], forward[2]));
+    elevation = (float)(-180.0 / M_PI * atan2f(forward.z, xy_dist));
+    length = hypotf(xy_dist, forward.z);
 
     // setup sphere
     setCenter(pos);
@@ -54,13 +51,13 @@ LaserSceneNode::LaserSceneNode(const GLfloat pos[3], const GLfloat forward[3]) :
 
 void LaserSceneNode::setColor(float r, float g, float b)
 {
-    color = fvec4(r, g, b, 1.0f);
+    color = glm::vec4(r, g, b, 1.0f);
 }
 
 
 void LaserSceneNode::setCenterColor(float r, float g, float b)
 {
-    centerColor = fvec4(r, g, b, 1.0f);
+    centerColor = glm::vec4(r, g, b, 1.0f);
 }
 
 LaserSceneNode::~LaserSceneNode()
@@ -111,7 +108,7 @@ void            LaserSceneNode::addRenderNodes(
 // LaserSceneNode::LaserRenderNode
 //
 
-GLfloat         LaserSceneNode::LaserRenderNode::geom[6][2];
+glm::vec2 LaserSceneNode::LaserRenderNode::geom[6];
 
 LaserSceneNode::LaserRenderNode::LaserRenderNode(
     const LaserSceneNode* _sceneNode) :
@@ -124,8 +121,8 @@ LaserSceneNode::LaserRenderNode::LaserRenderNode(
         init = true;
         for (int i = 0; i < 6; i++)
         {
-            geom[i][0] = -LaserRadius * cosf((float)(2.0 * M_PI * double(i) / 6.0));
-            geom[i][1] =  LaserRadius * sinf((float)(2.0 * M_PI * double(i) / 6.0));
+            const float angle = 2.0 * M_PI * double(i) / 6.0;
+            geom[i] = LaserRadius * glm::vec2(-cosf(angle), sinf(angle));
         }
     }
 }
@@ -135,7 +132,7 @@ LaserSceneNode::LaserRenderNode::~LaserRenderNode()
     // do nothing
 }
 
-const GLfloat* LaserSceneNode::LaserRenderNode::getPosition() const
+const glm::vec3 &LaserSceneNode::LaserRenderNode::getPosition() const
 {
     return sceneNode->getSphere();
 }
@@ -144,7 +141,7 @@ void LaserSceneNode::LaserRenderNode::render()
 {
     const bool blackFog = BZDBCache::blend && RENDERER.isFogActive();
     if (blackFog)
-        glFogfv(GL_FOG_COLOR, fvec4(0.0f, 0.0f, 0.0f, 0.0f));
+        glSetFogColor(glm::vec4(0.0f));
 
     if (RENDERER.useQuality() >= 3)
         renderGeoLaser();
@@ -152,15 +149,15 @@ void LaserSceneNode::LaserRenderNode::render()
         renderFlatLaser();
 
     if (blackFog)
-        glFogfv(GL_FOG_COLOR, RENDERER.getFogColor());
+        glSetFogColor(RENDERER.getFogColor());
 }
 
 void LaserSceneNode::LaserRenderNode::renderGeoLaser()
 {
     const float len = sceneNode->length;
-    const GLfloat* sphere = sceneNode->getSphere();
+    const auto &sphere = getPosition();
     glPushMatrix();
-    glTranslatef(sphere[0], sphere[1], sphere[2]);
+    glTranslate(sphere);
     glRotatef(sceneNode->azimuth, 0.0f, 0.0f, 1.0f);
     glRotatef(sceneNode->elevation, 0.0f, 1.0f, 0.0f);
     glRotatef(90, 0.0f, 1.0f, 0.0f);
@@ -169,28 +166,23 @@ void LaserSceneNode::LaserRenderNode::renderGeoLaser()
 
     GLUquadric *q = gluNewQuadric();
 
-    fvec4 coreColor = sceneNode->centerColor;
-    coreColor.a     = 0.85f;
-    fvec4 mainColor = sceneNode->color;
-    mainColor.a     = 0.125f;
+    auto coreColor = sceneNode->centerColor;
+    auto mainColor = sceneNode->color;
 
-    myColor4fv(coreColor);
+    myColor4f(coreColor.r, coreColor.g, coreColor.b, 0.85f);
     gluCylinder(q, 0.0625f, 0.0625f, len, 10, 1);
     addTriangleCount(20);
 
-    myColor4fv(mainColor);
+    myColor4f(mainColor.r, mainColor.g, mainColor.b, 0.125f);
     gluCylinder(q, 0.1f, 0.1f, len, 16, 1);
     addTriangleCount(32);
 
-    myColor4fv(mainColor);
     gluCylinder(q, 0.2f, 0.2f, len, 24, 1);
     addTriangleCount(48);
 
-    myColor4fv(mainColor);
     gluCylinder(q, 0.4f, 0.4f, len, 32, 1);
     addTriangleCount(64);
 
-    myColor4fv(mainColor);
     if (sceneNode->first)
     {
         gluSphere(q, 0.5f, 32, 32);
@@ -212,9 +204,9 @@ void LaserSceneNode::LaserRenderNode::renderGeoLaser()
 void LaserSceneNode::LaserRenderNode::renderFlatLaser()
 {
     const float len = sceneNode->length;
-    const GLfloat *sphere = sceneNode->getSphere();
+    const auto &sphere = getPosition();
     glPushMatrix();
-    glTranslatef(sphere[0], sphere[1], sphere[2]);
+    glTranslate(sphere);
     glRotatef(sceneNode->azimuth, 0.0f, 0.0f, 1.0f);
     glRotatef(sceneNode->elevation, 0.0f, 1.0f, 0.0f);
 
@@ -263,20 +255,13 @@ void LaserSceneNode::LaserRenderNode::renderFlatLaser()
         myColor4f(1.0f, 0.25f, 0.0f, 0.85f);
         glBegin(GL_TRIANGLE_STRIP);
         {
-            glVertex3f(  0.0f, geom[0][0], geom[0][1]);
-            glVertex3f(   len, geom[0][0], geom[0][1]);
-            glVertex3f(  0.0f, geom[1][0], geom[1][1]);
-            glVertex3f(   len, geom[1][0], geom[1][1]);
-            glVertex3f(  0.0f, geom[2][0], geom[2][1]);
-            glVertex3f(   len, geom[2][0], geom[2][1]);
-            glVertex3f(  0.0f, geom[3][0], geom[3][1]);
-            glVertex3f(   len, geom[3][0], geom[3][1]);
-            glVertex3f(  0.0f, geom[4][0], geom[4][1]);
-            glVertex3f(   len, geom[4][0], geom[4][1]);
-            glVertex3f(  0.0f, geom[5][0], geom[5][1]);
-            glVertex3f(   len, geom[5][0], geom[5][1]);
-            glVertex3f(  0.0f, geom[0][0], geom[0][1]);
-            glVertex3f(   len, geom[0][0], geom[0][1]);
+            for (int i = 0; i < 6; i++)
+            {
+                glVertex(glm::vec3(0.0f, geom[i]));
+                glVertex(glm::vec3(len,  geom[i]));
+            }
+            glVertex(glm::vec3(0.0f, geom[0]));
+            glVertex(glm::vec3(len,  geom[0]));
         }
         glEnd(); // 14 verts -> 12 tris
 

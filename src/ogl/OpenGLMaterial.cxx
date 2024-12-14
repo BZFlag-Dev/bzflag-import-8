@@ -22,8 +22,8 @@
 OpenGLMaterial::Rep*    OpenGLMaterial::Rep::head = NULL;
 
 OpenGLMaterial::Rep*    OpenGLMaterial::Rep::getRep(
-    const GLfloat* specular,
-    const GLfloat* emissive,
+    const glm::vec3 &specular,
+    const glm::vec3 &emissive,
     GLfloat shininess)
 {
     // see if we've already got an identical material
@@ -32,14 +32,10 @@ OpenGLMaterial::Rep*    OpenGLMaterial::Rep::getRep(
         if (shininess != scan->shininess)
             continue;
 
-        const GLfloat* c1 = specular;
-        const GLfloat* c2 = scan->specular;
-        if (c1[0] != c2[0] || c1[1] != c2[1] || c1[2] != c2[2])
+        if (specular != scan->specular)
             continue;
 
-        c1 = emissive;
-        c2 = scan->emissive;
-        if (c1[0] != c2[0] || c1[1] != c2[1] || c1[2] != c2[2])
+        if (emissive != scan->emissive)
             continue;
 
         scan->ref();
@@ -50,8 +46,8 @@ OpenGLMaterial::Rep*    OpenGLMaterial::Rep::getRep(
     return new Rep(specular, emissive, shininess);
 }
 
-OpenGLMaterial::Rep::Rep(const GLfloat* _specular,
-                         const GLfloat* _emissive,
+OpenGLMaterial::Rep::Rep(const glm::vec3 &_specular,
+                         const glm::vec3 &_emissive,
                          GLfloat _shininess)
     : refCount(1), shininess(_shininess)
 {
@@ -62,14 +58,8 @@ OpenGLMaterial::Rep::Rep(const GLfloat* _specular,
     head = this;
     if (next) next->prev = this;
 
-    specular[0] = _specular[0];
-    specular[1] = _specular[1];
-    specular[2] = _specular[2];
-    specular[3] = 1.0f;
-    emissive[0] = _emissive[0];
-    emissive[1] = _emissive[1];
-    emissive[2] = _emissive[2];
-    emissive[3] = 1.0f;
+    specular = _specular;
+    emissive = _emissive;
 
     OpenGLGState::registerContextInitializer(freeContext,
             initContext, (void*)this);
@@ -112,8 +102,19 @@ void            OpenGLMaterial::Rep::execute()
         list = glGenLists(1);
         glNewList(list, GL_COMPILE_AND_EXECUTE);
         {
-            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
-            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emissive);
+            GLfloat     _specular[4];
+            GLfloat     _emissive[4];
+
+            _specular[0] = specular[0];
+            _specular[1] = specular[1];
+            _specular[2] = specular[2];
+            _specular[3] = 1.0f;
+            _emissive[0] = emissive[0];
+            _emissive[1] = emissive[1];
+            _emissive[2] = emissive[2];
+            _emissive[3] = 1.0f;
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, _specular);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, _emissive);
             glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
             if (RENDERER.useQuality() > 0)
             {
@@ -165,8 +166,8 @@ OpenGLMaterial::OpenGLMaterial()
     rep = NULL;
 }
 
-OpenGLMaterial::OpenGLMaterial(const GLfloat* specular,
-                               const GLfloat* emissive,
+OpenGLMaterial::OpenGLMaterial(const glm::vec3 &specular,
+                               const glm::vec3 &emissive,
                                GLfloat shininess)
 {
     rep = Rep::getRep(specular, emissive, shininess);

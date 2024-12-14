@@ -19,6 +19,7 @@
 /* system interface headers */
 #include <string>
 #include <vector>
+#include <glm/vec3.hpp>
 
 /* common interface headers */
 #include "Obstacle.h"
@@ -65,8 +66,8 @@ public:
     FiringStatus  getFiringStatus() const;
     float     getFlagShakingTime() const;
     int       getFlagShakingWins() const;
-    const float*  getAntidoteLocation() const;
-    ShotPath* getShot(int index) const;
+    const glm::vec3 *getAntidoteLocation() const;
+    ShotPath* getShot(int index) const override;
     const Player* getTarget() const;
     int       getDeathPhysicsDriver() const;
     const std::vector<const Obstacle*>& getInsideBuildings() const;
@@ -77,7 +78,7 @@ public:
     void      setPause(bool = true);
     void      activateAutoPilot(bool = true);
     bool      fireShot();
-    void      explodeTank();
+    void      explodeTank() override;
     void      doJump();
     void      setJump();
     void      setJumpPressed(bool value);
@@ -92,11 +93,11 @@ public:
     void      setRecipient(const Player*);
     const Player* getRecipient() const;
 
-    void      restart(const float* pos, float azimuth);
+    void      restart(const glm::vec3 &pos, float azimuth);
     bool      checkHit(const Player* source, const ShotPath*& hit,
-                       float& minTime) const;
-    void      setFlag(FlagType*);
-    void      changeScore(short deltaWins, short deltaLosses, short deltaTeamKills);
+                       float& minTime) const override;
+    void      setFlag(FlagType*) override;
+    void      changeScore(short deltaWins, short deltaLosses, short deltaTeamKills) override;
 
     void      addAntidote(SceneDatabase*);
 
@@ -115,28 +116,30 @@ public:
     static LocalPlayer*   getMyTank();
     static void       setMyTank(LocalPlayer*);
 
-    const Obstacle*   getHitBuilding(const float* oldPos, float oldAngle,
-                                     const float* pos, float angle,
+    const Obstacle*   getHitBuilding(const glm::vec3 &oldPos, float oldAngle,
+                                     const glm::vec3 &pos, float angle,
                                      bool phased, bool& expel);
     bool      getHitNormal(const Obstacle* o,
-                           const float* pos1, float azimuth1,
-                           const float* pos2, float azimuth2,
-                           float* normal) const;
+                           const glm::vec3 &pos1, float azimuth1,
+                           const glm::vec3 &pos2, float azimuth2,
+                           glm::vec3 &normal) const;
 
 protected:
-    bool      doEndShot(int index, bool isHit, float* pos);
-    void      doUpdate(float dt);
-    void      doUpdateMotion(float dt);
+    bool      doEndShot(int index, bool isHit, glm::vec3 &pos) override;
+    void      doUpdate(float dt) override;
+    void      doUpdateMotion(float dt) override;
     void      doMomentum(float dt, float& speed, float& angVel);
-    void      doFriction(float dt, const float *oldVelocity, float *newVelocity);
-    void      doForces(float dt, float* velocity, float& angVel);
+    void      doFriction(float dt,
+                         const glm::vec2 &oldVelocity,
+                         glm::vec3 &newVelocity);
+    void      doForces(float dt, glm::vec3 &velocity, float& angVel);
     LocalShotPath**   shots;
     bool    gettingSound;
     ServerLink*   server;
 
 private:
     void      doSlideMotion(float dt, float slideTime,
-                            float newAngVel, float* newVelocity);
+                            float newAngVel, glm::vec3 &newVelocity);
     float     getNewAngVel(float old, float desired);
     void      collectInsideBuildings();
 
@@ -147,12 +150,12 @@ private:
     TimeKeeper    agilityTime;
     float     flagShakingTime;
     int       flagShakingWins;
-    float     flagAntidotePos[3];
+    glm::vec3 flagAntidotePos;
     FlagSceneNode*    antidoteFlag;
     float     desiredSpeed;
     float     desiredAngVel;
     float     lastSpeed;
-    float     crossingPlane[4];
+    glm::vec4 crossingPlane;
     bool      anyShotActive;
     const Player* target;
     const Player* nemesis;

@@ -16,12 +16,16 @@
 // 1st
 #include "common.h"
 
+// System interfaces
 #include <string>
 #include <iostream>
+#include <glm/fwd.hpp>
 
 extern bool parseColorCString(const char* str, float color[4]);
 extern bool parseColorString(const std::string& str, float color[4]);
+extern bool parseColorString(const std::string& str, glm::vec4 &color);
 extern bool parseColorStream(std::istream& input, float color[4]);
+extern bool parseColorStream(std::istream& input, glm::vec4 &color);
 
 
 #endif // _PARSE_COLOR_H_

@@ -27,14 +27,19 @@
 #ifndef BZF_SCENE_NODE_H
 #define BZF_SCENE_NODE_H
 
+// top include
 #include "common.h"
+
+// System headers
+#include <vector>
+#include <glm/vec3.hpp>
+
+// Common headers
 #include "bzfgl.h"
 #include "bzfio.h"
 #include "OpenGLGState.h"
 #include "RenderNode.h"
 #include "Extents.h"
-#include "vectors.h"
-#include <vector>
 
 #if !defined(_WIN32)
 // bonehead win32 cruft.  just make it go away on other platforms.
@@ -61,23 +66,24 @@ public:
 
     virtual void    notifyStyleChange();
 
-    const GLfloat*  getSphere() const;
+    const glm::vec3 &getSphere() const;
+    const float     &getRadius2() const;
     const Extents&  getExtents() const;
     virtual int     getVertexCount () const;
-    virtual const GLfloat* getVertex (int vertex) const;
-    virtual const GLfloat* getPlane() const;
-    virtual GLfloat getDistance(const GLfloat* eye) const; // for BSP
+    virtual const glm::vec3 &getVertex (int vertex) const;
+    virtual const glm::vec4 *getPlane() const;
+    virtual GLfloat getDistance(const glm::vec3 &eye) const; // for BSP
 
     virtual bool    inAxisBox (const Extents& exts) const;
 
     virtual bool    cull(const ViewFrustum&) const;
-    virtual bool    cullShadow(int pCount, const float (*planes)[4]) const;
+    virtual bool    cullShadow(int pCount, const glm::vec4 planes[]) const;
 
     bool        isOccluder() const;
     void        setOccluder(bool value);
 
     virtual void    addLight(SceneRenderer&);
-    virtual int     split(const float* plane,
+    virtual int     split(const glm::vec4 &plane,
                           SceneNode*& front, SceneNode*& back) const;
     virtual void    addShadowNodes(SceneRenderer&);
     virtual void    addRenderNodes(SceneRenderer&);
@@ -102,19 +108,40 @@ public:
         if (!colorOverride) ::glColor4f(r, g, b, a);
     };
 
-    static void     glColor3fv(const GLfloat* rgb)
+    static void glColor3fv(const glm::vec3 &rgb)
     {
-        if (!colorOverride) ::glColor3fv(rgb);
+        if (!colorOverride) ::glColor3f(rgb.r, rgb.g, rgb.b);
     };
 
-    static void     glColor4fv(const GLfloat* rgba)
+    static void glColor4fv(const glm::vec4 &rgba)
     {
-        if (!colorOverride) ::glColor4fv(rgba);
+        if (!colorOverride)
+            ::glColor4f(rgba.r, rgba.g, rgba.b, rgba.a);
     };
+
+    static void glVertex2fv(const glm::vec2 &pos)
+    {
+        ::glVertex2f(pos.x, pos.y);
+    }
+
+    static void glVertex3fv(const glm::vec3 &pos)
+    {
+        ::glVertex3f(pos.x, pos.y, pos.z);
+    }
+
+    static void glTexCoord2fv(const glm::vec2 &coord)
+    {
+        ::glTexCoord2f(coord.s, coord.t);
+    }
 
     static void     setStipple(GLfloat alpha)
     {
         (*stipple)(alpha);
+    }
+
+    static void glNormal3fv(const glm::vec3 &normal)
+    {
+        ::glNormal3f(normal.x, normal.y, normal.z);
     }
 
     enum CullState
@@ -131,9 +158,7 @@ public:
 
 protected:
     void        setRadius(GLfloat radiusSquared);
-    void        setCenter(const GLfloat center[3]);
-    void        setCenter(GLfloat x, GLfloat y, GLfloat z);
-    void        setSphere(const GLfloat sphere[4]);
+    void        setCenter(const glm::vec3 &center);
 
 private:
     SceneNode(const SceneNode&);
@@ -147,14 +172,20 @@ protected:
     bool        occluder;
     Extents     extents;
 private:
-    GLfloat     sphere[4];
+    glm::vec3   sphere;
+    float       radius2;
     static bool  colorOverride;
     static void     (*stipple)(GLfloat);
 };
 
-inline const GLfloat*   SceneNode::getSphere() const
+inline const glm::vec3 &SceneNode::getSphere() const
 {
     return sphere;
+}
+
+inline const float &SceneNode::getRadius2() const
+{
+    return radius2;
 }
 
 inline const Extents&   SceneNode::getExtents() const

@@ -13,12 +13,14 @@
 #ifndef _DYNAMIC_COLOR_H_
 #define _DYNAMIC_COLOR_H_
 
+// 1st
 #include "common.h"
 
 /* system interface headers */
 #include <string>
 #include <vector>
 #include <iostream>
+#include <glm/vec4.hpp>
 
 
 typedef struct sequenceList
@@ -68,7 +70,7 @@ public:
     void update(double time);
 
     bool canHaveAlpha() const;
-    const float* getColor() const;
+    const glm::vec4 *getColor() const;
     const std::string& getName() const;
 
     int packSize() const;
@@ -81,11 +83,10 @@ private:
     static const float minPeriod;
 
     std::string name;
-    float color[4];
+    glm::vec4 color;
 
     typedef struct
     {
-        float minValue, maxValue;
         float totalWeight; // tally of sinusoid weights
         sequenceParams sequence;
         std::vector<sinusoidParams> sinusoids;
@@ -93,6 +94,7 @@ private:
         std::vector<clampParams> clampDowns;
     } ChannelParams;
 
+    glm::vec4 minValue, maxValue;
     ChannelParams channels[4];
 
     bool possibleAlpha;
@@ -103,9 +105,9 @@ inline bool DynamicColor::canHaveAlpha() const
     return possibleAlpha;
 }
 
-inline const float* DynamicColor::getColor() const
+inline const glm::vec4 *DynamicColor::getColor() const
 {
-    return color;
+    return &color;
 }
 
 

@@ -23,7 +23,6 @@
 #include <iostream>
 
 // Common headers
-#include "vectors.h"
 #include "Extents.h"
 #include "BzMaterial.h"
 #include "MeshTransform.h"
@@ -80,15 +79,17 @@ public:
     void setName(const std::string&);
     const std::string& getName() const;
 
-    const float* getSphere() const;
+    const glm::vec3 &getPosition() const;
+    float            getRadius2() const;
+
     const Extents& getExtents() const;
 
     int getLodCount() const;
     const DrawLod* getDrawLods() const;
 
-    const afvec3* getVertices() const;
-    const afvec3* getNormals() const;
-    const afvec2* getTexcoords() const;
+    const glm::vec3 *getVertices() const;
+    const glm::vec3 *getNormals() const;
+    const glm::vec2 *getTexcoords() const;
 
     int getRadarCount() const;
     const DrawLod* getRadarLods() const;
@@ -126,7 +127,8 @@ private:
     MeshDrawMgr* drawMgr;
 
     Extents extents;
-    float sphere[4];
+    glm::vec3 position;
+    float     radius2;
 
     MaterialMap* matMap;
     MeshTransform::Tool* xformTool;
@@ -134,16 +136,16 @@ private:
     // elements
     int cornerCount;
     Corner* corners;
-    afvec3* vertices;
-    afvec3* normals;
-    afvec2* texcoords;
+    glm::vec3 *vertices;
+    glm::vec3 *normals;
+    glm::vec2 *texcoords;
 
     int rawVertCount;
-    afvec3* rawVerts;
+    glm::vec3 *rawVerts;
     int rawNormCount;
-    afvec3* rawNorms;
+    glm::vec3 *rawNorms;
     int rawTxcdCount;
-    afvec2* rawTxcds;
+    glm::vec2 *rawTxcds;
 
     int lodCount;
     DrawLod* lods;
@@ -179,10 +181,17 @@ inline const std::string& MeshDrawInfo::getName() const
 {
     return name;
 }
-inline const float* MeshDrawInfo::getSphere() const
+
+inline const glm::vec3 &MeshDrawInfo::getPosition() const
 {
-    return sphere;
+    return position;
 }
+
+inline float MeshDrawInfo::getRadius2() const
+{
+    return radius2;
+}
+
 inline const Extents& MeshDrawInfo::getExtents() const
 {
     return extents;
@@ -195,15 +204,15 @@ inline const DrawLod* MeshDrawInfo::getDrawLods() const
 {
     return lods;
 }
-inline const afvec3* MeshDrawInfo::getVertices() const
+inline const glm::vec3 *MeshDrawInfo::getVertices() const
 {
     return vertices;
 }
-inline const afvec3* MeshDrawInfo::getNormals() const
+inline const glm::vec3 *MeshDrawInfo::getNormals() const
 {
     return normals;
 }
-inline const afvec2* MeshDrawInfo::getTexcoords() const
+inline const glm::vec2 *MeshDrawInfo::getTexcoords() const
 {
     return texcoords;
 }
@@ -309,7 +318,8 @@ public:
     DrawCmd* cmds;
     const BzMaterial* material;
     bool wantList;
-    float sphere[4];
+    glm::vec3 position;
+    float radius2;
     int triangleCount;
 };
 

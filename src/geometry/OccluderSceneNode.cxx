@@ -17,6 +17,8 @@
 // system headers
 #include <math.h>
 #include <string.h>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 // common implementation headers
 #include "MeshFace.h"
@@ -24,48 +26,41 @@
 #include "ViewFrustum.h"
 
 
-OccluderSceneNode::OccluderSceneNode(const MeshFace* face)
+OccluderSceneNode::OccluderSceneNode(const MeshFace* face) :
+    plane(face->getPlane())
 {
     int i;
 
     setOccluder(true);
-
-    // record plane info
-    memcpy(plane, face->getPlane(), sizeof(float[4]));
 
     // record extents info
     extents = face->getExtents();
 
     // record vertex info
     vertexCount = face->getVertexCount();
-    vertices = new GLfloat3[vertexCount];
+    vertices = new glm::vec3[vertexCount];
     for (i = 0; i < vertexCount; i++)
-        memcpy(vertices[i], face->getVertex(i), sizeof(float[3]));
+        vertices[i] = face->getVertex(i);
 
     // record sphere info
-    GLfloat mySphere[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    auto mySphere = glm::vec3(0.0f);
     for (i = 0; i < vertexCount; i++)
     {
-        const float* v = vertices[i];
-        mySphere[0] += v[0];
-        mySphere[1] += v[1];
-        mySphere[2] += v[2];
+        const auto v = vertices[i];
+        mySphere += v;
     }
-    mySphere[0] /= (float)vertexCount;
-    mySphere[1] /= (float)vertexCount;
-    mySphere[2] /= (float)vertexCount;
+    mySphere /= (float)vertexCount;
+    setCenter(mySphere);
 
+    float myRadius  = 0.0f;
     for (i = 0; i < vertexCount; i++)
     {
-        const float* v = vertices[i];
-        const float dx = mySphere[0] - v[0];
-        const float dy = mySphere[1] - v[1];
-        const float dz = mySphere[2] - v[2];
-        GLfloat r = ((dx * dx) + (dy * dy) + (dz * dz));
-        if (r > mySphere[3])
-            mySphere[3] = r;
+        const auto v = vertices[i];
+        GLfloat r = glm::distance2(mySphere, v);
+        if (r > myRadius)
+            myRadius = r;
     }
-    setSphere(mySphere);
+    setRadius(myRadius);
 
     return;
 }
@@ -78,17 +73,16 @@ OccluderSceneNode::~OccluderSceneNode()
 }
 
 
-const GLfloat* OccluderSceneNode::getPlane() const
+const glm::vec4 *OccluderSceneNode::getPlane() const
 {
-    return plane;
+    return &plane;
 }
 
 bool OccluderSceneNode::cull(const ViewFrustum& frustum) const
 {
     // cull if eye is behind (or on) plane
-    const GLfloat* eye = frustum.getEye();
-    if (((eye[0] * plane[0]) + (eye[1] * plane[1]) + (eye[2] * plane[2]) +
-            plane[3]) <= 0.0f)
+    const auto eye = glm::vec4(frustum.getEye(), 1.0f);
+    if (glm::dot(eye, plane) <= 0.0f)
         return true;
 
     // if the Visibility culler tells us that we're
@@ -133,7 +127,7 @@ int OccluderSceneNode::getVertexCount () const
     return vertexCount;
 }
 
-const GLfloat* OccluderSceneNode::getVertex (int vertex) const
+const glm::vec3 &OccluderSceneNode::getVertex (int vertex) const
 {
     return vertices[vertex];
 }

@@ -13,6 +13,11 @@
 /* interface header */
 #include "LocalPlayer.h"
 
+/* system implementation headers */
+#include <algorithm>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
+
 /* common implementation headers */
 #include "CommandManager.h"
 #include "BZDBCache.h"
@@ -28,9 +33,6 @@
 #include "sound.h"
 #include "ForceFeedback.h"
 #include "effectsRenderer.h"
-
-/* system implementation headers */
-#include <algorithm>
 
 LocalPlayer*        LocalPlayer::mainPlayer = NULL;
 
@@ -171,28 +173,28 @@ void            LocalPlayer::doUpdate(float dt)
 
 
 void LocalPlayer::doSlideMotion(float dt, float slideTime,
-                                float newAngVel, float* newVelocity)
+                                float newAngVel, glm::vec3 &newVelocity)
 {
     const float oldAzimuth = getAngle();
-    const float* oldVelocity = getVelocity();
+    const auto &oldVelocity = getVelocity();
 
     const float angle = oldAzimuth + (0.5f * dt * newAngVel);
     const float cos_val = cosf(angle);
     const float sin_val = sinf(angle);
     const float scale = (dt / slideTime);
     const float speedAdj = desiredSpeed * scale;
-    const float* ov = oldVelocity;
-    float* nv = newVelocity;
+    const auto  ov = glm::vec2(oldVelocity);
+    auto &nv = newVelocity;
     nv[0] = ov[0] + (cos_val * speedAdj);
     nv[1] = ov[1] + (sin_val * speedAdj);
-    const float newSpeed = sqrtf((nv[0] * nv[0]) + (nv[1] * nv[1]));
+    const float newSpeed = glm::length(glm::vec2(nv));
 
     float maxSpeed = getMaxSpeed();
 
     if (newSpeed > maxSpeed)
     {
         float adjSpeed;
-        const float oldSpeed = sqrtf((ov[0] * ov[0]) + (ov[1] * ov[1]));
+        const float oldSpeed = glm::length(ov);
         if (oldSpeed > maxSpeed)
         {
             adjSpeed = oldSpeed - maxSpeed * scale;
@@ -248,16 +250,13 @@ void            LocalPlayer::doUpdateMotion(float dt)
 
     // save old state
     const Location oldLocation = location;
-    const float* oldPosition = getPosition();
+    const auto &oldPosition = getPosition();
     const float oldAzimuth = getAngle();
     const float oldAngVel = getAngularVelocity();
-    const float* oldVelocity = getVelocity();
+    const auto &oldVelocity = getVelocity();
 
     // prepare new state
-    float newVelocity[3];
-    newVelocity[0] = oldVelocity[0];
-    newVelocity[1] = oldVelocity[1];
-    newVelocity[2] = oldVelocity[2];
+    auto newVelocity = oldVelocity;
     float newAngVel = 0.0f;
 
     clearRemoteSounds();
@@ -430,10 +429,7 @@ void            LocalPlayer::doUpdateMotion(float dt)
     lastObstacle = NULL;
 
     // get new position so far (which is just the current position)
-    float newPos[3];
-    newPos[0] = oldPosition[0];
-    newPos[1] = oldPosition[1];
-    newPos[2] = oldPosition[2];
+    auto newPos      = oldPosition;
     float newAzimuth = oldAzimuth;
 
     // move tank through the time step.  if there's a collision then
@@ -469,46 +465,37 @@ void            LocalPlayer::doUpdateMotion(float dt)
             // we are using a maximum value on time for frame to avoid lagging problem
             setDesiredSpeed(0.25f);
             float delta = dt > 0.1f ? 0.1f : dt;
-            float normalStuck[3];
+            glm::vec3 normalStuck;
             obstacle->getNormal(newPos, normalStuck);
             // use all the given speed to exit
             float movementMax = desiredSpeed * delta;
 
-            newVelocity[0] = movementMax * normalStuck[0];
-            newVelocity[1] = movementMax * normalStuck[1];
+            newVelocity = movementMax * normalStuck;
             if ((World::getWorld()->allowJumping() || (getFlag() == Flags::Jumping) || (getFlag() == Flags::Wings)) &&
                     (getFlag() != Flags::NoJumping))
-                newVelocity[2] = movementMax * normalStuck[2];
+                ;
             else
                 newVelocity[2] = 0.0f;
 
             // exit will be in the normal direction
-            newPos[0] += newVelocity[0];
-            newPos[1] += newVelocity[1];
-            newPos[2] += newVelocity[2];
+            newPos += newVelocity;
             // compute time for all other kind of movements
             timeStep -= delta;
         }
     }
 
-    float nominalPlanarSpeed2
-        = newVelocity[0] * newVelocity[0]
-          + newVelocity[1] * newVelocity[1];
+    float nominalPlanarSpeed2 = glm::length2(glm::vec2(newVelocity));
 
     for (int numSteps = 0; numSteps < MaxSteps; numSteps++)
     {
         // record position at beginning of time step
-        float tmpPos[3], tmpAzimuth;
+        float tmpAzimuth;
         tmpAzimuth = newAzimuth;
-        tmpPos[0] = newPos[0];
-        tmpPos[1] = newPos[1];
-        tmpPos[2] = newPos[2];
+        auto tmpPos = newPos;
 
         // get position at end of time step
         newAzimuth = tmpAzimuth + timeStep * newAngVel;
-        newPos[0] = tmpPos[0] + timeStep * newVelocity[0];
-        newPos[1] = tmpPos[1] + timeStep * newVelocity[1];
-        newPos[2] = tmpPos[2] + timeStep * newVelocity[2];
+        newPos = tmpPos + timeStep * newVelocity;
         if ((newPos[2] < groundLimit) && (newVelocity[2] < 0))
         {
             // Hit lower limit, stop falling
@@ -551,11 +538,8 @@ void            LocalPlayer::doUpdateMotion(float dt)
         }
 
         // record position when hitting
-        float hitPos[3], hitAzimuth;
-        hitAzimuth = newAzimuth;
-        hitPos[0] = newPos[0];
-        hitPos[1] = newPos[1];
-        hitPos[2] = newPos[2];
+        float hitAzimuth = newAzimuth;
+        auto hitPos = newPos;
 
         // find the latest time before the collision
         float searchTime = 0.0f, searchStep = 0.5f * timeStep;
@@ -565,9 +549,7 @@ void            LocalPlayer::doUpdateMotion(float dt)
             // get intermediate position
             const float t = searchTime + searchStep;
             newAzimuth = tmpAzimuth + (t * newAngVel);
-            newPos[0] = tmpPos[0] + (t * newVelocity[0]);
-            newPos[1] = tmpPos[1] + (t * newVelocity[1]);
-            newPos[2] = tmpPos[2] + (t * newVelocity[2]);
+            newPos = tmpPos + t * newVelocity;
             if ((newPos[2] < groundLimit) && (newVelocity[2] < 0))
                 newPos[2] = groundLimit;
 
@@ -589,17 +571,13 @@ void            LocalPlayer::doUpdateMotion(float dt)
 
                 expelled = searchExpelled;
                 hitAzimuth = newAzimuth;
-                hitPos[0] = newPos[0];
-                hitPos[1] = newPos[1];
-                hitPos[2] = newPos[2];
+                hitPos = newPos;
             }
         }
 
         // get position just before impact
         newAzimuth = tmpAzimuth + (searchTime * newAngVel);
-        newPos[0] = tmpPos[0] + (searchTime * newVelocity[0]);
-        newPos[1] = tmpPos[1] + (searchTime * newVelocity[1]);
-        newPos[2] = tmpPos[2] + (searchTime * newVelocity[2]);
+        newPos = tmpPos + searchTime * newVelocity;
         if (oldPosition[2] < groundLimit)
             newVelocity[2] = std::max(newVelocity[2], -oldPosition[2] / 2.0f + 0.5f);
 
@@ -610,7 +588,7 @@ void            LocalPlayer::doUpdateMotion(float dt)
         // get normal at intersection.  sometimes fancy test says there's
         // no intersection but we're expecting one so, in that case, fall
         // back to simple normal calculation.
-        float normal[3];
+        glm::vec3 normal;
         if (!getHitNormal(obstacle, newPos, newAzimuth, hitPos, hitAzimuth, normal))
             obstacle->getNormal(newPos, normal);
 
@@ -698,14 +676,11 @@ void            LocalPlayer::doUpdateMotion(float dt)
     {
         const float oodt = 1.0f / dt;
         newAngVel = (newAzimuth - oldAzimuth) * oodt;
-        newVelocity[0] = (newPos[0] - oldPosition[0]) * oodt;
-        newVelocity[1] = (newPos[1] - oldPosition[1]) * oodt;
-        newVelocity[2] = (newPos[2] - oldPosition[2]) * oodt;
+        newVelocity = (newPos - oldPosition) * oodt;
 
         if (nominalPlanarSpeed2)
         {
-            float newPlanarSpeed2 = newVelocity[0] * newVelocity[0]
-                                    + newVelocity[1] * newVelocity[1];
+            float newPlanarSpeed2 = glm::length2(glm::vec2(newVelocity));
             float scaling = newPlanarSpeed2 / nominalPlanarSpeed2;
             if (scaling > 1.0f)
             {
@@ -743,8 +718,7 @@ void            LocalPlayer::doUpdateMotion(float dt)
             const Teleporter* outPort =
                 World::getWorld()->getTeleporter(targetTele, outFace);
             teleporter->getPointWRT(*outPort, face, outFace,
-                                    newPos, newVelocity, newAzimuth,
-                                    newPos, newVelocity, &newAzimuth);
+                                    newPos, &newVelocity, &newAzimuth);
 
             // check for a hit on the other side
             const Obstacle* teleObs =
@@ -752,7 +726,7 @@ void            LocalPlayer::doUpdateMotion(float dt)
             if (teleObs != NULL)
             {
                 // revert
-                memcpy (newPos, oldPosition, sizeof(float[3]));
+                newPos = oldPosition;
                 newVelocity[0] = newVelocity[1] = 0.0f;
                 newVelocity[2] = oldVelocity[2];
                 newAzimuth = oldAzimuth;
@@ -866,9 +840,7 @@ void            LocalPlayer::doUpdateMotion(float dt)
     // see if I'm over my antidote
     if (antidoteFlag && location == OnGround)
     {
-        float dist =
-            ((flagAntidotePos[0] - newPos[0]) * (flagAntidotePos[0] - newPos[0])) +
-            ((flagAntidotePos[1] - newPos[1]) * (flagAntidotePos[1] - newPos[1]));
+        float dist = glm::distance2(glm::vec2(flagAntidotePos), glm::vec2(newPos));
         const float twoRads = getRadius() + BZDBCache::flagRadius;
         if (dist < (twoRads * twoRads))
             server->sendDropFlag(getPosition());
@@ -898,19 +870,15 @@ void            LocalPlayer::doUpdateMotion(float dt)
                               ((teleporter != NULL) && (getFlag() != Flags::PhantomZone)));
         }
         if (NEAR_ZERO(dt, ZERO_TOLERANCE))
-            speedSoundReceiver(newVelocity[0], newVelocity[1], newVelocity[2]);
+            speedSoundReceiver(newVelocity);
         else
-        {
-            speedSoundReceiver((newPos[0] - oldPosition[0]) / dt,
-                               (newPos[1] - oldPosition[1]) / dt,
-                               (newPos[2] - oldPosition[2]) / dt);
-        }
+            speedSoundReceiver((newPos - oldPosition) / dt);
     }
 }
 
 
-const Obstacle* LocalPlayer::getHitBuilding(const float* oldP, float oldA,
-        const float* p, float a,
+const Obstacle* LocalPlayer::getHitBuilding(const glm::vec3 &oldP, float oldA,
+        const glm::vec3 &p, float a,
         bool phased, bool& expelled)
 {
     const bool hasOOflag = getFlag() == Flags::OscillationOverthruster;
@@ -941,9 +909,9 @@ const Obstacle* LocalPlayer::getHitBuilding(const float* oldP, float oldA,
 
 
 bool LocalPlayer::getHitNormal(const Obstacle* o,
-                               const float* pos1, float azimuth1,
-                               const float* pos2, float azimuth2,
-                               float* normal) const
+                               const glm::vec3 &pos1, float azimuth1,
+                               const glm::vec3 &pos2, float azimuth2,
+                               glm::vec3 &normal) const
 {
     const float* dims = getDimensions();
     return o->getHitNormal(pos1, azimuth1, pos2, azimuth2,
@@ -965,7 +933,7 @@ static bool notInObstacleList(const Obstacle* obs,
 
 void LocalPlayer::collectInsideBuildings()
 {
-    const float* pos = getPosition();
+    const auto &pos = getPosition();
     const float angle = getAngle();
     const float* dims = getDimensions();
 
@@ -1023,9 +991,9 @@ int         LocalPlayer::getFlagShakingWins() const
     return flagShakingWins;
 }
 
-const GLfloat*      LocalPlayer::getAntidoteLocation() const
+const glm::vec3 *LocalPlayer::getAntidoteLocation() const
 {
-    return (const GLfloat*)(antidoteFlag ? antidoteFlag->getSphere() : NULL);
+    return antidoteFlag ? &antidoteFlag->getSphere() : NULL;
 }
 
 ShotPath*       LocalPlayer::getShot(int index) const
@@ -1036,7 +1004,7 @@ ShotPath*       LocalPlayer::getShot(int index) const
     return shots[index];
 }
 
-void            LocalPlayer::restart(const float* pos, float _azimuth)
+void LocalPlayer::restart(const glm::vec3 &pos, float _azimuth)
 {
     // put me in limbo
     setStatus(short(PlayerState::DeadStatus));
@@ -1062,7 +1030,7 @@ void            LocalPlayer::restart(const float* pos, float _azimuth)
     deathPhyDrv = -1;
 
     // initialize position/speed state
-    static const float zero[3] = { 0.0f, 0.0f, 0.0f };
+    static const auto zero = glm::vec3(0.0f);
     location = (pos[2] > 0.0f) ? OnBuilding : OnGround;
     lastObstacle = NULL;
     lastSpeed = 0.0f;
@@ -1230,13 +1198,9 @@ bool            LocalPlayer::fireShot()
     if (firingInfo.flagType == Flags::ShockWave)
     {
         // move shot origin under tank and make it stationary
-        const float* pos = getPosition();
-        firingInfo.shot.pos[0] = pos[0];
-        firingInfo.shot.pos[1] = pos[1];
-        firingInfo.shot.pos[2] = pos[2];
-        firingInfo.shot.vel[0] = 0.0f;
-        firingInfo.shot.vel[1] = 0.0f;
-        firingInfo.shot.vel[2] = 0.0f;
+        const auto &pos = getPosition();
+        firingInfo.shot.pos = pos;
+        firingInfo.shot.vel = glm::vec3(0.0f);
     }
     else
     {
@@ -1244,12 +1208,12 @@ bool            LocalPlayer::fireShot()
         if (handicap > 0.0f)
         {
             const float speedAd = 1.0f + (handicap * (BZDB.eval(StateDatabase::BZDB_HANDICAPSHOTAD) - 1.0f));
-            const float* dir = getForward();
-            const float* tankVel = getVelocity();
-            const float shotSpeed = speedAd * BZDB.eval(StateDatabase::BZDB_SHOTSPEED);
-            firingInfo.shot.vel[0] = tankVel[0] + shotSpeed * dir[0];
-            firingInfo.shot.vel[1] = tankVel[1] + shotSpeed * dir[1];
-            firingInfo.shot.vel[2] = tankVel[2] + shotSpeed * dir[2];
+            auto dir = getForward();
+            dir     *= speedAd * BZDB.eval(StateDatabase::BZDB_SHOTSPEED);
+
+            firingInfo.shot.vel = getVelocity();
+            firingInfo.shot.vel[0] += dir[0];
+            firingInfo.shot.vel[1] += dir[1];
         }
         // Set _shotsKeepVerticalVelocity on the server if you want shots
         // to have the same vertical velocity as the tank when fired.
@@ -1348,7 +1312,7 @@ float           LocalPlayer::getReloadTime() const
     return minTime;
 }
 
-bool LocalPlayer::doEndShot(int ident, bool isHit, float* pos)
+bool LocalPlayer::doEndShot(int ident, bool isHit, glm::vec3 &pos)
 {
     const int index = ident & 255;
     const int slt   = (ident >> 8) & 127;
@@ -1381,10 +1345,8 @@ bool LocalPlayer::doEndShot(int ident, bool isHit, float* pos)
         return false;
 
     // end it
-    const float* shotPos = shots[index]->getPosition();
-    pos[0] = shotPos[0];
-    pos[1] = shotPos[1];
-    pos[2] = shotPos[2];
+    const auto &shotPos = shots[index]->getPosition();
+    pos = shotPos;
     shots[index]->setExpired();
     return true;
 }
@@ -1428,8 +1390,8 @@ void            LocalPlayer::doJump()
         return;
 
     // jump velocity
-    const float* oldVelocity = getVelocity();
-    float newVelocity[3];
+    const auto &oldVelocity = getVelocity();
+    glm::vec3 newVelocity;
     newVelocity[0] = oldVelocity[0];
     newVelocity[1] = oldVelocity[1];
     if (flag == Flags::Wings)
@@ -1501,10 +1463,8 @@ void            LocalPlayer::explodeTank()
     // Limiting max height increment to this value (the old default value)
     const float zMax  = 49.0f;
     setExplode(TimeKeeper::getTick());
-    const float* oldVelocity = getVelocity();
-    float newVelocity[3];
-    newVelocity[0] = oldVelocity[0];
-    newVelocity[1] = oldVelocity[1];
+    const auto &oldVelocity = getVelocity();
+    auto newVelocity = oldVelocity;
     if (gravity < 0)
     {
         // comparing 2 speed:
@@ -1516,18 +1476,12 @@ void            LocalPlayer::explodeTank()
         if (newVelocity[2] > maxSpeed)
             newVelocity[2] = maxSpeed;
     }
-    else
-        newVelocity[2] = oldVelocity[2];
     TankDeathOverride* death = getDeathEffect();
     if (death)
     {
-        fvec3 v(newVelocity[0],newVelocity[1],newVelocity[2]);
+        auto v = newVelocity;
         if (death->GetDeathVector(v))
-        {
-            newVelocity[0] = v.x;
-            newVelocity[1] = v.y;
-            newVelocity[2] = v.z;
-        }
+            newVelocity = v;
     }
     setVelocity(newVelocity);
     location = Exploding;
@@ -1561,8 +1515,9 @@ void            LocalPlayer::doMomentum(float dt,
     }
 }
 
-void            LocalPlayer::doFriction(float dt,
-                                        const float *oldVelocity, float *newVelocity)
+void LocalPlayer::doFriction(float dt,
+                             const glm::vec2 &oldVelocity,
+                             glm::vec3 &newVelocity)
 {
     const float friction = (getFlag() == Flags::Momentum) ? BZDB.eval(StateDatabase::BZDB_MOMENTUMFRICTION) :
                            BZDB.eval(StateDatabase::BZDB_FRICTION);
@@ -1571,21 +1526,20 @@ void            LocalPlayer::doFriction(float dt,
     {
         // limit vector acceleration
 
-        float delta[2] = {newVelocity[0] - oldVelocity[0], newVelocity[1] - oldVelocity[1]};
-        float acc2 = (delta[0] * delta[0] + delta[1] * delta[1]) / (dt*dt);
-        float accLimit = 20.0f * friction;
+        auto delta = glm::vec2(newVelocity) - oldVelocity;
+        float acc2 = glm::length2(delta);
+        float accLimit = 20.0f * friction * dt;
 
         if (acc2 > accLimit*accLimit)
         {
             float ratio = accLimit / sqrtf(acc2);
-            newVelocity[0] = oldVelocity[0] + delta[0]*ratio;
-            newVelocity[1] = oldVelocity[1] + delta[1]*ratio;
+            newVelocity = glm::vec3(oldVelocity + delta * ratio, 0.0f);
         }
     }
 }
 
 void            LocalPlayer::doForces(float UNUSED(dt),
-                                      float* UNUSED(velocity),
+                                      glm::vec3 &UNUSED(velocity),
                                       float& UNUSED(angVel))
 {
     // apply external forces
@@ -1635,15 +1589,15 @@ bool            LocalPlayer::checkHit(const Player* source,
             continue;
 
         // test myself against shot
-        float position[3];
+        glm::vec3 position;
         const float t = shot->checkHit(this, position);
         if (t >= minTime) continue;
 
         // test if shot hit a part of my tank that's through a teleporter.
         // hit is no good if hit point is behind crossing plane.
-        if (isCrossingWall() && position[0] * crossingPlane[0] +
-                position[1] * crossingPlane[1] +
-                position[2] * crossingPlane[2] + crossingPlane[3] < 0.0)
+        if (isCrossingWall() &&
+                (glm::dot(position, glm::vec3(crossingPlane)) + crossingPlane[3]
+                 < 0.0))
             continue;
 
         // okay, shot hit

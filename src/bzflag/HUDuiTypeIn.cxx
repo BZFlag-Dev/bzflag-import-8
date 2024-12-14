@@ -19,6 +19,7 @@
 // common implementation headers
 #include "FontManager.h"
 #include "PlatformFactory.h"
+#include "OpenGLAPI.h"
 
 // local implementation headers
 #include "HUDui.h"
@@ -213,7 +214,7 @@ void            HUDuiTypeIn::doRender()
     if (getFontFace() < 0) return;
 
     // render string
-    glColor3fv(hasFocus() ? textColor : dimTextColor);
+    glColor(hasFocus() ? textColor : dimTextColor);
 
     FontManager &fm = FontManager::instance();
     std::string renderStr;

@@ -43,7 +43,7 @@ public:
     ~MeshFragSceneNode();
 
     // virtual functions from SceneNode
-    const GLfloat* getPlane() const override;
+    const glm::vec4 *getPlane() const override;
     bool cull(const ViewFrustum&) const override;
     void addShadowNodes(SceneRenderer&) override;
     void addRenderNodes(SceneRenderer&) override;
@@ -65,7 +65,7 @@ protected:
         void setStyle(int style);
         void render() override;
         void renderShadow() override;
-        const GLfloat* getPosition() const override;
+        const glm::vec3 &getPosition() const override;
 
     private:
         void drawV() const; // draw with just vertices
@@ -93,9 +93,9 @@ private:
     bool noRadar;
     bool noShadow;
     GLint arrayCount;
-    GLfloat* vertices;
-    GLfloat* normals;
-    GLfloat* texcoords;
+    glm::vec3 *vertices;
+    glm::vec3 *normals;
+    glm::vec2 *texcoords;
 
     friend class MeshFragSceneNode::Geometry;
 };

@@ -16,6 +16,9 @@
 // system headers
 #include <math.h>
 #include <stdlib.h>
+#include <algorithm>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 // common implementation headers
 #include "Intersect.h"
@@ -28,10 +31,11 @@
 // TriWallSceneNode::Geometry
 //
 
-TriWallSceneNode::Geometry::Geometry(TriWallSceneNode* _wall, int eCount,
-                                     const GLfloat base[3], const GLfloat uEdge[3], const GLfloat vEdge[3],
-                                     const GLfloat* _normal, float uRepeats, float vRepeats) :
-    wall(_wall), style(0), de(eCount), normal(_normal),
+TriWallSceneNode::Geometry::Geometry(
+    TriWallSceneNode* _wall, int eCount,
+    const glm::vec3 &base, const glm::vec3 &uEdge, const glm::vec3 &vEdge,
+    const glm::vec4 &_plane, float uRepeats, float vRepeats) :
+    wall(_wall), style(0), de(eCount), plane(_plane),
     vertex((eCount+1) * (eCount+2) / 2),
     uv((eCount+1) * (eCount+2) / 2)
 {
@@ -42,47 +46,36 @@ TriWallSceneNode::Geometry::Geometry(TriWallSceneNode* _wall, int eCount,
         for (int i = 0; i <= k; n++, i++)
         {
             const float s = (float)i / (float)eCount;
-            vertex[n][0] = base[0] + s * uEdge[0] + t * vEdge[0];
-            vertex[n][1] = base[1] + s * uEdge[1] + t * vEdge[1];
-            vertex[n][2] = base[2] + s * uEdge[2] + t * vEdge[2];
-            uv[n][0] = 0.0f + s * uRepeats;
-            uv[n][1] = 0.0f + t * vRepeats;
+            const auto v = base + s * uEdge + t * vEdge;
+            vertex[n] = v;
+            uv[n] = glm::vec2(s * uRepeats, t * vRepeats);
         }
     }
 
     if (BZDB.isTrue("remapTexCoords"))
     {
-        const float uLen = sqrtf((uEdge[0] * uEdge[0]) +
-                                 (uEdge[1] * uEdge[1]) +
-                                 (uEdge[2] * uEdge[2]));
-        const float vLen = sqrtf((vEdge[0] * vEdge[0]) +
-                                 (vEdge[1] * vEdge[1]) +
-                                 (vEdge[2] * vEdge[2]));
+        const float uLen   = glm::length(uEdge);
+        const float vLen   = glm::length(vEdge);
         const float uScale = 10.0f / floorf(10.0f * uLen / uRepeats);
         const float vScale = 10.0f / floorf(10.0f * vLen / vRepeats);
-        if (fabsf(normal[2]) > 0.999f)
+        const auto scale   = glm::vec2(uScale, vScale);
+        if (fabsf(plane[2]) > 0.999f)
         {
             // horizontal surface
-            for (int i = 0; i < vertex.getSize(); i++)
-            {
-                uv[i][0] = uScale * vertex[i][0];
-                uv[i][1] = vScale * vertex[i][1];
-            }
+            for (unsigned int i = 0; i < vertex.size(); i++)
+                uv[i] = scale * glm::vec2(vertex[i]);
         }
         else
         {
             // vertical surface
-            const float nh = sqrtf((normal[0] * normal[0]) + (normal[1] * normal[1]));
-            const float nx = normal[0] / nh;
-            const float ny = normal[1] / nh;
-            const float vs = 1.0f / sqrtf(1.0f - (normal[2] * normal[2]));
-            for (int i = 0; i < vertex.getSize(); i++)
+            const auto n = glm::normalize(glm::vec2(plane));
+            const float vs = glm::inversesqrt(1.0f - (plane[2] * plane[2]));
+            for (unsigned int i = 0; i < vertex.size(); i++)
             {
-                const float* v = vertex[i];
-                const float uGeoScale = (nx * v[1]) - (ny * v[0]);
+                const auto v = vertex[i];
+                const float uGeoScale = n.x * v[1] - n.y * v[0];
                 const float vGeoScale = v[2] * vs;
-                uv[i][0] = uScale * uGeoScale;
-                uv[i][1] = vScale * vGeoScale;
+                uv[i] = scale * glm::vec2(uGeoScale, vGeoScale);
             }
         }
     }
@@ -112,7 +105,7 @@ TriWallSceneNode::Geometry::~Geometry()
 #define EMITV(_i)   glVertex3fv(vertex[_i])
 #define EMITVT(_i)  glTexCoord2fv(uv[_i]); glVertex3fv(vertex[_i])
 
-const GLfloat* TriWallSceneNode::Geometry::getPosition() const
+const glm::vec3 &TriWallSceneNode::Geometry::getPosition() const
 {
     return wall->getSphere();
 }
@@ -120,7 +113,7 @@ const GLfloat* TriWallSceneNode::Geometry::getPosition() const
 void            TriWallSceneNode::Geometry::render()
 {
     wall->setColor();
-    glNormal3fv(normal);
+    glNormal3fv(plane);
     if (style >= 2)
         drawVT();
     else
@@ -152,7 +145,7 @@ void            TriWallSceneNode::Geometry::drawVT() const
 }
 
 
-const GLfloat*      TriWallSceneNode::Geometry::getVertex(int i) const
+const glm::vec3 &TriWallSceneNode::Geometry::getVertex(int i) const
 {
     return vertex[i];
 }
@@ -162,41 +155,32 @@ const GLfloat*      TriWallSceneNode::Geometry::getVertex(int i) const
 // TriWallSceneNode
 //
 
-TriWallSceneNode::TriWallSceneNode(const GLfloat base[3],
-                                   const GLfloat uEdge[3],
-                                   const GLfloat vEdge[3],
+TriWallSceneNode::TriWallSceneNode(const glm::vec3 &base,
+                                   const glm::vec3 &uEdge,
+                                   const glm::vec3 &vEdge,
                                    float uRepeats,
                                    float vRepeats,
                                    bool makeLODs)
 {
     // record plane info
-    GLfloat myPlane[4], mySphere[4];
-    myPlane[0] = uEdge[1] * vEdge[2] - uEdge[2] * vEdge[1];
-    myPlane[1] = uEdge[2] * vEdge[0] - uEdge[0] * vEdge[2];
-    myPlane[2] = uEdge[0] * vEdge[1] - uEdge[1] * vEdge[0];
-    myPlane[3] = -(myPlane[0] * base[0] + myPlane[1] * base[1]
-                   + myPlane[2] * base[2]);
+    const auto normal = glm::cross(uEdge, vEdge);
+    auto myPlane = glm::vec4(normal, -glm::dot(normal, base));
     setPlane(myPlane);
 
     // record bounding sphere info -- ought to calculate center and
     // and radius of circumscribing sphere but it's late and i'm tired.
     // i'll just calculate something easy.  it hardly matters as it's
     // hard to tightly bound a triangle with a sphere.
-    mySphere[0] = 0.5f * (uEdge[0] + vEdge[0]);
-    mySphere[1] = 0.5f * (uEdge[1] + vEdge[1]);
-    mySphere[2] = 0.5f * (uEdge[2] + vEdge[2]);
-    mySphere[3] = mySphere[0]*mySphere[0] + mySphere[1]*mySphere[1]
-                  + mySphere[2]*mySphere[2];
-    mySphere[0] += base[0];
-    mySphere[1] += base[1];
-    mySphere[2] += base[2];
-    setSphere(mySphere);
+    auto mySphere = 0.5f * (uEdge + vEdge);
+
+    setRadius(glm::length2(mySphere));
+
+    mySphere += base;
+    setCenter(mySphere);
 
     // get length of sides
-    const float uLength = sqrtf(uEdge[0] * uEdge[0] +
-                                uEdge[1] * uEdge[1] + uEdge[2] * uEdge[2]);
-    const float vLength = sqrtf(vEdge[0] * vEdge[0] +
-                                vEdge[1] * vEdge[1] + vEdge[2] * vEdge[2]);
+    const float uLength = glm::length(uEdge);
+    const float vLength = glm::length(vEdge);
     float area = 0.5f * uLength * vLength;
 
     // If negative then these values aren't a number of times to repeat
@@ -216,7 +200,7 @@ TriWallSceneNode::TriWallSceneNode(const GLfloat base[3],
     int uLevels = 1, vLevels = 1;
     while (uElements >>= 1) uLevels++;
     while (vElements >>= 1) vLevels++;
-    int numLevels = (uLevels > vLevels ? uLevels : vLevels);
+    int numLevels = std::max(uLevels, vLevels);
 
     // if no lod's required then don't make any except most coarse
     if (!makeLODs)
@@ -249,7 +233,7 @@ TriWallSceneNode::TriWallSceneNode(const GLfloat base[3],
     // record extents info
     for (int i = 0; i < 3; i++)
     {
-        const float* point = getVertex(i);
+        const auto point = getVertex(i);
         extents.expandToPoint(point);
     }
 
@@ -272,9 +256,8 @@ TriWallSceneNode::~TriWallSceneNode()
 bool            TriWallSceneNode::cull(const ViewFrustum& frustum) const
 {
     // cull if eye is behind (or on) plane
-    const GLfloat* eye = frustum.getEye();
-    if (((eye[0] * plane[0]) + (eye[1] * plane[1]) + (eye[2] * plane[2]) +
-            plane[3]) <= 0.0f)
+    const auto eye = glm::vec4(frustum.getEye(), 1.0f);
+    if (glm::dot(eye, plane) <= 0.0f)
         return true;
 
     // if the Visibility culler tells us that we're
@@ -291,7 +274,7 @@ bool            TriWallSceneNode::cull(const ViewFrustum& frustum) const
 }
 
 
-int         TriWallSceneNode::split(const float* _plane,
+int         TriWallSceneNode::split(const glm::vec4 &_plane,
                                     SceneNode*& front, SceneNode*& back) const
 {
     return WallSceneNode::splitWall(_plane, nodes[0]->vertex, nodes[0]->uv,
@@ -321,10 +304,10 @@ bool            TriWallSceneNode::inAxisBox(const Extents& exts) const
         return false;
 
     // NOTE: inefficient
-    float vertices[3][3];
-    memcpy (vertices[0], nodes[0]->getVertex(0), sizeof(float[3]));
-    memcpy (vertices[1], nodes[0]->getVertex(1), sizeof(float[3]));
-    memcpy (vertices[2], nodes[0]->getVertex(2), sizeof(float[3]));
+    glm::vec3 vertices[3];
+    vertices[0] = nodes[0]->getVertex(0);
+    vertices[1] = nodes[0]->getVertex(1);
+    vertices[2] = nodes[0]->getVertex(2);
 
     return testPolygonInAxisBox (3, vertices, plane, exts);
 }
@@ -336,7 +319,7 @@ int         TriWallSceneNode::getVertexCount () const
 }
 
 
-const GLfloat*      TriWallSceneNode::getVertex (int vertex) const
+const glm::vec3 &TriWallSceneNode::getVertex (int vertex) const
 {
     return nodes[0]->getVertex(vertex);
 }

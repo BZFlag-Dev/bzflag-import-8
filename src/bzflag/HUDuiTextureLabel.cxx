@@ -19,6 +19,7 @@
 // common implementation headers
 #include "TextureManager.h"
 #include "OpenGLTexture.h"
+#include "OpenGLAPI.h"
 
 //
 // HUDuiTextureLabel
@@ -60,7 +61,7 @@ void            HUDuiTextureLabel::doRender()
         const float xx = getX();
         const float yy = getY();
         gstate.setState();
-        glColor3fv(textColor);
+        glColor(textColor);
         glBegin(GL_TRIANGLE_STRIP);
         glTexCoord2f(0.0f, 0.0f);
         glVertex2f(xx, yy - descent);

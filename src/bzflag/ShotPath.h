@@ -54,10 +54,10 @@ public:
     float       getReloadTime() const;
     const TimeKeeper&   getStartTime() const;
     const TimeKeeper&   getCurrentTime() const;
-    const float*    getPosition() const;
-    const float*    getVelocity() const;
+    const glm::vec3  &getPosition() const;
+    const glm::vec3   getVelocity() const;
 
-    float       checkHit(const BaseLocalPlayer*, float position[3]) const;
+    float       checkHit(const BaseLocalPlayer*, glm::vec3 &position) const;
     void        setExpiring();
     void        setExpired();
     bool        isStoppedByHit() const;
@@ -76,8 +76,8 @@ protected:
 
     friend class ShotStrategy;
     void        setReloadTime(float);
-    void        setPosition(const float*);
-    void        setVelocity(const float*);
+    void        setPosition(const glm::vec3 &p);
+    void        setVelocity(const glm::vec3 &v);
 
 private:
     ShotStrategy*   strategy;       // strategy for moving shell
@@ -163,12 +163,12 @@ inline const TimeKeeper &ShotPath::getCurrentTime() const
     return currentTime;
 }
 
-inline const float* ShotPath::getPosition() const
+inline const glm::vec3 &ShotPath::getPosition() const
 {
     return firingInfo.shot.pos;
 }
 
-inline const float* ShotPath::getVelocity() const
+inline const glm::vec3 ShotPath::getVelocity() const
 {
     return firingInfo.shot.vel;
 }

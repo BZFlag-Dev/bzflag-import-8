@@ -10,48 +10,34 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "common.h"
+// Its interface
 #include "Ray.h"
 
-Ray::Ray(const float* _o, const float* _d)
+Ray::Ray(const glm::vec3 &_o, const glm::vec3 &_d)
 {
-    o[0] = _o[0];
-    o[1] = _o[1];
-    o[2] = _o[2];
-    d[0] = _d[0];
-    d[1] = _d[1];
-    d[2] = _d[2];
+    o = _o;
+    d = _d;
 }
 
 Ray::Ray(const Ray& r)
 {
-    o[0] = r.o[0];
-    o[1] = r.o[1];
-    o[2] = r.o[2];
-    d[0] = r.d[0];
-    d[1] = r.d[1];
-    d[2] = r.d[2];
+    o = r.o;
+    d = r.d;
 }
 
 Ray&            Ray::operator=(const Ray& r)
 {
     if (this != &r)
     {
-        o[0] = r.o[0];
-        o[1] = r.o[1];
-        o[2] = r.o[2];
-        d[0] = r.d[0];
-        d[1] = r.d[1];
-        d[2] = r.d[2];
+        o = r.o;
+        d = r.d;
     }
     return *this;
 }
 
-void            Ray::getPoint(float t, float p[3]) const
+void Ray::getPoint(float t, glm::vec3 &p) const
 {
-    p[0] = o[0] + t * d[0];
-    p[1] = o[1] + t * d[1];
-    p[2] = o[2] + t * d[2];
+    p = o + t * d;
 }
 
 // Local Variables: ***

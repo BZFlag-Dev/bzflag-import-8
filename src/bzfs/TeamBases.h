@@ -19,6 +19,7 @@
 /* system interface headers */
 #include <vector>
 #include <map>
+#include <glm/vec3.hpp>
 
 /* common interface headers */
 #include "global.h"
@@ -29,10 +30,10 @@ class TeamBase
     // This class represents one base
 public:
     TeamBase(): position(), size(), rotation(0.0) {}
-    TeamBase(const float *pos, const float *siz, float rot);
+    TeamBase(const glm::vec3 &pos, const glm::vec3 &siz, float rot);
     void getRandomPosition( float &x, float &y, float &z ) const;
-    float position[3];
-    float size[3];
+    glm::vec3 position;
+    glm::vec3 size;
     float rotation;
 };
 
@@ -44,10 +45,12 @@ public:
 
     TeamBases();
     TeamBases(TeamColor team, bool initDefault = false);
-    void addBase( const float *position, const float *size, float rotation );
+    void addBase(const glm::vec3 &position,
+                 const glm::vec3 &size,
+                 float rotation);
     int size() const;
     TeamColor getTeam() const;
-    const float *getBasePosition( int base ) const;
+    const glm::vec3 &getBasePosition(int base) const;
     float findBaseZ( float x, float y, float z ) const;
     const TeamBase& getRandomBase( int id );
 

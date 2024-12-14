@@ -64,11 +64,11 @@ bool            setVideoFormat(int, bool test = false);
 void            startPlaying(BzfDisplay* display,
                              SceneRenderer&);
 
-bool            addExplosion(const float* pos,
+bool            addExplosion(const glm::vec3 &pos,
                              float size, float duration);
-void            addTankExplosion(const float* pos);
-void            addShotExplosion(const float* pos);
-void            addShotPuff(const float* pos, float azimuth, float elevation);
+void            addTankExplosion(const glm::vec3 &pos);
+void            addShotExplosion(const glm::vec3 &pos);
+void            addShotPuff(const glm::vec3 &pos, float azimuth, float elevation);
 void            warnAboutMainFlags();
 void            warnAboutRadarFlags();
 void            warnAboutRadar();

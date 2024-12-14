@@ -19,6 +19,9 @@
 // interface header
 #include "SceneRenderer.h"
 
+// System headers
+#include <glm/gtc/type_ptr.hpp>
+
 /* common implementation headers */
 #include "SceneDatabase.h"
 #include "MainWindow.h"
@@ -30,6 +33,7 @@
 #include "ParseColor.h"
 #include "BZDBCache.h"
 #include "MeshSceneNode.h"
+#include "OpenGLAPI.h"
 
 /* FIXME - local implementation dependancies */
 #include "BackgroundRenderer.h"
@@ -505,7 +509,7 @@ void SceneRenderer::setBackground(BackgroundRenderer* br)
 }
 
 
-void SceneRenderer::getGroundUV(const float p[2], float uv[2]) const
+void SceneRenderer::getGroundUV(const glm::vec2 &p, glm::vec2 &uv) const
 {
     float repeat = 0.01f;
     if (BZDB.isSet("groundTexRepeat"))
@@ -514,8 +518,7 @@ void SceneRenderer::getGroundUV(const float p[2], float uv[2]) const
     if (useQualityValue >= 3)
         repeat = BZDB.eval("groundHighResTexRepeat");
 
-    uv[0] = repeat * p[0];
-    uv[1] = repeat * p[1];
+    uv = repeat * p;
 }
 
 
@@ -586,7 +589,7 @@ void SceneRenderer::setTimeOfDay(double julianDay)
 {
 
     // get position of sun and moon at 0,0 lat/long
-    float sunDir[3], moonDir[3];
+    glm::vec3 sunDir, moonDir;
     float latitude, longitude;
     if (!BZDB.isTrue(StateDatabase::BZDB_SYNCLOCATION))
     {
@@ -626,17 +629,16 @@ void SceneRenderer::setTimeOfDay(double julianDay)
     }
 
     // set sun and ambient colors
+    glm::vec3 ambientColor;
     ::getSunColor(sunDir, sunColor, ambientColor, sunBrightness);
     theSun.setColor(sunColor);
     GLfloat maxComponent = sunColor[0];
     if (sunColor[1] > maxComponent) maxComponent = sunColor[1];
     if (sunColor[2] > maxComponent) maxComponent = sunColor[2];
     if (maxComponent <= 0.0f) maxComponent = 1.0f;
-    sunScaledColor[0] = sunColor[0] / maxComponent;
-    sunScaledColor[1] = sunColor[1] / maxComponent;
-    sunScaledColor[2] = sunColor[2] / maxComponent;
-    ambientColor[3] = 1.0f;
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientColor);
+    sunScaledColor = sunColor / maxComponent;
+    const auto color = glm::vec4(ambientColor, 1.0f);
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, glm::value_ptr(color));
 
     if (background)
         background->setCelestial(*this, sunDir, moonDir);
@@ -778,12 +780,9 @@ void SceneRenderer::render(bool _lastFrame, bool _sameFrame,
         frustum.flipVertical();
         glFrontFace(GL_CCW);
 
-        float mirrorColor[4];
+        glm::vec4 mirrorColor;
         if (!parseColorString(BZDB.get(StateDatabase::BZDB_MIRROR), mirrorColor))
-        {
-            mirrorColor[0] = mirrorColor[1] = mirrorColor[2] = 0.0f;
-            mirrorColor[3] = 0.5f;
-        }
+            mirrorColor = glm::vec4(0.0f, 0.0f, 0.0f, 0.5f);
         else if (mirrorColor[3] == 1.0f)
         {
             // probably a mistake
@@ -818,12 +817,12 @@ void SceneRenderer::render(bool _lastFrame, bool _sameFrame,
         {
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glEnable(GL_BLEND);
-            glColor4fv(mirrorColor);
+            glColor(mirrorColor);
         }
         else
         {
             float stipple = mirrorColor[3];
-            glColor3fv(mirrorColor);
+            glColor(glm::vec3(mirrorColor));
             OpenGLGState::setStipple(stipple);
             glEnable(GL_POLYGON_STIPPLE);
         }
@@ -952,7 +951,7 @@ void SceneRenderer::renderScene(bool UNUSED(_lastFrame), bool UNUSED(_sameFrame)
     // draw start of background (no depth testing)
     OpenGLGState::resetState();
 
-    const GLdouble plane[4] = {0.0, 0.0, +1.0, 0.0};
+    const auto plane = glm::dvec4(0.0, 0.0, +1.0, 0.0);
     glClipPlane(GL_CLIP_PLANE0, plane);
 
     if (background)
@@ -1106,7 +1105,7 @@ static bool setupMapFog()
     GLfloat fogDensity = 0.001f;
     GLfloat fogStart = 0.5f * BZDBCache::worldSize;
     GLfloat fogEnd = BZDBCache::worldSize;
-    GLfloat fogColor[4] = {0.25f, 0.25f, 0.25f, 0.25f};
+    auto fogColor = glm::vec4(0.25f, 0.25f, 0.25f, 0.25f);
 
     // parse the values;
     const std::string modeStr = BZDB.get("_fogMode");
@@ -1122,10 +1121,7 @@ static bool setupMapFog()
     fogStart = BZDB.eval(StateDatabase::BZDB_FOGSTART);
     fogEnd = BZDB.eval(StateDatabase::BZDB_FOGEND);
     if (!parseColorString(BZDB.get(StateDatabase::BZDB_FOGCOLOR), fogColor))
-    {
-        fogColor[0] = fogColor[1] = fogColor[2] = 0.1f;
-        fogColor[3] = 0.0f; // has no effect
-    }
+        fogColor = glm::vec4(0.1f, 0.1f, 0.1f, 0.0f); // has no effect
     if (BZDB.evalInt("fogEffect") >= 1)
         glHint(GL_FOG_HINT, GL_NICEST);
     else
@@ -1136,7 +1132,7 @@ static bool setupMapFog()
     glFogf(GL_FOG_DENSITY, fogDensity);
     glFogf(GL_FOG_START, fogStart);
     glFogf(GL_FOG_END, fogEnd);
-    glFogfv(GL_FOG_COLOR, fogColor);
+    glSetFogColor(fogColor);
     glEnable(GL_FOG);
 
     RENDERER.setFogColor(fogColor);
@@ -1291,16 +1287,15 @@ void SceneRenderer::getLights()
 }
 
 
-void SceneRenderer::disableLights(const float mins[3], const float maxs[3])
+void SceneRenderer::disableLights(const glm::vec3 &mins, const glm::vec3 &maxs)
 {
     // temporarily turn off non-applicable lights for big meshes
     for (int i = 0; i < dynamicLights; i++)
     {
-        const float* pos = lights[i]->getPosition();
+        const auto  pos  = glm::vec3(lights[i]->getPosition());
         const float dist = lights[i]->getMaxDist();
-        if ((pos[0] < (mins[0] - dist)) || (pos[0] > (maxs[0] + dist)) ||
-                (pos[1] < (mins[1] - dist)) || (pos[1] > (maxs[1] + dist)) ||
-                (pos[2] < (mins[2] - dist)) || (pos[2] > (maxs[2] + dist)))
+        if (glm::any(glm::lessThan(pos, mins - dist)) ||
+                glm::any(glm::greaterThan(pos, maxs + dist)))
             lights[i]->enableLight(i + reservedLights, false);
     }
     return;
@@ -1329,7 +1324,7 @@ const RenderNodeList& SceneRenderer::getShadowList() const
 }
 
 
-const GLfloat* SceneRenderer::getSunDirection() const
+const glm::vec3 *SceneRenderer::getSunDirection() const
 {
     if (background)
         return background->getSunDirection();

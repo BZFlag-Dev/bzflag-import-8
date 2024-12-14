@@ -21,8 +21,10 @@
 // ancestor class
 #include "HUDuiControl.h"
 
+// System headers
 #include <string>
 #include <vector>
+#include <glm/vec3.hpp>
 
 #include "BzfEvent.h"
 
@@ -47,7 +49,7 @@ private:
     std::string     string;
     std::vector<std::string> *params;
     bool        darker;
-    GLfloat     color[3];
+    glm::vec3   color;
 };
 
 #endif // __HUDUILABEL_H__

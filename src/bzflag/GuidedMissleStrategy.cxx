@@ -13,10 +13,15 @@
 /* interface header */
 #include "GuidedMissleStrategy.h"
 
+// System headers
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
+
 /* common implementation headers */
 #include "BZDBCache.h"
 #include "TextureManager.h"
 #include "Intersect.h"
+#include "OpenGLAPI.h"
 
 /* local implementation headers */
 #include "LocalPlayer.h"
@@ -52,12 +57,8 @@ GuidedMissileStrategy::GuidedMissileStrategy(ShotPath* _path) :
     // get initial shot info
     FiringInfo& f = getFiringInfo(_path);
     f.lifetime *= BZDB.eval(StateDatabase::BZDB_GMADLIFE);
-    const float* vel = getPath().getVelocity();
-    const float d = 1.0f / hypotf(vel[0], hypotf(vel[1], vel[2]));
-    float dir[3];
-    dir[0] = vel[0] * d;
-    dir[1] = vel[1] * d;
-    dir[2] = vel[2] * d;
+    const auto vel = getPath().getVelocity();
+    const auto dir = glm::normalize(vel);
     azimuth = limitAngle(atan2f(dir[1], dir[0]));
     elevation = limitAngle(atan2f(dir[2], hypotf(dir[1], dir[0])));
 
@@ -72,21 +73,14 @@ GuidedMissileStrategy::GuidedMissileStrategy(ShotPath* _path) :
 
     // setup shot
     float shotSpeed = BZDB.eval(StateDatabase::BZDB_SHOTSPEED);
-    f.shot.vel[0] = shotSpeed * dir[0];
-    f.shot.vel[1] = shotSpeed * dir[1];
-    f.shot.vel[2] = shotSpeed * dir[2];
+    f.shot.vel = shotSpeed * dir;
 
     // set next position to starting position
-    nextPos[0] = f.shot.pos[0];
-    nextPos[1] = f.shot.pos[1];
-    nextPos[2] = f.shot.pos[2];
+    nextPos = f.shot.pos;
 
     // check that first segment doesn't start inside a building
-    float startPos[3];
     float muzzleFront = BZDB.eval(StateDatabase::BZDB_MUZZLEFRONT);
-    startPos[0] = f.shot.pos[0] - muzzleFront * dir[0];
-    startPos[1] = f.shot.pos[1] - muzzleFront * dir[1];
-    startPos[2] = f.shot.pos[2] - muzzleFront * dir[2];
+    auto startPos = f.shot.pos - muzzleFront * dir;
     Ray firstRay = Ray(startPos, dir);
     prevTime = currentTime;
     prevTime += -muzzleFront / BZDB.eval(StateDatabase::BZDB_SHOTSPEED);
@@ -179,11 +173,8 @@ void GuidedMissileStrategy::update(float dt)
     {
         // turn towards target
         // find desired direction
-        const float* targetPos = target->getPosition();
-        float desiredDir[3];
-        desiredDir[0] = targetPos[0] - nextPos[0];
-        desiredDir[1] = targetPos[1] - nextPos[1];
-        desiredDir[2] = targetPos[2] - nextPos[2];
+        const auto &targetPos = target->getPosition();
+        auto desiredDir = targetPos - nextPos;
         desiredDir[2] += target->getMuzzleHeight(); // right between the eyes
 
         // compute desired angles
@@ -211,10 +202,10 @@ void GuidedMissileStrategy::update(float dt)
         else
             elevation = limitAngle(elevation - dt * gmissileAng);
     }
-    float newDirection[3];
-    newDirection[0] = cosf(azimuth) * cosf(elevation);
-    newDirection[1] = sinf(azimuth) * cosf(elevation);
-    newDirection[2] = sinf(elevation);
+    auto newDirection = glm::vec3(
+                            cosf(azimuth) * cosf(elevation),
+                            sinf(azimuth) * cosf(elevation),
+                            sinf(elevation));
     Ray ray = Ray(nextPos, newDirection);
 
     renderTimes++;
@@ -267,9 +258,7 @@ void GuidedMissileStrategy::update(float dt)
     segments.pop_back();
 
     // update shot
-    newDirection[0] *= shotSpeed;
-    newDirection[1] *= shotSpeed;
-    newDirection[2] *= shotSpeed;
+    newDirection *= shotSpeed;
     setPosition(nextPos);
     setVelocity(newDirection);
 }
@@ -294,14 +283,14 @@ float GuidedMissileStrategy::checkBuildings(const Ray& ray)
         const Teleporter* outTeleporter =
             World::getWorld()->getTeleporter(target, outFace);
         teleporter->getPointWRT(*outTeleporter, face, outFace,
-                                nextPos, NULL, azimuth, nextPos, NULL, &azimuth);
+                                nextPos, NULL, &azimuth);
         return t / shotSpeed;
     }
     else if (building)
     {
         // expire on next update
         setExpiring();
-        float pos[3];
+        glm::vec3 pos;
         ray.getPoint(t / shotSpeed, pos);
         addShotExplosion(pos);
         return t / shotSpeed;
@@ -309,7 +298,8 @@ float GuidedMissileStrategy::checkBuildings(const Ray& ray)
     return -1.0f;
 }
 
-float GuidedMissileStrategy::checkHit(const BaseLocalPlayer* tank, float position[3]) const
+float GuidedMissileStrategy::checkHit(
+    const BaseLocalPlayer* tank, glm::vec3 &position) const
 {
     float minTime = Infinity;
     if (getPath().isExpired()) return minTime;
@@ -329,10 +319,8 @@ float GuidedMissileStrategy::checkHit(const BaseLocalPlayer* tank, float positio
     // half a tank height.
     const float tankHeight = tank->getDimensions()[2];
     Ray tankLastMotionRaw = tank->getLastMotion();
-    float lastTankPositionRaw[3];
-    lastTankPositionRaw[0] = tankLastMotionRaw.getOrigin()[0];
-    lastTankPositionRaw[1] = tankLastMotionRaw.getOrigin()[1];
-    lastTankPositionRaw[2] = tankLastMotionRaw.getOrigin()[2] + 0.5f * tankHeight;
+    auto lastTankPositionRaw = tankLastMotionRaw.getOrigin();
+    lastTankPositionRaw.z += 0.5f * tankHeight;
     Ray tankLastMotion(lastTankPositionRaw, tankLastMotionRaw.getDirection());
 
     // check each segment
@@ -346,12 +334,9 @@ float GuidedMissileStrategy::checkHit(const BaseLocalPlayer* tank, float positio
         const Ray& ray = segments[i].ray;
 
         // construct ray with correct velocity
-        float speed[3];
-        const float* dir = ray.getDirection();
+        const auto &dir = ray.getDirection();
         float shotSpeed = BZDB.eval(StateDatabase::BZDB_SHOTSPEED);
-        speed[0] = shotSpeed * dir[0];
-        speed[1] = shotSpeed * dir[1];
-        speed[2] = shotSpeed * dir[2];
+        auto speed = shotSpeed * dir;
         Ray speedRay(ray.getOrigin(), speed);
 
         // construct relative shot ray:  origin and velocity relative to
@@ -364,7 +349,7 @@ float GuidedMissileStrategy::checkHit(const BaseLocalPlayer* tank, float positio
         {
             // find closest approach to narrow box around tank.  width of box
             // is shell radius so you can actually hit narrow tank head on.
-            static float tankBase[3] = { 0.0f, 0.0f, -0.5f * tankHeight };
+            static auto tankBase = glm::vec3(0.0f, 0.0f, -0.5f * tankHeight);
             t = timeRayHitsBlock(relativeRay, tankBase, tank->getAngle(),
                                  0.5f * BZDBCache::tankLength, shotRadius, tankHeight);
         }
@@ -380,23 +365,19 @@ float GuidedMissileStrategy::checkHit(const BaseLocalPlayer* tank, float positio
             continue;
 
         // check if shot hits tank -- get position at time t, see if in radius
-        float closestPos[3];
+        glm::vec3 closestPos;
         relativeRay.getPoint(t, closestPos);
-        if (closestPos[0] * closestPos[0] +
-                closestPos[1] * closestPos[1] +
-                closestPos[2] * closestPos[2] < radius2)
+        if (glm::length2(closestPos) < radius2)
         {
             // save best time so far
             minTime = t;
 
             // compute location of tank at time of hit
-            float tankPos[3];
+            glm::vec3 tankPos;
             tank->getLastMotion().getPoint(t, tankPos);
 
             // compute position of intersection
-            position[0] = tankPos[0] + closestPos[0];
-            position[1] = tankPos[1] + closestPos[1];
-            position[2] = tankPos[2] + closestPos[2];
+            position = tankPos + closestPos;
         }
     }
 
@@ -432,18 +413,12 @@ void GuidedMissileStrategy::readUpdate(uint16_t code, const void* msg)
     nboUnpackUByte(msg, lastTarget);
 
     // fix up dependent variables
-    const float* vel = getPath().getVelocity();
-    const float d = 1.0f / hypotf(vel[0], hypotf(vel[1], vel[2]));
-    float dir[3];
-    dir[0] = vel[0] * d;
-    dir[1] = vel[1] * d;
-    dir[2] = vel[2] * d;
+    const auto vel = getPath().getVelocity();
+    auto dir = glm::normalize(vel);
     azimuth = limitAngle(atan2f(dir[1], dir[0]));
     elevation = limitAngle(atan2f(dir[2], hypotf(dir[1], dir[0])));
-    const float* pos = getPath().getPosition();
-    nextPos[0] = pos[0];
-    nextPos[1] = pos[1];
-    nextPos[2] = pos[2];
+    const auto pos = getPath().getPosition();
+    nextPos = pos;
 
     // note that we do not call update(float).  let that happen on the
     // next time step.
@@ -467,7 +442,7 @@ void GuidedMissileStrategy::expire()
 
 void GuidedMissileStrategy::radarRender() const
 {
-    const float *orig = getPath().getPosition();
+    const auto &orig = getPath().getPosition();
     const int length = (int)BZDBCache::linedRadarShots;
     const int size   = (int)BZDBCache::sizedRadarShots;
 
@@ -475,14 +450,10 @@ void GuidedMissileStrategy::radarRender() const
     // Display leading lines
     if (length > 0)
     {
-        const float* vel = getPath().getVelocity();
-        const float d = 1.0f / hypotf(vel[0], hypotf(vel[1], vel[2]));
-        float dir[3];
-        dir[0] = vel[0] * d * shotTailLength * length;
-        dir[1] = vel[1] * d * shotTailLength * length;
-        dir[2] = vel[2] * d * shotTailLength * length;
+        const auto vel = getPath().getVelocity();
+        const auto dir = glm::normalize(vel) * shotTailLength * float(length);
         glBegin(GL_LINES);
-        glVertex2fv(orig);
+        glVertex(orig);
         if (BZDBCache::leadingShotLine == 1)   //leading
         {
             glVertex2f(orig[0] + dir[0], orig[1] + dir[1]);
@@ -498,7 +469,7 @@ void GuidedMissileStrategy::radarRender() const
             glVertex2f(orig[0] + dir[0], orig[1] + dir[1]);
             glEnd();
             glBegin(GL_LINES);
-            glVertex2fv(orig);
+            glVertex(orig);
             glVertex2f(orig[0] - dir[0], orig[1] - dir[1]);
             glEnd();
         }
@@ -521,7 +492,7 @@ void GuidedMissileStrategy::radarRender() const
             // draw a sized missle
             glPointSize((float)size);
             glBegin(GL_POINTS);
-            glVertex2fv(orig);
+            glVertex(orig);
             glEnd();
             glPointSize(1.0f);
         }
@@ -529,7 +500,7 @@ void GuidedMissileStrategy::radarRender() const
         {
             // draw the tiny missle
             glBegin(GL_POINTS);
-            glVertex2fv(orig);
+            glVertex(orig);
             glEnd();
         }
     }

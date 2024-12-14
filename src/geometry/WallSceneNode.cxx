@@ -19,6 +19,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 // common implementation headers
 #include "StateDatabase.h"
@@ -36,13 +38,6 @@ WallSceneNode::WallSceneNode() : numLODs(0),
     style(0)
 {
     dynamicColor = NULL;
-    color[3] = 1.0f;
-    modulateColor[3] = 1.0f;
-    lightedColor[3] = 1.0f;
-    lightedModulateColor[3] = 1.0f;
-    color[3] = 1.0f;
-    color[3] = 1.0f;
-    color[3] = 1.0f;
     setColor(1.0f, 1.0f, 1.0f);
     setModulateColor(1.0f, 1.0f, 1.0f);
     setLightedColor(1.0f, 1.0f, 1.0f);
@@ -63,9 +58,9 @@ WallSceneNode::~WallSceneNode()
     delete[] elementAreas;
 }
 
-const GLfloat* WallSceneNode::getPlane() const
+const glm::vec4 *WallSceneNode::getPlane() const
 {
-    return plane;
+    return &plane;
 }
 
 void            WallSceneNode::setNumLODs(int num, float* areas)
@@ -74,26 +69,19 @@ void            WallSceneNode::setNumLODs(int num, float* areas)
     elementAreas = areas;
 }
 
-void            WallSceneNode::setPlane(const GLfloat _plane[4])
+void WallSceneNode::setPlane(const glm::vec4 &_plane)
 {
-    const float n = bzInverseSqrt(_plane[0] * _plane[0] +
-                                  _plane[1] * _plane[1] +
-                                  _plane[2] * _plane[2]);
+    const float n = bzInverseSqrt(glm::length2(glm::vec3(_plane)));
 
     // store normalized plane equation
-    plane[0] = n * _plane[0];
-    plane[1] = n * _plane[1];
-    plane[2] = n * _plane[2];
-    plane[3] = n * _plane[3];
+    plane = n * _plane;
 }
 
 bool            WallSceneNode::cull(const ViewFrustum& frustum) const
 {
     // cull if eye is behind (or on) plane
-    const GLfloat* eye = frustum.getEye();
-    const float eyedot = (eye[0] * plane[0]) +
-                         (eye[1] * plane[1]) +
-                         (eye[2] * plane[2]) + plane[3];
+    const auto eye = glm::vec4(frustum.getEye(), 1.0f);
+    const float eyedot = glm::dot(eye, plane);
     if (eyedot <= 0.0f)
         return true;
 
@@ -107,18 +95,17 @@ bool            WallSceneNode::cull(const ViewFrustum& frustum) const
     const int planeCount = frustum.getPlaneCount();
     int i;
     float d[6], d2[6];
-    const GLfloat* mySphere = getSphere();
+    const auto mySphere = glm::vec4(getSphere(), 1.0f);
+    const float myRadius = getRadius2();
     bool inside = true;
     for (i = 0; i < planeCount; i++)
     {
-        const GLfloat* norm = frustum.getSide(i);
-        d[i] = (mySphere[0] * norm[0]) +
-               (mySphere[1] * norm[1]) +
-               (mySphere[2] * norm[2]) + norm[3];
+        const auto &norm = frustum.getSide(i);
+        d[i] = glm::dot(mySphere, norm);
         if (d[i] < 0.0f)
         {
             d2[i] = d[i] * d[i];
-            if (d2[i] > mySphere[3])
+            if (d2[i] > myRadius)
                 return true;
             inside = false;
         }
@@ -137,9 +124,9 @@ bool            WallSceneNode::cull(const ViewFrustum& frustum) const
     {
         if (d[i] >= 0.0f)
             continue;
-        const GLfloat* norm = frustum.getSide(i);
-        const GLfloat c = norm[0]*plane[0] + norm[1]*plane[1] + norm[2]*plane[2];
-        if (d2[i] > mySphere[3] * (1.0f - c*c))
+        const auto norm = glm::vec3(frustum.getSide(i));
+        const GLfloat c = glm::dot(norm, glm::vec3(plane));
+        if (d2[i] > myRadius * (1.0f - c*c))
             return true;
     }
 
@@ -155,26 +142,25 @@ int         WallSceneNode::pickLevelOfDetail(
 
     int bestLOD = 0;
 
-    const GLfloat* mySphere = getSphere();
+    const auto &mySphere = getSphere();
+    const float myRadius = getRadius2();
     const int numLights = renderer.getNumLights();
     for (int i = 0; i < numLights; i++)
     {
-        const GLfloat* pos = renderer.getLight(i).getPosition();
+        auto pos = renderer.getLight(i).getPosition();
+        pos.w = 1.0f;
 
         // get signed distance from plane
-        GLfloat pd = pos[0] * plane[0] + pos[1] * plane[1] +
-                     pos[2] * plane[2] + plane[3];
+        GLfloat pd = glm::dot(pos, plane);
 
         // ignore if behind wall
         if (pd < 0.0f) continue;
 
         // get squared distance from center of wall
-        GLfloat ld = (pos[0] - mySphere[0]) * (pos[0] - mySphere[0]) +
-                     (pos[1] - mySphere[1]) * (pos[1] - mySphere[1]) +
-                     (pos[2] - mySphere[2]) * (pos[2] - mySphere[2]);
+        GLfloat ld = glm::distance2(glm::vec3(pos), mySphere);
 
         // pick representative distance
-        GLfloat d = (ld > 1.5f * mySphere[3]) ? ld : pd * pd;
+        GLfloat d = (ld > 1.5f * myRadius) ? ld : pd * pd;
 
         // choose lod based on distance and element areas;
         int j;
@@ -198,23 +184,20 @@ int         WallSceneNode::pickLevelOfDetail(
     return bestLOD;
 }
 
-GLfloat         WallSceneNode::getDistance(const GLfloat* eye) const
+GLfloat WallSceneNode::getDistance(const glm::vec3 &eye) const
 {
-    const GLfloat d = plane[0] * eye[0] + plane[1] * eye[1] +
-                      plane[2] * eye[2] + plane[3];
+    const auto myEye = glm::vec4(eye, 1.0f);
+    const GLfloat d = glm::dot(plane, myEye);
     return d * d;
 }
 
 void            WallSceneNode::setColor(
     GLfloat r, GLfloat g, GLfloat b, GLfloat a)
 {
-    color[0] = r;
-    color[1] = g;
-    color[2] = b;
-    color[3] = a;
+    color = glm::vec4(r, g, b, a);
 }
 
-void            WallSceneNode::setDynamicColor(const GLfloat* rgba)
+void WallSceneNode::setDynamicColor(const glm::vec4 *rgba)
 {
     dynamicColor = rgba;
     return;
@@ -232,64 +215,43 @@ void            WallSceneNode::setSphereMap(bool sphereMapping)
     return;
 }
 
-void            WallSceneNode::setColor(const GLfloat* rgba)
+void WallSceneNode::setColor(const glm::vec4 &rgba)
 {
-    color[0] = rgba[0];
-    color[1] = rgba[1];
-    color[2] = rgba[2];
-    color[3] = rgba[3];
+    color = rgba;
 }
 
 void            WallSceneNode::setModulateColor(
     GLfloat r, GLfloat g, GLfloat b, GLfloat a)
 {
-    modulateColor[0] = r;
-    modulateColor[1] = g;
-    modulateColor[2] = b;
-    modulateColor[3] = a;
+    modulateColor = glm::vec4(r, g, b, a);
 }
 
-void            WallSceneNode::setModulateColor(const GLfloat* rgba)
+void WallSceneNode::setModulateColor(const glm::vec4 &rgba)
 {
-    modulateColor[0] = rgba[0];
-    modulateColor[1] = rgba[1];
-    modulateColor[2] = rgba[2];
-    modulateColor[3] = rgba[3];
+    modulateColor = rgba;
 }
 
 void            WallSceneNode::setLightedColor(
     GLfloat r, GLfloat g, GLfloat b, GLfloat a)
 {
-    lightedColor[0] = r;
-    lightedColor[1] = g;
-    lightedColor[2] = b;
-    lightedColor[3] = a;
+    lightedColor = glm::vec4(r, g, b, a);
 }
 
-void            WallSceneNode::setLightedColor(const GLfloat* rgba)
+void WallSceneNode::setLightedColor(const glm::vec4 &rgba)
 {
-    lightedColor[0] = rgba[0];
-    lightedColor[1] = rgba[1];
-    lightedColor[2] = rgba[2];
-    lightedColor[3] = rgba[3];
+    lightedColor = rgba;
 }
 
 void            WallSceneNode::setLightedModulateColor(
     GLfloat r, GLfloat g, GLfloat b, GLfloat a)
 {
-    lightedModulateColor[0] = r;
-    lightedModulateColor[1] = g;
-    lightedModulateColor[2] = b;
-    lightedModulateColor[3] = a;
+    lightedModulateColor = glm::vec4(r, g, b, a);
 }
 
-void            WallSceneNode::setLightedModulateColor(
-    const GLfloat* rgba)
+void WallSceneNode::setLightedModulateColor(
+    const glm::vec4 &rgba)
 {
-    lightedModulateColor[0] = rgba[0];
-    lightedModulateColor[1] = rgba[1];
-    lightedModulateColor[2] = rgba[2];
-    lightedModulateColor[3] = rgba[3];
+    lightedModulateColor = rgba;
 }
 
 void            WallSceneNode::setAlphaThreshold(float thresh)
@@ -400,7 +362,7 @@ void            WallSceneNode::setColor()
     if (BZDBCache::texture && useColorTexture)
         myColor4f(1,1,1,1);
     else if (dynamicColor != NULL)
-        myColor4fv(dynamicColor);
+        myColor4fv(*dynamicColor);
     else
     {
         switch (style)
@@ -421,13 +383,13 @@ void            WallSceneNode::setColor()
     }
 }
 
-int WallSceneNode::splitWall(const GLfloat* splitPlane,
-                             const GLfloat3Array& vertices,
-                             const GLfloat2Array& texcoords,
+int WallSceneNode::splitWall(const glm::vec4 &splitPlane,
+                             const std::vector<glm::vec3> &vertices,
+                             const std::vector<glm::vec2> &texcoords,
                              SceneNode*& front, SceneNode*& back) // const
 {
     int i;
-    const int count = vertices.getSize();
+    const int count = vertices.size();
     const float fudgeFactor = 0.001f;
     const unsigned char BACK_SIDE = (1 << 0);
     const unsigned char FRONT_SIDE = (1 << 1);
@@ -456,29 +418,29 @@ int WallSceneNode::splitWall(const GLfloat* splitPlane,
     int bothCount = 0;
     int backCount = 0;
     int frontCount = 0;
-    for (i = 0; i < count; i++)
+    unsigned char *tmpArray = array;
+    float         *tmpDists = dists;
+    for (const auto v : vertices)
     {
-        const GLfloat d = (vertices[i][0] * splitPlane[0]) +
-                          (vertices[i][1] * splitPlane[1]) +
-                          (vertices[i][2] * splitPlane[2]) + splitPlane[3];
+        const GLfloat d = glm::dot(glm::vec4(v, 1.0f), splitPlane);
         if (d < -fudgeFactor)
         {
-            array[i] = BACK_SIDE;
+            *tmpArray++ = BACK_SIDE;
             backCount++;
         }
         else if (d > fudgeFactor)
         {
-            array[i] = FRONT_SIDE;
+            *tmpArray++ = FRONT_SIDE;
             frontCount++;
         }
         else
         {
-            array[i] = (BACK_SIDE | FRONT_SIDE);
+            *tmpArray++ = BACK_SIDE | FRONT_SIDE;
             bothCount++;
             backCount++;
             frontCount++;
         }
-        dists[i] = d; // save for later
+        *tmpDists++ = d; // save for later
     }
 
     // see if we need to split
@@ -539,49 +501,51 @@ int WallSceneNode::splitWall(const GLfloat* splitPlane,
     }
 
     // make space for new polygons
-    GLfloat3Array vertexFront(frontCount);
-    GLfloat2Array uvFront(frontCount);
-    GLfloat3Array vertexBack(backCount);
-    GLfloat2Array uvBack(backCount);
+    std::vector<glm::vec3> vertexFront(frontCount);
+    std::vector<glm::vec2> uvFront(frontCount);
+    std::vector<glm::vec3> vertexBack(backCount);
+    std::vector<glm::vec2> uvBack(backCount);
 
     // fill in the splitting vertices
     int frontIndex = 0;
     int backIndex = 0;
     if (firstFront != lastBack)
     {
-        GLfloat splitVertex[3], splitUV[2];
+        glm::vec3 splitVertex;
+        glm::vec2 splitUV;
         splitEdge(dists[firstFront], dists[lastBack],
                   vertices[firstFront], vertices[lastBack],
                   texcoords[firstFront], texcoords[lastBack],
                   splitVertex, splitUV);
-        memcpy(vertexFront[0], splitVertex, sizeof(GLfloat[3]));
-        memcpy(uvFront[0], splitUV, sizeof(GLfloat[2]));
+        vertexFront[0] = splitVertex;
+        uvFront[0]     = splitUV;
         frontIndex++; // bump up the head
         const int last = backCount - 1;
-        memcpy(vertexBack[last], splitVertex, sizeof(GLfloat[3]));
-        memcpy(uvBack[last], splitUV, sizeof(GLfloat[2]));
+        vertexBack[last] = splitVertex;
+        uvBack[last]     = splitUV;
     }
     if (firstBack != lastFront)
     {
-        GLfloat splitVertex[3], splitUV[2];
+        glm::vec3 splitVertex;
+        glm::vec2 splitUV;
         splitEdge(dists[firstBack], dists[lastFront],
                   vertices[firstBack], vertices[lastFront],
                   texcoords[firstBack], texcoords[lastFront],
                   splitVertex, splitUV);
-        memcpy(vertexBack[0], splitVertex, sizeof(GLfloat[3]));
-        memcpy(uvBack[0], splitUV, sizeof(GLfloat[2]));
+        vertexBack[0] = splitVertex;
+        uvBack[0]     = splitUV;
         backIndex++; // bump up the head
         const int last = frontCount - 1;
-        memcpy(vertexFront[last], splitVertex, sizeof(GLfloat[3]));
-        memcpy(uvFront[last], splitUV, sizeof(GLfloat[2]));
+        vertexFront[last] = splitVertex;
+        uvFront[last]     = splitUV;
     }
 
     // fill in the old front side vertices
     const int endFront = (lastFront + 1) % count;
     for (i = firstFront; i != endFront; i = (i + 1) % count)
     {
-        memcpy(vertexFront[frontIndex], vertices[i], sizeof(GLfloat[3]));
-        memcpy(uvFront[frontIndex], texcoords[i], sizeof(GLfloat[2]));
+        vertexFront[frontIndex] = vertices[i];
+        uvFront[frontIndex]     = texcoords[i];
         frontIndex++;
     }
 
@@ -589,8 +553,8 @@ int WallSceneNode::splitWall(const GLfloat* splitPlane,
     const int endBack = (lastBack + 1) % count;
     for (i = firstBack; i != endBack; i = (i + 1) % count)
     {
-        memcpy(vertexBack[backIndex], vertices[i], sizeof(GLfloat[3]));
-        memcpy(uvBack[backIndex], texcoords[i], sizeof(GLfloat[2]));
+        vertexBack[backIndex] = vertices[i];
+        uvBack[backIndex]     = texcoords[i];
         backIndex++;
     }
 
@@ -610,9 +574,9 @@ int WallSceneNode::splitWall(const GLfloat* splitPlane,
 
 
 void WallSceneNode::splitEdge(float d1, float d2,
-                              const GLfloat* p1, const GLfloat* p2,
-                              const GLfloat* uv1, const GLfloat* uv2,
-                              GLfloat* p, GLfloat* uv) // const
+                              const glm::vec3 &p1, const glm::vec3 &p2,
+                              const glm::vec2 &uv1, const glm::vec2 &uv2,
+                              glm::vec3 &p, glm::vec2 &uv) // const
 {
     // compute fraction along edge where split occurs
     float t1 = (d2 - d1);
@@ -620,13 +584,10 @@ void WallSceneNode::splitEdge(float d1, float d2,
         t1 = -(d1 / t1);
 
     // compute vertex
-    p[0] = p1[0] + (t1 * (p2[0] - p1[0]));
-    p[1] = p1[1] + (t1 * (p2[1] - p1[1]));
-    p[2] = p1[2] + (t1 * (p2[2] - p1[2]));
+    p = glm::mix(p1, p2, t1);
 
     // compute texture coordinate
-    uv[0] = uv1[0] + (t1 * (uv2[0] - uv1[0]));
-    uv[1] = uv1[1] + (t1 * (uv2[1] - uv1[1]));
+    uv = glm::mix(uv1, uv2, t1);
 }
 
 

@@ -10,13 +10,18 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "common.h"
+// Own interface
 #include "Team.h"
+
+// System headers
+#include <glm/vec3.hpp>
+
+// Common headers
 #include "AnsiCodes.h"
 #include "BZDBCache.h"
 #include "Pack.h"
 
-float           Team::tankColor[NumTeams][3] =
+glm::vec3 Team::tankColor[NumTeams] =
 {
     { 1.0f, 1.0f, 0.0f },   // rogue
     { 1.0f, 0.0f, 0.0f },   // red
@@ -27,7 +32,7 @@ float           Team::tankColor[NumTeams][3] =
     { 0.8f, 0.8f, 0.8f },   // rabbit
     { 1.0f, 0.5f, 0.0f }    // hunter orange
 };
-float           Team::radarColor[NumTeams][3] =
+glm::vec3 Team::radarColor[NumTeams] =
 {
     { 1.0f, 1.0f, 0.0f },   // rogue
     { 1.0f, 0.15f, 0.15f }, // red
@@ -38,7 +43,7 @@ float           Team::radarColor[NumTeams][3] =
     { 1.0f, 1.0f, 1.0f },   // rabbit
     { 1.0f, 0.5f, 0.0f }    // hunter orange
 };
-float           Team::shotColor[NumTeams][3];
+glm::vec3 Team::shotColor[NumTeams];
 
 
 Team::Team()
@@ -132,21 +137,21 @@ TeamColor   Team::getTeam(const std::string &name) // const
     return NoTeam;
 }
 
-const float*        Team::getTankColor(TeamColor team) // const
+const glm::vec3 &Team::getTankColor(TeamColor team) // const
 {
     if (int(team) < 0)
         return tankColor[0];
     return tankColor[int(team)];
 }
 
-const float*        Team::getRadarColor(TeamColor team) // const
+const glm::vec3 &Team::getRadarColor(TeamColor team) // const
 {
     if (int(team) < 0)
         return radarColor[0];
     return radarColor[int(team)];
 }
 
-const float*        Team::getShotColor(TeamColor team) // const
+const glm::vec3 &Team::getShotColor(TeamColor team) // const
 {
     if (int(team) < 0)
         return shotColor[0];
@@ -164,20 +169,18 @@ bool        Team::isColorTeam(TeamColor team) // const
 }
 
 void            Team::setColors(TeamColor team,
-                                const float* tank,
-                                const float* radar)
+                                const glm::vec3 &tank,
+                                const glm::vec3 &radar)
 {
     const int teamIndex = int(team);
     // ignore bogus team color
     if (teamIndex < 0)
         return;
 
+    tankColor[teamIndex]  = tank;
+    radarColor[teamIndex] = radar;
     for (int i = 0; i <= 2; i++)
-    {
-        tankColor[teamIndex][i] = tank[i];
-        radarColor[teamIndex][i] = radar[i];
         shotColor[teamIndex][i] = addBrightness(tank[i]);
-    }
 }
 
 void            Team::updateShotColors()

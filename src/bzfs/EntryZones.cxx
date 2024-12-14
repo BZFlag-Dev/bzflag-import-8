@@ -96,7 +96,7 @@ void EntryZones::calculateQualifierLists()
 }
 
 
-bool EntryZones::getRandomPoint(const std::string &qual, float *pt) const
+bool EntryZones::getRandomPoint(const std::string &qual, glm::vec3 &pt) const
 {
     QualifierMap::const_iterator mit = qmap.find(qual);
     if (mit == qmap.end())
@@ -125,8 +125,8 @@ bool EntryZones::getRandomPoint(const std::string &qual, float *pt) const
 }
 
 
-bool EntryZones::getClosePoint(const std::string &qual, const float pos[3],
-                               float *pt) const
+bool EntryZones::getClosePoint(const std::string &qual, const glm::vec3 &pos,
+                               glm::vec3 &pt) const
 {
     QualifierMap::const_iterator mit = qmap.find(qual);
     if (mit == qmap.end())
@@ -157,7 +157,7 @@ bool EntryZones::getClosePoint(const std::string &qual, const float pos[3],
 }
 
 
-bool EntryZones::getZonePoint(const std::string &qualifier, float *pt) const
+bool EntryZones::getZonePoint(const std::string &qualifier, glm::vec3 &pt) const
 {
     QualifierMap::const_iterator mit = qmap.find(qualifier);
     if (mit == qmap.end())
@@ -186,8 +186,8 @@ bool EntryZones::getZonePoint(const std::string &qualifier, float *pt) const
 }
 
 
-bool EntryZones::getSafetyPoint( const std::string &qualifier,
-                                 const float *pos, float *pt ) const
+bool EntryZones::getSafetyPoint(const std::string &qualifier,
+                                const glm::vec3 &pos, glm::vec3 &pt) const
 {
     std::string safetyString = /*EntryZones::getSafetyPrefix() + */ qualifier;
 

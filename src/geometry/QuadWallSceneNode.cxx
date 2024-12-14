@@ -15,6 +15,9 @@
 
 // system headers
 #include <math.h>
+#include <algorithm>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 // common implementation headers
 #include "Intersect.h"
@@ -32,11 +35,11 @@
 
 QuadWallSceneNode::Geometry::Geometry(QuadWallSceneNode* _wall,
                                       int uCount, int vCount,
-                                      const GLfloat base[3],
-                                      const GLfloat uEdge[3],
-                                      const GLfloat vEdge[3],
-                                      const GLfloat* _normal,
-                                      float uOffset, float vOffset,
+                                      const glm::vec3 &base,
+                                      const glm::vec3 &uEdge,
+                                      const glm::vec3 &vEdge,
+                                      const glm::vec4 &_plane,
+                                      const glm::vec2 &uvOffset,
                                       float uRepeats, float vRepeats, bool fixedUVs) :
     wall(_wall),
     style(0),
@@ -44,7 +47,7 @@ QuadWallSceneNode::Geometry::Geometry(QuadWallSceneNode* _wall,
     dt(vCount),
     dsq(uCount / 4),
     dsr(uCount % 4),
-    normal(_normal),
+    plane(_plane),
     vertex((uCount+1) * (vCount+1)),
     uv((uCount+1) * (vCount+1))
 {
@@ -54,47 +57,35 @@ QuadWallSceneNode::Geometry::Geometry(QuadWallSceneNode* _wall,
         for (int i = 0; i <= uCount; n++, i++)
         {
             const float s = (float)i / (float)uCount;
-            vertex[n][0] = base[0] + s * uEdge[0] + t * vEdge[0];
-            vertex[n][1] = base[1] + s * uEdge[1] + t * vEdge[1];
-            vertex[n][2] = base[2] + s * uEdge[2] + t * vEdge[2];
-            uv[n][0] = uOffset + s * uRepeats;
-            uv[n][1] = vOffset + t * vRepeats;
+            vertex[n] = base + s * uEdge + t * vEdge;
+            uv[n] = uvOffset + glm::vec2(s * uRepeats, t * vRepeats);
         }
     }
 
     if (!fixedUVs && BZDB.isTrue("remapTexCoords"))
     {
-        const float uLen = sqrtf((uEdge[0] * uEdge[0]) +
-                                 (uEdge[1] * uEdge[1]) +
-                                 (uEdge[2] * uEdge[2]));
-        const float vLen = sqrtf((vEdge[0] * vEdge[0]) +
-                                 (vEdge[1] * vEdge[1]) +
-                                 (vEdge[2] * vEdge[2]));
+        const float uLen = glm::length(uEdge);
+        const float vLen = glm::length(vEdge);
         const float uScale = 10.0f / floorf(10.0f * uLen / uRepeats);
         const float vScale = 10.0f / floorf(10.0f * vLen / vRepeats);
-        if (fabsf(normal[2]) > 0.999f)
+        const auto uvScale = glm::vec2(uScale, vScale);
+        if (fabsf(plane[2]) > 0.999f)
         {
             // horizontal surface
-            for (int i = 0; i < vertex.getSize(); i++)
-            {
-                uv[i][0] = uScale * vertex[i][0];
-                uv[i][1] = vScale * vertex[i][1];
-            }
+            for (unsigned int i = 0; i < vertex.size(); i++)
+                uv[i] = uvScale * glm::vec2(vertex[i]);
         }
         else
         {
             // vertical surface
-            const float nh = sqrtf((normal[0] * normal[0]) + (normal[1] * normal[1]));
-            const float nx = normal[0] / nh;
-            const float ny = normal[1] / nh;
-            const float vs = 1.0f / sqrtf(1.0f - (normal[2] * normal[2]));
-            for (int i = 0; i < vertex.getSize(); i++)
+            const auto n = glm::normalize(glm::vec2(plane));
+            const float vs = glm::inversesqrt(1.0f - (plane[2] * plane[2]));
+            for (unsigned int i = 0; i < vertex.size(); i++)
             {
-                const float* v = vertex[i];
-                const float uGeoScale = (nx * v[1]) - (ny * v[0]);
+                const auto v = vertex[i];
+                const float uGeoScale = n.x * v[1] - n.y * v[0];
                 const float vGeoScale = v[2] * vs;
-                uv[i][0] = uScale * uGeoScale;
-                uv[i][1] = vScale * vGeoScale;
+                uv[i] = uvScale * glm::vec2(uGeoScale, vGeoScale);
             }
         }
     }
@@ -147,7 +138,7 @@ QuadWallSceneNode::Geometry::~Geometry()
 #define EMITV(_i)   glVertex3fv(vertex[_i])
 #define EMITVT(_i)  glTexCoord2fv(uv[_i]); glVertex3fv(vertex[_i])
 
-const GLfloat* QuadWallSceneNode::Geometry::getPosition() const
+const glm::vec3 &QuadWallSceneNode::Geometry::getPosition() const
 {
     return wall->getSphere();
 }
@@ -155,7 +146,7 @@ const GLfloat* QuadWallSceneNode::Geometry::getPosition() const
 void            QuadWallSceneNode::Geometry::render()
 {
     wall->setColor();
-    glNormal3fv(normal);
+    glNormal3fv(plane);
     if (style >= 2)
         drawVT();
     else
@@ -186,7 +177,7 @@ void            QuadWallSceneNode::Geometry::drawVT() const
     RENDER(EMITVT)
 }
 
-const GLfloat*      QuadWallSceneNode::Geometry::getVertex(int i) const
+const glm::vec3 &QuadWallSceneNode::Geometry::getVertex(int i) const
 {
     return vertex[i];
 }
@@ -195,61 +186,51 @@ const GLfloat*      QuadWallSceneNode::Geometry::getVertex(int i) const
 // QuadWallSceneNode
 //
 
-QuadWallSceneNode::QuadWallSceneNode(const GLfloat base[3],
-                                     const GLfloat uEdge[3],
-                                     const GLfloat vEdge[3],
-                                     float uOffset,
-                                     float vOffset,
+QuadWallSceneNode::QuadWallSceneNode(const glm::vec3 &base,
+                                     const glm::vec3 &uEdge,
+                                     const glm::vec3 &vEdge,
+                                     const glm::vec2 &uvOffset,
                                      float uRepeats,
                                      float vRepeats,
                                      bool makeLODs)
 {
-    init(base, uEdge, vEdge, uOffset, vOffset, uRepeats, vRepeats, makeLODs, false);
+    init(base, uEdge, vEdge, uvOffset, uRepeats, vRepeats, makeLODs, false);
 }
 
-QuadWallSceneNode::QuadWallSceneNode(const GLfloat base[3],
-                                     const GLfloat uEdge[3],
-                                     const GLfloat vEdge[3],
+QuadWallSceneNode::QuadWallSceneNode(const glm::vec3 &base,
+                                     const glm::vec3 &uEdge,
+                                     const glm::vec3 &vEdge,
                                      float uRepeats,
                                      float vRepeats,
                                      bool makeLODs, bool fixedUVs)
 {
-    init(base, uEdge, vEdge, 0.0f, 0.0f, uRepeats, vRepeats, makeLODs, fixedUVs);
+    init(base, uEdge, vEdge, glm::vec2(0.0f), uRepeats, vRepeats, makeLODs, fixedUVs);
 }
 
-void            QuadWallSceneNode::init(const GLfloat base[3],
-                                        const GLfloat uEdge[3],
-                                        const GLfloat vEdge[3],
-                                        float uOffset,
-                                        float vOffset,
+void            QuadWallSceneNode::init(const glm::vec3 &base,
+                                        const glm::vec3 &uEdge,
+                                        const glm::vec3 &vEdge,
+                                        const glm::vec2 &uvOffset,
                                         float uRepeats,
                                         float vRepeats,
                                         bool makeLODs,
                                         bool fixedUVs)
 {
     // record plane and bounding sphere info
-    GLfloat myPlane[4], mySphere[4];
-    myPlane[0] = uEdge[1] * vEdge[2] - uEdge[2] * vEdge[1];
-    myPlane[1] = uEdge[2] * vEdge[0] - uEdge[0] * vEdge[2];
-    myPlane[2] = uEdge[0] * vEdge[1] - uEdge[1] * vEdge[0];
-    myPlane[3] = -(myPlane[0] * base[0] + myPlane[1] * base[1]
-                   + myPlane[2] * base[2]);
+    auto n = glm::cross(uEdge, vEdge);
+    auto myPlane = glm::vec4(n, -glm::dot(n, base));
     setPlane(myPlane);
-    mySphere[0] = 0.5f * (uEdge[0] + vEdge[0]);
-    mySphere[1] = 0.5f * (uEdge[1] + vEdge[1]);
-    mySphere[2] = 0.5f * (uEdge[2] + vEdge[2]);
-    mySphere[3] = mySphere[0]*mySphere[0] + mySphere[1]*mySphere[1]
-                  + mySphere[2]*mySphere[2];
-    mySphere[0] += base[0];
-    mySphere[1] += base[1];
-    mySphere[2] += base[2];
-    setSphere(mySphere);
+
+    auto mySphere = 0.5f * (uEdge + vEdge);
+
+    setRadius(glm::length2(mySphere));
+
+    mySphere += base;
+    setCenter(mySphere);
 
     // get length of sides
-    const float uLength = sqrtf(float(uEdge[0] * uEdge[0] +
-                                      uEdge[1] * uEdge[1] + uEdge[2] * uEdge[2]));
-    const float vLength = sqrtf(float(vEdge[0] * vEdge[0] +
-                                      vEdge[1] * vEdge[1] + vEdge[2] * vEdge[2]));
+    const float uLength = glm::length(uEdge);
+    const float vLength = glm::length(vEdge);
     float area = uLength * vLength;
 
     // If negative then these values aren't a number of times to repeat
@@ -269,7 +250,7 @@ void            QuadWallSceneNode::init(const GLfloat base[3],
     int uLevels = 1, vLevels = 1;
     while (uElements >>= 1) uLevels++;
     while (vElements >>= 1) vLevels++;
-    int numLevels = (uLevels < vLevels ? uLevels : vLevels);
+    int numLevels = std::min(uLevels, vLevels);
 
     // if overly rectangular then add levels to square it up
     bool needsSquaring = false;
@@ -302,11 +283,11 @@ void            QuadWallSceneNode::init(const GLfloat base[3],
     areas[level] = area;
     nodes[level++] = new Geometry(this, uElements, vElements,
                                   base, uEdge, vEdge,
-                                  plane, uOffset, vOffset,
+                                  plane, uvOffset,
                                   uRepeats, vRepeats, fixedUVs);
     shadowNode = new Geometry(this, uElements, vElements,
                               base, uEdge, vEdge,
-                              plane, uOffset, vOffset,
+                              plane, uvOffset,
                               uRepeats, vRepeats, fixedUVs);
     shadowNode->setStyle(0);
 
@@ -324,7 +305,7 @@ void            QuadWallSceneNode::init(const GLfloat base[3],
                 areas[level] = area / (float)uElements;
                 nodes[level++] = new Geometry(this, uElements, vElements,
                                               base, uEdge, vEdge,
-                                              plane, uOffset, vOffset,
+                                              plane, uvOffset,
                                               uRepeats, vRepeats, fixedUVs);
 
             }
@@ -339,7 +320,7 @@ void            QuadWallSceneNode::init(const GLfloat base[3],
                 areas[level] = area / (float)vElements;
                 nodes[level++] = new Geometry(this, uElements, vElements,
                                               base, uEdge, vEdge,
-                                              plane, uOffset, vOffset,
+                                              plane, uvOffset,
                                               uRepeats, vRepeats, fixedUVs);
 
             }
@@ -356,14 +337,14 @@ void            QuadWallSceneNode::init(const GLfloat base[3],
         areas[level] = area;
         nodes[level++] = new Geometry(this, uElements, vElements,
                                       base, uEdge, vEdge,
-                                      plane, uOffset, vOffset,
+                                      plane, uvOffset,
                                       uRepeats, vRepeats, fixedUVs);
     }
 
     // record extents info
     for (int i = 0; i < 4; i++)
     {
-        const float* point = getVertex(i);
+        const auto point = getVertex(i);
         extents.expandToPoint(point);
     }
 
@@ -381,21 +362,18 @@ QuadWallSceneNode::~QuadWallSceneNode()
     delete shadowNode;
 }
 
-int         QuadWallSceneNode::split(const float *_plane,
+int         QuadWallSceneNode::split(const glm::vec4 &_plane,
                                      SceneNode*& front, SceneNode*& back) const
 {
     // need to reorder vertices into counterclockwise order
-    GLfloat3Array vertex(4);
-    GLfloat2Array uv(4);
+    std::vector<glm::vec3> vertex(4);
+    std::vector<glm::vec2> uv(4);
     for (int i = 0; i < 4; i++)
     {
         int j = i;
         if (j == 2 || j == 3) j = 5 - j;
-        vertex[i][0] = nodes[0]->vertex[j][0];
-        vertex[i][1] = nodes[0]->vertex[j][1];
-        vertex[i][2] = nodes[0]->vertex[j][2];
-        uv[i][0] = nodes[0]->uv[j][0];
-        uv[i][1] = nodes[0]->uv[j][1];
+        vertex[i] = nodes[0]->vertex[j];
+        uv[i] = nodes[0]->uv[j];
     }
     return WallSceneNode::splitWall(_plane, vertex, uv, front, back);
 }
@@ -420,11 +398,11 @@ bool            QuadWallSceneNode::inAxisBox(const Extents& exts) const
         return false;
 
     // NOTE: inefficient
-    float vertices[4][3];
-    memcpy (vertices[0], nodes[0]->getVertex(0), sizeof(float[3]));
-    memcpy (vertices[1], nodes[0]->getVertex(1), sizeof(float[3]));
-    memcpy (vertices[2], nodes[0]->getVertex(2), sizeof(float[3]));
-    memcpy (vertices[3], nodes[0]->getVertex(3), sizeof(float[3]));
+    glm::vec3 vertices[4];
+    vertices[0] = nodes[0]->getVertex(0);
+    vertices[1] = nodes[0]->getVertex(1);
+    vertices[2] = nodes[0]->getVertex(2);
+    vertices[3] = nodes[0]->getVertex(3);
 
     return testPolygonInAxisBox (4, vertices, plane, exts);
 }
@@ -434,7 +412,7 @@ int         QuadWallSceneNode::getVertexCount () const
     return 4;
 }
 
-const GLfloat*      QuadWallSceneNode::getVertex (int vertex) const
+const glm::vec3 &QuadWallSceneNode::getVertex (int vertex) const
 {
     // re-map these to a counter-clockwise order
     const int order[4] = {0, 1, 3, 2};

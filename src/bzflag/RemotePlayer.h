@@ -13,8 +13,6 @@
 #ifndef __REMOTEPLAYER_H__
 #define __REMOTEPLAYER_H__
 
-#include "common.h"
-
 /* interface header */
 #include "Player.h"
 
@@ -35,11 +33,11 @@ public:
     ~RemotePlayer();
 
     void addShot(const FiringInfo&);
-    ShotPath* getShot(int index) const;
+    ShotPath* getShot(int index) const override;
     void updateShots(float dt);
 
 private:
-    bool doEndShot(int index, bool isHit, float* pos);
+    bool doEndShot(int index, bool isHit, glm::vec3 &pos) override;
 
 private:
     int numShots;

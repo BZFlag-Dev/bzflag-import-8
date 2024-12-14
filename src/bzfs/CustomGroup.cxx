@@ -131,7 +131,7 @@ void CustomGroup::writeToGroupDef(GroupDefinition *grpdef)
         xform.addScale(size);
     if (rotation != 0.0f)
     {
-        const float zAxis[3] = {0.0f, 0.0f, 1.0f};
+        const auto zAxis = glm::vec3(0.0f, 0.0f, 1.0f);
         xform.addSpin((float)(rotation * (180.0 / M_PI)), zAxis);
     }
     if ((pos[0] != 0.0f) || (pos[1] != 0.0f) || (pos[2] != 0.0f))

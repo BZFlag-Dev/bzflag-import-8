@@ -13,8 +13,11 @@
 #ifndef BZF_PLAYERSTATE_H
 #define BZF_PLAYERSTATE_H
 
+// 1st
 #include "common.h"
 
+// System headers
+#include <glm/vec3.hpp>
 
 class PlayerState
 {
@@ -50,8 +53,8 @@ public:
 
     long    order;      // packet ordering
     short   status;     // see PStatus enum
-    float   pos[3];     // position of tank
-    float   velocity[3];    // velocity of tank
+    glm::vec3 pos;     // position of tank
+    glm::vec3 velocity;    // velocity of tank
     float   azimuth;    // orientation of tank
     float   angVel;     // angular velocity of tank
     int     phydrv;     // physics driver

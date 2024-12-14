@@ -77,7 +77,7 @@ public:
 
     void        sendCaptureFlag(TeamColor);
     void        sendGrabFlag(int flagIndex);
-    void        sendDropFlag(const float* position);
+    void        sendDropFlag(const glm::vec3 &position);
     void        sendKilled(const PlayerId&, int reason,
                            int shotId, const FlagType* flag, int phydrv);
     // FIXME -- This is very ugly, but required to build bzadmin with gcc 2.9.5.

@@ -56,12 +56,12 @@ void ShotStrategy::setReloadTime(float t) const
     path->setReloadTime(t);
 }
 
-void ShotStrategy::setPosition(const float* p) const
+void ShotStrategy::setPosition(const glm::vec3 &p) const
 {
     path->setPosition(p);
 }
 
-void ShotStrategy::setVelocity(const float* v) const
+void ShotStrategy::setVelocity(const glm::vec3 &v) const
 {
     path->setVelocity(v);
 }
@@ -137,32 +137,26 @@ const Obstacle* ShotStrategy::getFirstBuilding(const Ray& ray,
     return closestObstacle;
 }
 
-void ShotStrategy::reflect(float* v, const float* n) // const
+void ShotStrategy::reflect(glm::vec3 &v, const glm::vec3 &n) // const
 {
     // normal is assumed to be normalized, v needn't be
-    float d = -2.0f * ((n[0] * v[0]) + (n[1] * v[1]) + (n[2] * v[2]));
+    float d = -2.0f * glm::dot(n, v);
 
     if (d >= 0.0f)
     {
         // normal reflection
-        v[0] += d * n[0];
-        v[1] += d * n[1];
-        v[2] += d * n[2];
+        v += d * n;
     }
     else
     {
         // refraction due to inverted normal (still using the 2X factor)
-        float oldSpeed = sqrtf((v[0] * v[0]) + (v[1] * v[1]) + (v[2] * v[2]));
+        float oldSpeed = glm::length(v);
         d = -2.0f * d; // now using 4X refraction factor
-        v[0] += d * n[0];
-        v[1] += d * n[1];
-        v[2] += d * n[2];
+        v += d * n;
         // keep the same speed as the incoming vector
-        float newSpeed = sqrtf((v[0] * v[0]) + (v[1] * v[1]) + (v[2] * v[2]));
+        float newSpeed = glm::length(v);
         const float scale = (oldSpeed / newSpeed);
-        v[0] *= scale;
-        v[1] *= scale;
-        v[2] *= scale;
+        v *= scale;
     }
 
     return;

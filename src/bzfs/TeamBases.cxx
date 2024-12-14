@@ -15,6 +15,8 @@
 
 // System headers
 #include <string.h>
+#include <glm/vec2.hpp>
+#include <glm/geometric.hpp>
 
 // Common headers
 #include "Protocol.h"
@@ -72,7 +74,7 @@ TeamBases::TeamBases(TeamColor team, bool initDefault)
     teamBase.size[2] = 0.0f;
 }
 
-void TeamBases::addBase(const float *position, const float *_size,
+void TeamBases::addBase(const glm::vec3 &position, const glm::vec3 &_size,
                         float rotation )
 {
     TeamBase base(position, _size, rotation);
@@ -89,7 +91,7 @@ TeamColor TeamBases::getTeam() const
     return color;
 }
 
-const float *TeamBases::getBasePosition( int base ) const
+const glm::vec3 &TeamBases::getBasePosition(int base) const
 {
     if ((base < 0) || (base >= (int)teamBases.size()))
         base = 0;
@@ -99,22 +101,20 @@ const float *TeamBases::getBasePosition( int base ) const
 
 float TeamBases::findBaseZ( float x, float y, float z ) const
 {
-    for (TeamBaseList::const_iterator it = teamBases.begin(); it != teamBases.end(); ++it)
+    for (auto &teamBase : teamBases)
     {
-        const float *pos  = it->position;
-        const float *_size = it->size;
-        float rotation = it->rotation;
-        float nx = x - pos[0];
-        float ny = y - pos[1];
-        float an = atan2f(ny, nx) - rotation;
-        float di = hypotf(nx, ny);
-        float rx = cosf(an) * di;
-        float ry = sinf(an) * di;
+        const auto &pos = teamBase.position;
+        if (pos[2] > z)
+            continue;
 
+        const auto &_size = teamBase.size;
+        float rotation    = teamBase.rotation;
+        const auto n      = glm::vec2(x, y) - glm::vec2(pos);
+        const float an    = atan2f(n.y, n.x) - rotation;
+        const float di    = glm::length(n);
+        const auto r      = glm::abs(glm::vec2(cosf(an), sinf(an))) * di;
 
-        if (fabsf(rx) < _size[0] &&
-                fabsf(ry) < _size[1] &&
-                pos[2] <= z)
+        if (r.x < _size[0] && r.y < _size[1])
             return pos[2];
     }
 
@@ -126,10 +126,10 @@ const TeamBase &TeamBases::getRandomBase( int id )
     return teamBases[id % teamBases.size()];
 }
 
-TeamBase::TeamBase(const float *pos, const float *siz, float rot)
+TeamBase::TeamBase(const glm::vec3 &pos, const glm::vec3 &siz, float rot)
 {
-    memcpy(&position, pos, sizeof position);
-    memcpy(&size, siz, sizeof size);
+    position = pos;
+    size     = siz;
     rotation = rot;
 }
 

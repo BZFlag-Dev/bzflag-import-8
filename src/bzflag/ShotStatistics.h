@@ -43,7 +43,7 @@ public:
     FlagType*   getBestFlag() const;
 
     // tally functions
-    void        recordFire(FlagType* flag, const float *pVec, const float *shotVec);
+    void        recordFire(FlagType* flag, const glm::vec3 &pVec, const glm::vec3 &shotVec);
     void        recordHit(FlagType* flag);
 
     double getLastShotTimeDelta ( void ) const

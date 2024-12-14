@@ -20,37 +20,31 @@
 // Inherits from
 #include "SceneNode.h"
 
+// System headers
+#include <glm/vec4.hpp>
+
 // Common headers
 #include "OpenGLLight.h"
 
 class BoltSceneNode : public SceneNode
 {
 public:
-    BoltSceneNode(const GLfloat pos[3], const GLfloat vel[3], bool super);
+    BoltSceneNode(const glm::vec3 &pos, const glm::vec3 &vel, bool super);
     ~BoltSceneNode();
 
     void        setFlares(bool);
     void        setSize(float radius);
     void        setColor(GLfloat r, GLfloat g, GLfloat b, GLfloat a = 1.0f);
     void        setTextureColor(GLfloat r, GLfloat g, GLfloat b, GLfloat a = 1.0f);
-    void        setColor(const GLfloat* rgb);
-    void        setTeamColor(const GLfloat* rgb);
+    void        setColor(const glm::vec3 &rgb);
+    void        setTeamColor(const glm::vec3 &rgb);
     void        setTexture(const int);
     void        setTextureAnimation(int cu, int cv);
 
     bool        getColorblind() const;
     void        setColorblind(bool);
 
-    bool        getInvisible() const
-    {
-        return invisible;
-    }
-    void        setInvisible(bool _invisible)
-    {
-        invisible = _invisible;
-    }
-
-    void move(const GLfloat pos[3], const GLfloat forward[3]);
+    void move(const glm::vec3 &pos, const glm::vec3 &forward);
     void        addLight(SceneRenderer&) override;
 
     void        notifyStyleChange() override;
@@ -64,10 +58,10 @@ protected:
     public:
         BoltRenderNode(const BoltSceneNode*);
         ~BoltRenderNode();
-        void        setColor(const GLfloat* rgba);
-        void        setTextureColor(const GLfloat* rgba);
+        void        setColor(const glm::vec4 &rgba);
+        void        setTextureColor(const glm::vec4 &rgba);
         void        render() override;
-        const GLfloat* getPosition() const override;
+        const glm::vec3 &getPosition() const override;
         void        setAnimation(int cu, int cv);
 
         void        renderGeoBolt();
@@ -78,19 +72,18 @@ protected:
         const BoltSceneNode* sceneNode;
         int     u, v, cu, cv;
         GLfloat     du, dv;
-        GLfloat     mainColor[4];
-        GLfloat     innerColor[4];
-        GLfloat     outerColor[4];
-        GLfloat     coronaColor[4];
-        GLfloat     flareColor[4];
-        GLfloat     textureColor[4];
+        glm::vec4   mainColor;
+        glm::vec4   innerColor;
+        glm::vec4   outerColor;
+        glm::vec4   coronaColor;
+        glm::vec4   flareColor;
+        glm::vec4   textureColor;
         int     numFlares;
         float       theta[6];
         float       phi[6];
 
-        static GLfloat  core[9][2];
-        static GLfloat  corona[8][2];
-        static const GLfloat ring[8][2];
+        static glm::vec2 core[9];
+        static const glm::vec2 corona[8];
         static const GLfloat CoreFraction;
         static const GLfloat FlareSize;
         static const GLfloat FlareSpread;
@@ -103,9 +96,9 @@ private:
     bool        texturing;
     bool        colorblind;
     float       size;
-    float       velocity[3];
-    GLfloat     color[4];
-    fvec4       teamColor;
+    glm::vec4   color;
+    glm::vec4   teamColor;
+    glm::vec3       velocity;
     OpenGLLight     light;
     OpenGLGState    gstate;
     OpenGLGState    colorblindGState;

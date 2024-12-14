@@ -24,8 +24,9 @@
 class EighthDBaseSceneNode : public EighthDimSceneNode
 {
 public:
-    EighthDBaseSceneNode(const float pos[3],
-                         const float size[3], float rotation);
+    EighthDBaseSceneNode(const glm::vec3 &pos,
+                         const glm::vec3 &size,
+                         float rotation);
     ~EighthDBaseSceneNode();
     void        notifyStyleChange() override;
     void        addRenderNodes(SceneRenderer&) override;
@@ -34,14 +35,14 @@ protected:
     {
     public:
         EighthDBaseRenderNode(const EighthDBaseSceneNode *,
-                              const float pos[3],
-                              const float size[3], float rotation);
+                              const glm::vec3 &pos,
+                              const glm::vec3 &size, float rotation);
         ~EighthDBaseRenderNode();
         void        render() override;
-        const GLfloat* getPosition() const override;
+        const glm::vec3 &getPosition() const override;
     private:
         const EighthDBaseSceneNode *sceneNode;
-        GLfloat corner[8][3];
+        glm::vec3 corner[8];
     };
 private:
     OpenGLGState      gstate;

@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <math.h>
+#include <glm/vec3.hpp>
 
 // common headers
 #include "global.h"
@@ -423,6 +424,14 @@ static std::string strPlayer (u16 id)
 }
 
 
+static std::string strVector (const glm::vec3 &vector)
+{
+    std::string str = TextUtils::format ("(%8.3f, %8.3f, %8.3f)",
+                                         vector[0], vector[1], vector[2]);
+    return str;
+}
+
+
 static std::string strVector (const float *vector)
 {
     std::string str = TextUtils::format ("(%8.3f, %8.3f, %8.3f)",
@@ -661,8 +670,8 @@ static MsgStringList handleMsgGMUpdate (PacketInfo *pi)
     listPush (list, 1, "target:   %s", strPlayer(target).c_str());
     listPush (list, 2, "id:       %i", shot.id);
     listPush (list, 2, "team:     %s", strTeam(shot.team).c_str());
-    listPush (list, 2, "pos:      %s", strVector((float*)shot.pos).c_str());
-    listPush (list, 2, "vel:      %s", strVector((float*)shot.vel).c_str());
+    listPush (list, 2, "pos:      %s", strVector(shot.pos).c_str());
+    listPush (list, 2, "vel:      %s", strVector(shot.vel).c_str());
 
     return list;
 }

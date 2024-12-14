@@ -30,13 +30,13 @@ FiringInfo::FiringInfo(const BaseLocalPlayer& tank, int id)
 {
     shot.player = tank.getId();
     shot.id = uint16_t(id);
-    tank.getMuzzle(shot.pos);
-    const float* dir = tank.getForward();
-    const float* tankVel = tank.getVelocity();
+    shot.pos = tank.getMuzzle();
+    const auto &dir = tank.getForward();
+    const auto &tankVel = tank.getVelocity();
     float shotSpeed = BZDB.eval(StateDatabase::BZDB_SHOTSPEED);
-    shot.vel[0] = tankVel[0] + shotSpeed * dir[0];
-    shot.vel[1] = tankVel[1] + shotSpeed * dir[1];
-    shot.vel[2] = tankVel[2] + shotSpeed * dir[2];
+    shot.vel = tankVel;
+    shot.vel[0] += shotSpeed * dir[0];
+    shot.vel[1] += shotSpeed * dir[1];
     shot.dt = 0.0f;
 
     flagType = tank.getFlag();
@@ -97,7 +97,7 @@ ShotPath::~ShotPath()
 }
 
 float           ShotPath::checkHit(const BaseLocalPlayer* player,
-                                   float position[3]) const
+                                   glm::vec3 &position) const
 {
     return strategy->checkHit(player, position);
 }
@@ -136,18 +136,14 @@ void            ShotPath::setReloadTime(float _reloadTime)
     reloadTime = _reloadTime;
 }
 
-void            ShotPath::setPosition(const float* p)
+void            ShotPath::setPosition(const glm::vec3 &p)
 {
-    firingInfo.shot.pos[0] = p[0];
-    firingInfo.shot.pos[1] = p[1];
-    firingInfo.shot.pos[2] = p[2];
+    firingInfo.shot.pos = p;
 }
 
-void            ShotPath::setVelocity(const float* v)
+void            ShotPath::setVelocity(const glm::vec3 &v)
 {
-    firingInfo.shot.vel[0] = v[0];
-    firingInfo.shot.vel[1] = v[1];
-    firingInfo.shot.vel[2] = v[2];
+    firingInfo.shot.vel = v;
 }
 
 void            ShotPath::setExpiring()

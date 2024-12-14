@@ -23,28 +23,28 @@
 class TriWallSceneNode : public WallSceneNode
 {
 public:
-    TriWallSceneNode(const GLfloat base[3],
-                     const GLfloat sEdge[3],
-                     const GLfloat tEdge[3],
+    TriWallSceneNode(const glm::vec3 &base,
+                     const glm::vec3 &sEdge,
+                     const glm::vec3 &tEdge,
                      float uRepeats = 1.0,
                      float vRepeats = 1.0,
                      bool makeLODs = true);
     ~TriWallSceneNode();
 
-    int         split(const float*, SceneNode*&, SceneNode*&) const;
+    int         split(const glm::vec4 &, SceneNode*&, SceneNode*&) const override;
 
-    void        addRenderNodes(SceneRenderer&);
-    void        addShadowNodes(SceneRenderer&);
-    void        renderRadar();
+    void        addRenderNodes(SceneRenderer&) override;
+    void        addShadowNodes(SceneRenderer&) override;
+    void        renderRadar() override;
 
-    bool        inAxisBox (const Extents& exts) const;
+    bool        inAxisBox (const Extents& exts) const override;
 
-    int         getVertexCount () const;
-    const       GLfloat* getVertex (int vertex) const;
+    int         getVertexCount () const override;
+    const       glm::vec3 &getVertex (int vertex) const override;
 
-    bool        cull(const ViewFrustum&) const;
+    bool        cull(const ViewFrustum&) const override;
 
-    void        getRenderNodes(std::vector<RenderSet>& rnodes);
+    void        getRenderNodes(std::vector<RenderSet>& rnodes) override;
 
 protected:
     class Geometry : public RenderNode
@@ -52,10 +52,10 @@ protected:
     public:
         Geometry(TriWallSceneNode*,
                  int eCount,
-                 const GLfloat base[3],
-                 const GLfloat uEdge[3],
-                 const GLfloat vEdge[3],
-                 const GLfloat* normal,
+                 const glm::vec3 &base,
+                 const glm::vec3 &uEdge,
+                 const glm::vec3 &vEdge,
+                 const glm::vec4 &plane,
                  float uRepeats, float vRepeats);
         ~Geometry();
         void        setStyle(int _style)
@@ -64,8 +64,8 @@ protected:
         }
         void        render() override;
         void        renderShadow() override;
-        const GLfloat*  getVertex(int i) const;
-        const GLfloat* getPosition() const override;
+        const glm::vec3 &getVertex(int i) const;
+        const glm::vec3 &getPosition() const override;
     private:
         void        drawV() const;
         void        drawVT() const;
@@ -73,10 +73,10 @@ protected:
         WallSceneNode*  wall;
         int     style;
         int     de;
-        const GLfloat*  normal;
+        const glm::vec4 &plane;
     public:
-        GLfloat3Array   vertex;
-        GLfloat2Array   uv;
+        std::vector<glm::vec3> vertex;
+        std::vector<glm::vec2> uv;
         int      triangles;
     };
 

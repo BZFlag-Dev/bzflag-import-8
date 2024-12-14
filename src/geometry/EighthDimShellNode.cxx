@@ -123,7 +123,7 @@ EighthDimShellNode::ShellRenderNode::~ShellRenderNode()
     return;
 }
 
-const GLfloat* EighthDimShellNode::ShellRenderNode::getPosition() const
+const glm::vec3 &EighthDimShellNode::ShellRenderNode::getPosition() const
 {
     return renderNode->getPosition();
 }

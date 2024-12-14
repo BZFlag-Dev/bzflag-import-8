@@ -15,6 +15,9 @@
 
 #include "common.h"
 
+// System headers
+#include <glm/vec3.hpp>
+
 /* common interface headers */
 #include "global.h"  /* for TeamColor */
 
@@ -32,7 +35,7 @@ public:
     SpawnPolicy();
     virtual ~SpawnPolicy();
 
-    virtual void getPosition(float pos[3], int playerId, bool onGroundOnly, bool notNearEdges);
+    virtual void getPosition(glm::vec3 &pos, int playerId, bool onGroundOnly, bool notNearEdges);
     virtual void getAzimuth(float &azimuth);
 
 protected:
@@ -40,12 +43,12 @@ protected:
 
 private:
     float enemyProximityCheck(float &enemyAngle) const;
-    float distanceFrom(const float *farPos) const;
-    bool  isFacing(const float *enemyPos, const float enemyAzimuth, const float deviation) const;
+    float distanceFrom(const glm::vec3 &farPos) const;
+    bool  isFacing(const glm::vec3 &enemyPos, const float enemyAzimuth, const float deviation) const;
 
     /* temp, internal use */
     TeamColor   team;
-    float       testPos[3];
+    glm::vec3   testPos;
 
     float safeSWRadius;
     float safeSRRadius;

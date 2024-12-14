@@ -84,7 +84,7 @@ static bool isFlagUseful(FlagType *type)
 static ShotPath *findWorstBullet(float &minDistance)
 {
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    const float *pos = myTank->getPosition();
+    const auto &pos = myTank->getPosition();
     ShotPath *minPath = NULL;
 
     minDistance = Infinity;
@@ -109,7 +109,7 @@ static ShotPath *findWorstBullet(float &minDistance)
                     (myTank->getFlag() == Flags::Cloaking))
                 continue; //cloaked tanks can't die from lasers
 
-            const float* shotPos = shot->getPosition();
+            const auto shotPos = shot->getPosition();
             if ((fabs(shotPos[2] - pos[2]) > BZDBCache::tankHeight) &&
                     (shot->getFlag() != Flags::GuidedMissile))
                 continue;
@@ -117,7 +117,7 @@ static ShotPath *findWorstBullet(float &minDistance)
             const float dist = TargetingUtils::getTargetDistance(pos, shotPos);
             if (dist < minDistance)
             {
-                const float *shotVel = shot->getVelocity();
+                const auto shotVel = shot->getVelocity();
                 float shotAngle = atan2f(shotVel[1], shotVel[0]);
                 float shotUnitVec[2] = {cosf(shotAngle), sinf(shotAngle)};
 
@@ -145,14 +145,14 @@ static ShotPath *findWorstBullet(float &minDistance)
         if (shot->getFlag() == Flags::Laser && myTank->getFlag() == Flags::Cloaking)
             continue; //cloaked tanks can't die from lasers
 
-        const float* shotPos = shot->getPosition();
+        const auto shotPos = shot->getPosition();
         if ((fabs(shotPos[2] - pos[2]) > BZDBCache::tankHeight) && (shot->getFlag() != Flags::GuidedMissile))
             continue;
 
         const float dist = TargetingUtils::getTargetDistance( pos, shotPos );
         if (dist < minDistance)
         {
-            const float *shotVel = shot->getVelocity();
+            const auto shotVel = shot->getVelocity();
             float shotAngle = atan2f(shotVel[1], shotVel[0]);
             float shotUnitVec[2] = {cosf(shotAngle), sinf(shotAngle)};
 
@@ -174,9 +174,8 @@ static ShotPath *findWorstBullet(float &minDistance)
 static bool avoidDeathFall(float & UNUSED(rotation), float &speed)
 {
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    float pos1[3], pos2[3];
-    memcpy(pos1, myTank->getPosition(), sizeof(pos1));
-    memcpy(pos2, pos1, sizeof(pos1));
+    auto pos1 = myTank->getPosition();
+    auto pos2 = pos1;
     pos1[2] += 10.0f * BZDBCache::tankHeight;
     float azimuth = myTank->getAngle();
     if (speed < 0.0f)
@@ -188,7 +187,7 @@ static bool avoidDeathFall(float & UNUSED(rotation), float &speed)
     pos2[1] += 8.0f * BZDBCache::tankHeight * sinf(azimuth);
     pos2[2] += 0.01f;
 
-    float collisionPt[3];
+    glm::vec3 collisionPt;
     if (TargetingUtils::getFirstCollisionPoint( pos1, pos2, collisionPt ))
     {
         if (collisionPt[2] < 0.0f)
@@ -208,7 +207,7 @@ static bool avoidDeathFall(float & UNUSED(rotation), float &speed)
 static bool avoidBullet(float &rotation, float &speed)
 {
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    const float *pos = myTank->getPosition();
+    const auto &pos = myTank->getPosition();
 
     if ((myTank->getFlag() == Flags::Narrow) || (myTank->getFlag() == Flags::Burrow))
         return false; // take our chances
@@ -219,8 +218,8 @@ static bool avoidBullet(float &rotation, float &speed)
     if ((shot == NULL) || (minDistance > 100.0f))
         return false;
 
-    const float *shotPos = shot->getPosition();
-    const float *shotVel = shot->getVelocity();
+    const auto &shotPos = shot->getPosition();
+    const auto  shotVel = shot->getVelocity();
     float shotAngle = atan2f(shotVel[1],shotVel[0]);
     float shotUnitVec[2] = {cosf(shotAngle), sinf(shotAngle)};
 
@@ -290,7 +289,7 @@ static bool stuckOnWall(float &rotation, float &speed)
     }
 
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    const float *pos = myTank->getPosition();
+    const auto &pos = myTank->getPosition();
     float myAzimuth = myTank->getAngle();
 
     const bool phased = (myTank->getFlag() == Flags::OscillationOverthruster)
@@ -326,7 +325,7 @@ static RemotePlayer *findBestTarget()
 {
     RemotePlayer *target = NULL;
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    const float *pos = myTank->getPosition();
+    const auto &pos = myTank->getPosition();
     float myAzimuth = myTank->getAngle();
     float distance = Infinity;
 
@@ -385,7 +384,7 @@ static RemotePlayer *findBestTarget()
 static bool chasePlayer(float &rotation, float &speed)
 {
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    const float *pos = myTank->getPosition();
+    const auto &pos = myTank->getPosition();
 
     RemotePlayer *rPlayer = findBestTarget();
     if (rPlayer == NULL)
@@ -393,21 +392,12 @@ static bool chasePlayer(float &rotation, float &speed)
 
     myTank->setTarget(rPlayer);
 
-    const float *targetPos = rPlayer->getPosition();
+    const auto &targetPos = rPlayer->getPosition();
     float distance = TargetingUtils::getTargetDistance(pos, targetPos);
     if (distance > 250.0f)
         return false;
 
-    const float *tp = rPlayer->getPosition();
-    float enemyPos[3];
-    //toss in some lag adjustment/future prediction - 300 millis
-    memcpy(enemyPos,tp,sizeof(enemyPos));
-    const float *tv = rPlayer->getVelocity();
-    enemyPos[0] += 0.3f * tv[0];
-    enemyPos[1] += 0.3f * tv[1];
-    enemyPos[2] += 0.3f * tv[2];
-    if (enemyPos[2] < 0.0f) //Roger doesn't worry about burrow
-        enemyPos[2] = 0.0;
+    const auto &tp = rPlayer->getPosition();
 
     float myAzimuth = myTank->getAngle();
     float enemyAzimuth = TargetingUtils::getTargetAzimuth( pos, tp );
@@ -419,7 +409,7 @@ static bool chasePlayer(float &rotation, float &speed)
         const Obstacle *building = NULL;
         float d = distance - 5.0f; //Make sure building is REALLY in front of player (-5)
 
-        float dir[3] = {cosf(myAzimuth), sinf(myAzimuth), 0.0f};
+        const auto dir = glm::vec3(cosf(myAzimuth), sinf(myAzimuth), 0.0f);
         Ray tankRay(pos, dir);
 
         building = ShotStrategy::getFirstBuilding(tankRay, -0.5f, d);
@@ -497,9 +487,8 @@ static bool chasePlayer(float &rotation, float &speed)
 static bool lookForFlag(float &rotation, float &speed)
 {
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    float pos[3];
 
-    memcpy( pos, myTank->getPosition(), sizeof( pos ));
+    auto pos = myTank->getPosition();
     if (pos[2] < 0.0f)
         pos[2] = 0.0f;
     World *world = World::getWorld();
@@ -519,7 +508,7 @@ static bool lookForFlag(float &rotation, float &speed)
 
         if (world->getFlag(i).type->flagTeam != NoTeam)
             teamFlag = i;
-        const float* fpos = world->getFlag(i).position;
+        const auto &fpos = world->getFlag(i).position;
         if (fpos[2] == pos[2])
         {
             float dist = TargetingUtils::getTargetDistance(pos, fpos);
@@ -548,7 +537,7 @@ static bool lookForFlag(float &rotation, float &speed)
             }
         }
 
-        const float *fpos = world->getFlag(closestFlag).position;
+        const auto &fpos = world->getFlag(closestFlag).position;
         float myAzimuth = myTank->getAngle();
         float flagAzimuth = TargetingUtils::getTargetAzimuth(pos, fpos);
         rotation = TargetingUtils::getTargetRotation(myAzimuth, flagAzimuth);
@@ -572,9 +561,8 @@ static bool navigate(float &rotation, float &speed)
     }
 
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    float pos[3];
 
-    memcpy(pos, myTank->getPosition(), sizeof(pos));
+    auto pos = myTank->getPosition();
     if (pos[2] < 0.0f)
         pos[2] = 0.01f;
     float myAzimuth = myTank->getAngle();
@@ -599,25 +587,28 @@ static bool navigate(float &rotation, float &speed)
     if (myTank->getFlag()->flagTeam != NoTeam)
     {
         World *world = World::getWorld();
-        const float *temp = world->getBase(myTank->getTeam());
-        if (temp == NULL)
+        glm::vec3 basePos;
+        float rrotation;
+        float w, b, h;
+        const bool isThereABase = world->getBase(myTank->getTeam(), 0, basePos, rrotation, w, b, h);
+        const auto myPos = myTank->getPosition();
+        if (!isThereABase)
         {
-            serverLink->sendDropFlag(myTank->getPosition());
+            serverLink->sendDropFlag(myPos);
             handleFlagDropped(myTank);
         }
         else
         {
-            if ((((int) *(world->getBase(myTank->getTeam())) + 2
-                    >= (int) *(myTank->getPosition()))
-                    || (temp[0] == pos[0] && temp[1] == pos[1])) &&
+            if ((((int) basePos[0] + 2 >= (int) pos[0])
+                    || (basePos[0] == pos[0] && basePos[1] == pos[1])) &&
                     myTank->getFlag()->flagTeam == myTank->getTeam())
             {
-                serverLink->sendDropFlag(myTank->getPosition());
+                serverLink->sendDropFlag(myPos);
                 handleFlagDropped(myTank);
             }
             else
             {
-                float baseAzimuth = TargetingUtils::getTargetAzimuth(pos, temp);
+                float baseAzimuth = TargetingUtils::getTargetAzimuth(pos, basePos);
                 rotation = TargetingUtils::getTargetRotation(myAzimuth, baseAzimuth);
                 speed = (float)(M_PI/2.0 - fabs(rotation));
             }
@@ -638,14 +629,13 @@ static bool navigate(float &rotation, float &speed)
 static bool fireAtTank()
 {
     static TimeKeeper lastShot;
-    float pos[3];
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    memcpy(pos, myTank->getPosition(), sizeof(pos));
+    auto pos = myTank->getPosition();
     if (pos[2] < 0.0f)
         pos[2] = 0.01f;
     float myAzimuth = myTank->getAngle();
 
-    float dir[3] = {cosf(myAzimuth), sinf(myAzimuth), 0.0f};
+    const auto dir = glm::vec3(cosf(myAzimuth), sinf(myAzimuth), 0.0f);
     pos[2] += myTank->getMuzzleHeight();
     Ray tankRay(pos, dir);
     pos[2] -= myTank->getMuzzleHeight();
@@ -663,14 +653,11 @@ static bool fireAtTank()
                         !remotePlayers[t]->isNotResponding())
                 {
 
-                    const float *tp = remotePlayers[t]->getPosition();
-                    float enemyPos[3];
+                    const auto &tp = remotePlayers[t]->getPosition();
                     //toss in some lag adjustment/future prediction - 300 millis
-                    memcpy(enemyPos,tp,sizeof(enemyPos));
-                    const float *tv = remotePlayers[t]->getVelocity();
-                    enemyPos[0] += 0.3f * tv[0];
-                    enemyPos[1] += 0.3f * tv[1];
-                    enemyPos[2] += 0.3f * tv[2];
+                    auto enemyPos = tp;
+                    const auto &tv = remotePlayers[t]->getVelocity();
+                    enemyPos += 0.3f * tv;
                     if (enemyPos[2] < 0.0f)
                         enemyPos[2] = 0.0f;
                     float dist = TargetingUtils::getTargetDistance( pos, enemyPos );
@@ -716,14 +703,11 @@ static bool fireAtTank()
                             && (myTank->getFlag() != Flags::ShockWave))
                         continue;
 
-                    const float *tp = remotePlayers[t]->getPosition();
-                    float enemyPos[3];
+                    const auto &tp = remotePlayers[t]->getPosition();
                     //toss in some lag adjustment/future prediction - 300 millis
-                    memcpy(enemyPos,tp,sizeof(enemyPos));
-                    const float *tv = remotePlayers[t]->getVelocity();
-                    enemyPos[0] += 0.3f * tv[0];
-                    enemyPos[1] += 0.3f * tv[1];
-                    enemyPos[2] += 0.3f * tv[2];
+                    auto enemyPos = tp;
+                    const auto &tv = remotePlayers[t]->getVelocity();
+                    enemyPos += 0.3f * tv;
                     if (enemyPos[2] < 0.0f)
                         enemyPos[2] = 0.0f;
 

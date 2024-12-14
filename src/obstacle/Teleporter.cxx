@@ -10,11 +10,20 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "common.h"
+// Interface
+#include "Teleporter.h"
+
+// System headers
 #include <math.h>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/rotate_vector.hpp>
+
+// Common headers
 #include "global.h"
 #include "Pack.h"
-#include "Teleporter.h"
 #include "Intersect.h"
 #include "MeshTransform.h"
 
@@ -30,7 +39,7 @@ Teleporter::Teleporter()
 }
 
 
-Teleporter::Teleporter(const float* p, float a, float w,
+Teleporter::Teleporter(const glm::vec3 &p, float a, float w,
                        float b, float h, float _border, bool _horizontal,
                        bool drive, bool shoot, bool rico) :
     Obstacle(p, a, w, b, h, drive, shoot, rico),
@@ -51,10 +60,9 @@ Teleporter::~Teleporter()
 
 Obstacle* Teleporter::copyWithTransform(const MeshTransform& xform) const
 {
-    float newPos[3], newSize[3], newAngle;
-    memcpy(newPos, pos, sizeof(float[3]));
-    memcpy(newSize, origSize, sizeof(float[3]));
-    newAngle = angle;
+    auto newPos = pos;
+    auto newSize = origSize;
+    float newAngle = angle;
 
     MeshTransform::Tool tool(xform);
     bool flipped;
@@ -107,20 +115,20 @@ void Teleporter::makeLinks()
 
     // make the new pointers to floats,
     // the MeshFace will delete[] them
-    float **fvrts = new float*[4];
-    float **bvrts = new float*[4];
-    float **ftxcds = new float*[4];
-    float **btxcds = new float*[4];
+    auto fvrts = new glm::vec3*[4];
+    auto bvrts = new glm::vec3*[4];
+    auto ftxcds = new glm::vec2*[4];
+    auto btxcds = new glm::vec2*[4];
     for (i = 0; i < 4; i++)
     {
-        fvrts[i] = fvertices[i];
-        bvrts[i] = bvertices[i];
-        ftxcds[i] = texcoords[i];
-        btxcds[i] = texcoords[i];
+        fvrts[i] = &fvertices[i];
+        bvrts[i] = &bvertices[i];
+        ftxcds[i] = &texcoords[i];
+        btxcds[i] = &texcoords[i];
     }
 
     // get the basics
-    const float* p = getPosition();
+    const auto &p = getPosition();
     const float a = getRotation();
     const float w = getWidth();
     const float b = getBreadth();
@@ -155,18 +163,19 @@ void Teleporter::makeLinks()
 
         for (i = 0; i < 4 ; i++)
         {
-            bvrts[i][0] = p[0] + (wlen[0] + (blen[0] * params[i][0]));
-            bvrts[i][1] = p[1] + (wlen[1] + (blen[1] * params[i][0]));
-            bvrts[i][2] = p[2] + ((h - br) * params[i][1]);
+            bvrts[i]->x = p[0] + (wlen[0] + (blen[0] * params[i][0]));
+            bvrts[i]->y = p[1] + (wlen[1] + (blen[1] * params[i][0]));
+            bvrts[i]->z = p[2] + ((h - br) * params[i][1]);
         }
         backLink = new MeshFace(NULL, 4, bvrts, NULL, btxcds,
                                 NULL, -1, false, false, true, true, false);
 
         for (i = 0; i < 4 ; i++)
         {
-            fvrts[i][0] = p[0] - (wlen[0] + (blen[0] * params[i][0]));
-            fvrts[i][1] = p[1] - (wlen[1] + (blen[1] * params[i][0]));
-            fvrts[i][2] = p[2] + ((h - br) * params[i][1]);
+            *fvrts[i] = p;
+            fvrts[i]->x -= wlen[0] + (blen[0] * params[i][0]);
+            fvrts[i]->y -= wlen[1] + (blen[1] * params[i][0]);
+            fvrts[i]->z += (h - br) * params[i][1];
         }
         frontLink = new MeshFace(NULL, 4, fvrts, NULL, ftxcds,
                                  NULL, -1, false, false, true, true, false);
@@ -175,25 +184,26 @@ void Teleporter::makeLinks()
     {
         float xlen = w - br;
         float ylen = b - br;
-        bvrts[0][0] = p[0] + ((cos_val * xlen) - (sin_val * ylen));
-        bvrts[0][1] = p[1] + ((cos_val * ylen) + (sin_val * xlen));
-        bvrts[0][2] = p[2] + h - br;
-        bvrts[1][0] = p[0] + ((cos_val * xlen) - (sin_val * -ylen));
-        bvrts[1][1] = p[1] + ((cos_val * -ylen) + (sin_val * xlen));
-        bvrts[1][2] = p[2] + h - br;
-        bvrts[2][0] = p[0] + ((cos_val * -xlen) - (sin_val * -ylen));
-        bvrts[2][1] = p[1] + ((cos_val * -ylen) + (sin_val * -xlen));
-        bvrts[2][2] = p[2] + h - br;
-        bvrts[3][0] = p[0] + ((cos_val * -xlen) - (sin_val * ylen));
-        bvrts[3][1] = p[1] + ((cos_val * ylen) + (sin_val * -xlen));
-        bvrts[3][2] = p[2] + h - br;
+        for (i = 0; i < 4 ; i++)
+        {
+            *bvrts[i]    = p;
+            bvrts[i]->z += h - br;
+        }
+        bvrts[0]->x += (cos_val * xlen) - (sin_val * ylen);
+        bvrts[0]->y += (cos_val * ylen) + (sin_val * xlen);
+        bvrts[1]->x += (cos_val * xlen) - (sin_val * -ylen);
+        bvrts[1]->y += (cos_val * -ylen) + (sin_val * xlen);
+        bvrts[2]->x += (cos_val * -xlen) - (sin_val * -ylen);
+        bvrts[2]->y += (cos_val * -ylen) + (sin_val * -xlen);
+        bvrts[3]->x += (cos_val * -xlen) - (sin_val * ylen);
+        bvrts[3]->y += (cos_val * ylen) + (sin_val * -xlen);
         backLink = new MeshFace(NULL, 4, bvrts, NULL, btxcds,
                                 NULL, -1, false, false, true, true, false);
 
         for (i = 0; i < 4; i++)
         {
-            memcpy(fvrts[i], bvrts[3 - i], sizeof(float[3])); // reverse order
-            fvrts[i][2] = p[2] + h; // change the height
+            *fvrts[i] = *bvrts[3 - i]; // reverse order
+            fvrts[i]->z = p[2] + h; // change the height
         }
         frontLink = new MeshFace(NULL, 4, fvrts, NULL, ftxcds,
                                  NULL, -1, false, false, true, true, false);
@@ -231,23 +241,23 @@ float Teleporter::intersect(const Ray& r) const
 }
 
 
-void Teleporter::getNormal(const float* p1, float* n) const
+void Teleporter::getNormal(const glm::vec3 &p1, glm::vec3 &n) const
 {
     // get normal to closest border column (assume column is circular)
-    const float* p2 = getPosition();
+    const auto &p2 = getPosition();
     const float c = cosf(-getRotation());
     const float s = sinf(-getRotation());
     const float b = 0.5f * getBorder();
     const float d = getBreadth() - b;
     const float j = (c * (p1[1] - p2[1]) + s * (p1[0] - p2[0]) > 0.0f) ? d : -d;
-    float cc[2];
+    glm::vec2 cc;
     cc[0] = p2[0] + (s * j);
     cc[1] = p2[1] + (c * j);
     getNormalRect(p1, cc, getRotation(), b, b, n);
 }
 
 
-bool Teleporter::inCylinder(const float* p, float radius, float height) const
+bool Teleporter::inCylinder(const glm::vec3 &p, float radius, float height) const
 {
     return (p[2]+height) >= getPosition()[2] &&
            p[2] <= getPosition()[2] + getHeight() &&
@@ -256,7 +266,7 @@ bool Teleporter::inCylinder(const float* p, float radius, float height) const
 }
 
 
-bool Teleporter::inBox(const float* p, float a,
+bool Teleporter::inBox(const glm::vec3 &p, float a,
                        float dx, float dy, float dz) const
 {
     const float tankTop = p[2] + dz;
@@ -270,7 +280,7 @@ bool Teleporter::inBox(const float* p, float a,
         const float s = sinf(getRotation());
         const float d = getBreadth() - (0.5f * getBorder());
         const float r = 0.5f * getBorder();
-        float o[2];
+        glm::vec2 o;
         o[0] = getPosition()[0] - (s * d);
         o[1] = getPosition()[1] + (c * d);
         if (testRectRect(p, a, dx, dy, o, getRotation(), r, r))
@@ -293,27 +303,24 @@ bool Teleporter::inBox(const float* p, float a,
 }
 
 
-bool Teleporter::inMovingBox(const float* oldP, float UNUSED(oldAngle),
-                             const float* p, float a,
+bool Teleporter::inMovingBox(const glm::vec3 &oldP, float UNUSED(oldAngle),
+                             const glm::vec3 &p, float a,
                              float dx, float dy, float dz) const
 {
-    float minPos[3];
-    minPos[0] = p[0];
-    minPos[1] = p[1];
+    auto minPos = p;
     if (oldP[2] < p[2])
         minPos[2] = oldP[2];
-    else
-        minPos[2] = p[2];
     dz += fabsf(oldP[2] - p[2]);
     return inBox(minPos, a, dx, dy, dz);
 }
 
 
-bool Teleporter::isCrossing(const float* p, float a,
-                            float dx, float dy, float /* dz */, float* plane) const
+bool Teleporter::isCrossing(const glm::vec3 &p, float a,
+                            float dx, float dy, float,
+                            glm::vec4 *plane) const
 {
     // if not inside or contained then not crossing
-    const float* p2 = getPosition();
+    const auto &p2 = getPosition();
     if (!testRectRect(p, a, dx, dy,
                       p2, getRotation(), getWidth(), getBreadth() - getBorder()) ||
             p[2] < p2[2] || p[2] > p2[2] + getHeight() - getBorder())
@@ -328,14 +335,14 @@ bool Teleporter::isCrossing(const float* p, float a,
     const float s = sinf(-a2);
     const float x = c * (p[0] - p2[0]) - s * (p[1] - p2[1]);
     float pw[2];
-    plane[0] = ((x < 0.0f) ? -cosf(a2) : cosf(a2));
-    plane[1] = ((x < 0.0f) ? -sinf(a2) : sinf(a2));
-    pw[0] = p2[0] + getWidth() * plane[0];
-    pw[1] = p2[1] + getWidth() * plane[1];
+    plane->x = ((x < 0.0f) ? -cosf(a2) : cosf(a2));
+    plane->y = ((x < 0.0f) ? -sinf(a2) : sinf(a2));
+    pw[0] = p2[0] + getWidth() * plane->x;
+    pw[1] = p2[1] + getWidth() * plane->y;
 
     // now finish off plane equation
-    plane[2] = 0.0f;
-    plane[3] = -(plane[0] * pw[0] + plane[1] * pw[1]);
+    plane->z = 0.0f;
+    plane->w = -(plane->x * pw[0] + plane->y * pw[1]);
     return true;
 }
 
@@ -355,7 +362,7 @@ float Teleporter::isTeleported(const Ray& r, int& face) const
         return -1.0f;
 
     // get teleport position.  if above or below teleporter then no teleportation.
-    float p[3];
+    glm::vec3 p;
     r.getPoint(t, p);
     p[2] -= getPosition()[2];
     if (p[2] < 0.0f || p[2] > getHeight() - getBorder())
@@ -370,7 +377,7 @@ float Teleporter::isTeleported(const Ray& r, int& face) const
 }
 
 
-float Teleporter::getProximity(const float* p, float radius) const
+float Teleporter::getProximity(const glm::vec3 &p, float radius) const
 {
     // make sure tank is sufficiently close
     if (!testRectCircle(getPosition(), getRotation(),
@@ -419,10 +426,10 @@ float Teleporter::getProximity(const float* p, float radius) const
 }
 
 
-bool Teleporter::hasCrossed(const float* p1, const float* p2, int& f) const
+bool Teleporter::hasCrossed(const glm::vec3 &p1, const glm::vec3 &p2, int& f) const
 {
     // check above/below teleporter
-    const float* p = getPosition();
+    const auto &p = getPosition();
     if ((p1[2] < p[2] && p2[2] < p[2]) ||
             (p1[2] > p[2] + getHeight() - getBorder() &&
              p2[2] > p[2] + getHeight() - getBorder()))
@@ -442,30 +449,29 @@ bool Teleporter::hasCrossed(const float* p1, const float* p2, int& f) const
 
 
 void Teleporter::getPointWRT(const Teleporter& t2, int face1, int face2,
-                             const float* pIn, const float* dIn, float aIn,
-                             float* pOut, float* dOut, float* aOut) const
+                             glm::vec3 &p, glm::vec3 *d, float *a) const
 {
     // transforming pIn to pOut, going from tele1(this) to tele2
     const Teleporter& tele1 = *this;
     const Teleporter& tele2 = t2;
 
-    const float* p1 = tele1.getPosition();
-    const float* p2 = tele2.getPosition();
-    const float* s1 = tele1.getSize();
-    const float* s2 = tele2.getSize();
+    const auto &p1 = tele1.getPosition();
+    const auto &p2 = tele2.getPosition();
+    const auto &s1 = tele1.getSize();
+    const auto &s2 = tele2.getSize();
 
-    const fvec3  pos1 (p1[0], p1[1], p1[2]);
-    const fvec3 size1 (s1[0], s1[1], s1[2]);
-    const fvec3  pos2 (p2[0], p2[1], p2[2]);
-    const fvec3 size2 (s2[0], s2[1], s2[2]);
+    const auto pos1  = p1;
+    const auto size1 = s1;
+    const auto pos2  = p2;
+    const auto size2 = s2;
 
     const float bord1 = tele1.getBorder();
     const float bord2 = tele2.getBorder();
 
     // y & z axis scaling factors  (relative active areas)
-    const fvec2 dims1(size1.y - bord1, size1.z - bord1);
-    const fvec2 dims2(size2.y - bord2, size2.z - bord2);
-    const fvec2 dimsScale = (dims2 / dims1);
+    const auto dims1 = glm::vec2(size1.y - bord1, size1.z - bord1);
+    const auto dims2 = glm::vec2(size2.y - bord2, size2.z - bord2);
+    const auto dimsScale = (dims2 / dims1);
 
     // adjust the angles for the faces
     // NOTE: if (face1 == face2), there's an extra 180 degrees spin
@@ -473,12 +479,9 @@ void Teleporter::getPointWRT(const Teleporter& t2, int face1, int face2,
     const float radians1 = tele1.getRotation() + ((face1 == 0) ? 0.0f : pi);
     const float radians2 = tele2.getRotation() + ((face2 == 1) ? 0.0f : pi);
 
-    // intermediate output position
-    fvec3 p(pIn[0], pIn[1], pIn[2]);
-
     // translate to origin, and revert rotation
     p -= pos1;
-    p = p.rotateZ(-radians1);
+    p = glm::rotateZ(p, -radians1);
 
     // fixed x offset, and scale y & z coordinates
     p.x = -size2.x;
@@ -486,35 +489,29 @@ void Teleporter::getPointWRT(const Teleporter& t2, int face1, int face2,
     p.z *= dimsScale.y;
 
     // apply rotation, translate to new position
-    p = p.rotateZ(+radians2);
+    p = glm::rotateZ(p, +radians2);
     p += pos2;
 
-    // final output position
-    pOut[0] = p.x;
-    pOut[1] = p.y;
-    pOut[2] = p.z;
-
     // fill in output angle and direction variables, if requested
-    const float a = radians2 - radians1;
-    if (aOut)
-        *aOut = aIn + a;
-    if (dOut && dIn)
+    const float a_ = radians2 - radians1;
+    if (a)
+        *a += a_;
+    if (d)
     {
-        const float c = cosf(a);
-        const float s = sinf(a);
-        const float dx = dIn[0];
-        const float dy = dIn[1];
-        dOut[0] = (c * dx) - (s * dy);
-        dOut[1] = (c * dy) + (s * dx);
-        dOut[2] = dIn[2];
+        const float c = cosf(a_);
+        const float s = sinf(a_);
+        const float dx = d->x;
+        const float dy = d->y;
+        d->x = c * dx - s * dy;
+        d->y = s * dx + c * dy;
     }
 }
 
 
-bool Teleporter::getHitNormal(const float* pos1, float azimuth1,
-                              const float* pos2, float azimuth2,
+bool Teleporter::getHitNormal(const glm::vec3 &pos1, float azimuth1,
+                              const glm::vec3 &pos2, float azimuth2,
                               float width, float breadth, float,
-                              float* normal) const
+                              glm::vec3 &normal) const
 {
     return Obstacle::getHitNormal(pos1, azimuth1,
                                   pos2, azimuth2, width, breadth,
@@ -591,7 +588,7 @@ void Teleporter::print(std::ostream& out, const std::string& indent) const
     if (name.size() > 0)
         out << " " << name;
     out << std::endl;
-    const float *_pos = getPosition();
+    const auto &_pos = getPosition();
     out << indent << "  position " << _pos[0] << " " << _pos[1] << " "
         << _pos[2] << std::endl;
     out << indent << "  size " << origSize[0] << " " << origSize[1] << " "
@@ -619,7 +616,7 @@ static void outputFloat(std::ostream& out, float value)
 void Teleporter::printOBJ(std::ostream& out, const std::string& UNUSED(indent)) const
 {
     int i;
-    float verts[8][3] =
+    glm::vec3 verts[8] =
     {
         {-1.0f, -1.0f, 0.0f},
         {+1.0f, -1.0f, 0.0f},
@@ -630,7 +627,7 @@ void Teleporter::printOBJ(std::ostream& out, const std::string& UNUSED(indent)) 
         {+1.0f, +1.0f, 1.0f},
         {-1.0f, +1.0f, 1.0f}
     };
-    float norms[6][3] =
+    glm::vec3 norms[6] =
     {
         {0.0f, -1.0f, 0.0f}, {+1.0f, 0.0f, 0.0f},
         {0.0f, +1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f},
@@ -642,7 +639,7 @@ void Teleporter::printOBJ(std::ostream& out, const std::string& UNUSED(indent)) 
     };
     MeshTransform xform;
     const float degrees = getRotation() * (float)(180.0 / M_PI);
-    const float zAxis[3] = {0.0f, 0.0f, +1.0f};
+    const auto zAxis = glm::vec3(0.0f, 0.0f, +1.0f);
     xform.addScale(getSize());
     xform.addSpin(degrees, zAxis);
     xform.addShift(getPosition());

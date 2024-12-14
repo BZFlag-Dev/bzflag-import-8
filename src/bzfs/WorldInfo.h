@@ -76,7 +76,7 @@ public:
     void addLink(const std::string& from, const std::string& to);
 
     void addZone(const CustomZone *zone);
-    void addWeapon(const FlagType *type, const float *origin,
+    void addWeapon(const FlagType *type, const glm::vec3 &origin,
                    float direction, float tilt, TeamColor teamColor,
                    float initdelay, const std::vector<float> &delay, TimeKeeper &sync);
     void addWaterLevel (float level, const BzMaterial* matref);
@@ -90,15 +90,15 @@ public:
     void addTeleporter(float x, float y, float z, float r,
                        float w, float d, float h, float b,
                        bool horizontal, bool drive = false, bool shoot = false, bool rico = false);
-    void addBase(const float pos[3], float r, const float size[3],
+    void addBase(const glm::vec3 &pos, float r, const glm::vec3 &size,
                  int color, bool drive = false, bool shoot = false, bool rico = false);
 
     float getWaterLevel() const;
     float getMaxWorldHeight() const;
 
-    bool getFlagDropPoint(const FlagInfo* fi, const float* pos, float* pt) const;
-    bool getFlagSpawnPoint(const FlagInfo* fi, float* pt) const;
-    bool getPlayerSpawnPoint(const PlayerInfo* pi, float* pt) const;
+    bool getFlagDropPoint(const FlagInfo* fi, const glm::vec3 &pos, glm::vec3 &pt) const;
+    bool getFlagSpawnPoint(const FlagInfo* fi, glm::vec3 &pt) const;
+    bool getPlayerSpawnPoint(const PlayerInfo* pi, glm::vec3 &pt) const;
 
     void *getDatabase() const;
     int getDatabaseSize() const;
@@ -151,7 +151,7 @@ public:
      * Checking is quite raw
      */
     InBuildingType cylinderInBuilding(const Obstacle **obstacle,
-                                      const float* pos,
+                                      const glm::vec3 &pos,
                                       float radius, float height = 0.0f) const;
 
     /** check collision between world object and a Z-axis aligned box.
@@ -159,7 +159,7 @@ public:
      * location will return a pointer to the world colliding object
      */
     InBuildingType boxInBuilding(const Obstacle **obstacle,
-                                 const float* pos, float angle,
+                                 const glm::vec3 &pos, float angle,
                                  float width, float breadth, float height) const;
 
 

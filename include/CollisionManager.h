@@ -59,7 +59,7 @@ typedef struct
 
 // well you know my name is Simon, and I like to do drawings
 typedef void (*DrawLinesFunc)
-(int pointCount, float (*points)[3], int color);
+(int pointCount, const glm::vec3 points[], int color);
 
 
 class CollisionManager
@@ -83,14 +83,14 @@ public:
     const ObsList* axisBoxTest (const Extents& extents);
 
     // test against a cylinder
-    const ObsList* cylinderTest (const float *pos,
+    const ObsList* cylinderTest (const glm::vec3 &pos,
                                  float radius, float height) const;
     // test against a box
-    const ObsList* boxTest (const float* pos, float angle,
+    const ObsList* boxTest (const glm::vec3 &pos, float angle,
                             float dx, float dy, float dz) const;
     // test against a moving box
-    const ObsList* movingBoxTest (const float* oldPos, float oldAngle,
-                                  const float* pos, float angle,
+    const ObsList* movingBoxTest (const glm::vec3 &oldPos, float oldAngle,
+                                  const glm::vec3 &pos, float angle,
                                   float dx, float dy, float dz) const;
     // test against a Ray
     const ObsList* rayTest (const Ray* ray, float timeLeft) const;

@@ -74,7 +74,7 @@ bool CustomTetra::read(const char *cmd, std::istream& input)
         }
         else
         {
-            float* vertex = vertices[vertexCount];
+            auto &vertex = vertices[vertexCount];
             input >> vertex[0] >> vertex[1] >> vertex[2];
             vertexCount++;
         }

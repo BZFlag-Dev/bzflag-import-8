@@ -17,6 +17,7 @@
 #include "BundleMgr.h"
 #include "Bundle.h"
 #include "FontManager.h"
+#include "OpenGLAPI.h"
 
 // local implementation headers
 #include "HUDui.h"
@@ -156,7 +157,7 @@ void            HUDuiList::doRender()
     Bundle *bdl = BundleMgr::getCurrentBundle();
     if (index != -1 && getFontFace() >= 0)
     {
-        glColor3fv(hasFocus() ? textColor : dimTextColor);
+        glColor(hasFocus() ? textColor : dimTextColor);
         FontManager &fm = FontManager::instance();
         fm.drawString(getX(), getY(), 0, getFontFace(), getFontSize(), bdl->getLocalString(list[index]));
     }

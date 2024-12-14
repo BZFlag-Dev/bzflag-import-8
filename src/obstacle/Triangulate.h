@@ -18,6 +18,7 @@
 
 /* system interface headers */
 #include <vector>
+#include <glm/fwd.hpp>
 
 
 typedef struct
@@ -25,7 +26,7 @@ typedef struct
     int indices[3];
 } TriIndices;
 
-extern void triangulateFace(int count, const float* const* verts,
+extern void triangulateFace(int count, const glm::vec3 *const verts[],
                             std::vector<TriIndices>& tris);
 
 

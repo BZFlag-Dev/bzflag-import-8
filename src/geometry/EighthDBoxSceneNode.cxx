@@ -16,6 +16,9 @@
 // system headers
 #include <stdlib.h>
 #include <math.h>
+#include <glm/gtc/random.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 // common implementation header
 #include "StateDatabase.h"
@@ -25,8 +28,10 @@
 
 const int       BoxPolygons = 60;
 
-EighthDBoxSceneNode::EighthDBoxSceneNode(const float pos[3],
-        const float size[3], float rotation) :
+EighthDBoxSceneNode::EighthDBoxSceneNode(
+    const glm::vec3 &pos,
+    const glm::vec3 &size,
+    float rotation) :
     EighthDimSceneNode(BoxPolygons),
     renderNode(this, pos, size, rotation)
 {
@@ -35,33 +40,27 @@ EighthDBoxSceneNode::EighthDBoxSceneNode(const float pos[3],
     const float s = sinf(rotation);
 
     // compute polygons
-    const GLfloat polySize = size[0] / powf(float(BoxPolygons), 0.3333f);
+    const auto polySize = size[0] / powf(float(BoxPolygons), 0.3333f) / 2.0f;
+    const auto hig = size - polySize;
+    const auto low = glm::vec3(glm::vec2(hig), 0.0f);
+    const auto ave = glm::vec3(polySize);
+    const auto lCl = glm::vec3(-size.x, -size.y, 0.0f);
     for (int i = 0; i < BoxPolygons; i++)
     {
-        GLfloat base[3], vertex[3][3];
-        base[0] = (size[0] - 0.5f * polySize) * (2.0f * (float)bzfrand() - 1.0f);
-        base[1] = (size[1] - 0.5f * polySize) * (2.0f * (float)bzfrand() - 1.0f);
-        base[2] = (size[2] - 0.5f * polySize) * (float)bzfrand();
+        glm::vec3 vertex[3];
+        const auto base = glm::linearRand(-low, hig);
         for (int j = 0; j < 3; j++)
         {
             // pick point around origin
-            GLfloat p[3];
-            p[0] = base[0] + polySize * ((float)bzfrand() - 0.5f);
-            p[1] = base[1] + polySize * ((float)bzfrand() - 0.5f);
-            p[2] = base[2] + polySize * ((float)bzfrand() - 0.5f);
+            auto p = base + glm::linearRand(-ave, +ave);
 
             // make sure it's inside the box
-            if (p[0] < -size[0]) p[0] = -size[0];
-            else if (p[0] > size[0]) p[0] = size[0];
-            if (p[1] < -size[1]) p[1] = -size[1];
-            else if (p[1] > size[1]) p[1] = size[1];
-            if (p[2] < 0.0f) p[2] = 0.0f;
-            else if (p[2] > size[2]) p[2] = size[2];
+            p = glm::clamp(p, lCl, size);
 
             // rotate it
-            vertex[j][0] = pos[0] + c * p[0] - s * p[1];
-            vertex[j][1] = pos[1] + s * p[0] + c * p[1];
-            vertex[j][2] = pos[2] + p[2];
+            vertex[j] = pos + glm::vec3(c * p[0] - s * p[1],
+                                        s * p[0] + c * p[1],
+                                        p[2]);
         }
 
         setPolygon(i, vertex);
@@ -69,7 +68,7 @@ EighthDBoxSceneNode::EighthDBoxSceneNode(const float pos[3],
 
     // set sphere
     setCenter(pos);
-    setRadius(0.25f * (size[0]*size[0] + size[1]*size[1] + size[2]*size[2]));
+    setRadius(0.25f * glm::length2(size));
 }
 
 EighthDBoxSceneNode::~EighthDBoxSceneNode()
@@ -108,8 +107,9 @@ void            EighthDBoxSceneNode::addRenderNodes(
 
 EighthDBoxSceneNode::EighthDBoxRenderNode::EighthDBoxRenderNode(
     const EighthDBoxSceneNode* _sceneNode,
-    const float pos[3],
-    const float size[3], float rotation) :
+    const glm::vec3 &pos,
+    const glm::vec3 &size,
+    float rotation) :
     sceneNode(_sceneNode)
 {
     // get rotation stuff
@@ -134,7 +134,7 @@ EighthDBoxSceneNode::EighthDBoxRenderNode::~EighthDBoxRenderNode()
     // do nothing
 }
 
-const GLfloat* EighthDBoxSceneNode::EighthDBoxRenderNode::getPosition() const
+const glm::vec3 &EighthDBoxSceneNode::EighthDBoxRenderNode::getPosition() const
 {
     return sceneNode->getSphere();
 }

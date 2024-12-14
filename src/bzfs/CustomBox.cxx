@@ -19,6 +19,7 @@
 #include <math.h>
 #include <sstream>
 #include <vector>
+#include <glm/geometric.hpp>
 
 /* common implementation headers */
 #include "BoxBuilding.h"
@@ -280,21 +281,17 @@ bool CustomBox::read(const char *cmd, std::istream& input)
 static void getEdgeLengths(const MeshTransform& xform, float lengths[3])
 {
     MeshTransform::Tool xformTool(xform);
-    float vo[3] = {-1.0f, -1.0f, 0.0f};
-    float vx[3] = {+1.0f, -1.0f, 0.0f};
-    float vy[3] = {-1.0f, +1.0f, 0.0f};
-    float vz[3] = {-1.0f, -1.0f, 1.0f};
+    auto vo = glm::vec3(-1.0f, -1.0f, 0.0f);
+    auto vx = glm::vec3(+1.0f, -1.0f, 0.0f);
+    auto vy = glm::vec3(-1.0f, +1.0f, 0.0f);
+    auto vz = glm::vec3(-1.0f, -1.0f, 1.0f);
     xformTool.modifyVertex(vo);
     xformTool.modifyVertex(vx);
     xformTool.modifyVertex(vy);
     xformTool.modifyVertex(vz);
-    float dx[3], dy[3], dz[3];
-    vec3sub(dx, vx, vo);
-    vec3sub(dy, vy, vo);
-    vec3sub(dz, vz, vo);
-    lengths[0] = sqrtf(vec3dot(dx, dx));
-    lengths[1] = sqrtf(vec3dot(dy, dy));
-    lengths[2] = sqrtf(vec3dot(dz, dz));
+    lengths[0] = glm::distance(vx, vo);
+    lengths[1] = glm::distance(vy, vo);
+    lengths[2] = glm::distance(vz, vo);
     return;
 }
 
@@ -316,7 +313,7 @@ void CustomBox::writeToGroupDef(GroupDefinition *groupdef)
 
     // setup the transform
     MeshTransform xform;
-    const float zAxis[3] = {0.0f, 0.0f, 1.0f};
+    const auto zAxis = glm::vec3(0.0f, 0.0f, 1.0f);
     xform.addScale(size);
     xform.addSpin((float)(rotation * (180.0 / M_PI)), zAxis);
     xform.addShift(pos);
@@ -328,18 +325,18 @@ void CustomBox::writeToGroupDef(GroupDefinition *groupdef)
 
 
     std::vector<char> checkTypes;
-    std::vector<cfvec3> checkPoints;
-    std::vector<cfvec3> verts;
-    std::vector<cfvec3> norms;
-    std::vector<cfvec2> txcds;
+    std::vector<glm::vec3> checkPoints;
+    std::vector<glm::vec3> verts;
+    std::vector<glm::vec3> norms;
+    std::vector<glm::vec2> txcds;
 
     // add the checkpoint
     checkTypes.push_back(MeshObstacle::CheckInside);
-    const float middle[3] = { 0.0f, 0.0f, 0.5f };
+    const auto middle = glm::vec3(0.0f, 0.0f, 0.5f);
     checkPoints.push_back(middle);
 
     // add the vertex coordinates
-    const float vertsData[8][3] =
+    const glm::vec3 vertsData[8] =
     {
         {-1.0f, -1.0f, 0.0f}, {+1.0f, -1.0f, 0.0f},
         {+1.0f, +1.0f, 0.0f}, {-1.0f, +1.0f, 0.0f},
@@ -367,7 +364,7 @@ void CustomBox::writeToGroupDef(GroupDefinition *groupdef)
     {
         for (int corner = 0; corner < 4; corner++)
         {
-            float txcd[2];
+            glm::vec2 txcd;
             for (int a = 0; a < 2; a++)
             {
                 float scale;

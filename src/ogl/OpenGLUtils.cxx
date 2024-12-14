@@ -15,11 +15,10 @@
 
 // system headers
 #include <math.h>
+#include <glm/gtc/type_ptr.hpp>
 
 // common headers
-#include "bzfgl.h"
 #include "bzfio.h"
-#include "vectors.h"
 #include "BZDBCache.h"
 #include "BzMaterial.h"
 #include "DynamicColor.h"
@@ -30,14 +29,11 @@
 #include "TextureMatrix.h"
 
 
-#define INVALID_GL_ID 0xffffffff
-
-
 //============================================================================//
 //============================================================================//
 
 void bzMat2gstate(const BzMaterial* bzmat, OpenGLGState& gstate,
-                  fvec4& color, const fvec4*& colorPtr)
+                  glm::vec4 &color, const glm::vec4 *&colorPtr)
 {
     bzmat->setReference();
 
@@ -115,15 +111,16 @@ void bzMat2gstate(const BzMaterial* bzmat, OpenGLGState& gstate,
         // set it to white, this should only happen when
         // we've gotten a user texture, and there's a
         // request to not use the material's diffuse color.
-        color = fvec4(1.0f, 1.0f, 1.0f, 1.0f);
+        color = glm::vec4(1.0f);
     }
 
     // dynamic color
     const DynamicColor* dyncol = DYNCOLORMGR.getColor(bzmat->getDynamicColor());
     if (dyncol != NULL)
     {
-        const float* c = dyncol->getColor();
-        colorPtr = new fvec4(c[0],c[1],c[2],c[3]);
+        const auto c = dyncol->getColor();
+        // Do we free it ?
+        colorPtr = new glm::vec4(*c);
         colorAlpha = dyncol->canHaveAlpha(); // override
     }
     else

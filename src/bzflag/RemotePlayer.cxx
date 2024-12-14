@@ -37,8 +37,8 @@ RemotePlayer::~RemotePlayer()
 
 void            RemotePlayer::addShot(const FiringInfo& info)
 {
-    float newpos[3];
-    const float *f = getForward();
+    glm::vec3 newpos;
+    const auto &f = getForward();
     RemoteShotPath* newShot = new RemoteShotPath(info);
     int shotNum = int(newShot->getShotId() & 255);
 
@@ -48,11 +48,9 @@ void            RemotePlayer::addShot(const FiringInfo& info)
     shots[shotNum] = newShot;
     // Update tanks position and set dead reckoning for better lag handling
     // shot origin is center of tank for shockwave
+    newpos = info.shot.pos;
     if (info.flagType == Flags::ShockWave)
     {
-        newpos[0] = info.shot.pos[0];
-        newpos[1] = info.shot.pos[1];
-        newpos[2] = info.shot.pos[2];
     }
     // shot origin is muzzle for other shots
     else
@@ -61,9 +59,9 @@ void            RemotePlayer::addShot(const FiringInfo& info)
         if (info.flagType == Flags::Obesity) front *= BZDB.eval(StateDatabase::BZDB_OBESEFACTOR);
         else if (info.flagType == Flags::Tiny) front *= BZDB.eval(StateDatabase::BZDB_TINYFACTOR);
         else if (info.flagType == Flags::Thief) front *= BZDB.eval(StateDatabase::BZDB_THIEFTINYFACTOR);
-        newpos[0] = info.shot.pos[0] - (front * f[0]);
-        newpos[1] = info.shot.pos[1] - (front * f[1]);
-        newpos[2] = info.shot.pos[2] - BZDB.eval(StateDatabase::BZDB_MUZZLEHEIGHT);
+        newpos[0] -= front * f[0];
+        newpos[1] -= front * f[1];
+        newpos[2] -= BZDB.eval(StateDatabase::BZDB_MUZZLEHEIGHT);
     }
     shotStatistics.recordFire(info.flagType,f,info.shot.vel);
     // FIXME - with dynamic dimensions, this may not be a good idea
@@ -85,7 +83,7 @@ ShotPath*       RemotePlayer::getShot(int index) const
 }
 
 bool            RemotePlayer::doEndShot(
-    int ident, bool isHit, float* pos)
+    int ident, bool isHit, glm::vec3 &pos)
 {
     const int index = ident & 255;
     const int salt = (ident >> 8) & 127;
@@ -118,10 +116,8 @@ bool            RemotePlayer::doEndShot(
         return false;
 
     // end it
-    const float* shotPos = shots[index]->getPosition();
-    pos[0] = shotPos[0];
-    pos[1] = shotPos[1];
-    pos[2] = shotPos[2];
+    const auto &shotPos = shots[index]->getPosition();
+    pos = shotPos;
     shots[index]->setExpired();
     return true;
 }

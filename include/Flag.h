@@ -50,6 +50,7 @@
 #include <set>
 #include <map>
 #include <string>
+#include <glm/vec3.hpp>
 
 /* common interface headers */
 #include "global.h"
@@ -154,10 +155,10 @@ public:
     const std::string information() const;
 
     /** returns the color of the flag */
-    const float* getColor() const;
+    const glm::vec3 &getColor() const;
 
     /** returns the color of the flag as it should be shown on the radar */
-    const float* getRadarColor() const;
+    const glm::vec3 &getRadarColor() const;
 
     /** network serialization */
     void* pack(void* buf) const;
@@ -227,9 +228,9 @@ public:
     FlagStatus status;
     FlagEndurance endurance;
     PlayerId owner;       // who has flag
-    float position[3];        // position on ground
-    float launchPosition[3];  // position flag launched from
-    float landingPosition[3]; // position flag will land
+    glm::vec3 position;        // position on ground
+    glm::vec3 launchPosition;  // position flag launched from
+    glm::vec3 landingPosition; // position flag will land
     float flightTime;     // flight time so far
     float flightEnd;      // total duration of flight
     float initialVelocity;    // initial launch velocity

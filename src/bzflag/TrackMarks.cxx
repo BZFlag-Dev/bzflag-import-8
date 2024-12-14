@@ -60,7 +60,7 @@ protected:
     TrackEntry* next;
     TrackEntry* prev;
 public:
-    float pos[3];
+    glm::vec3 pos;
     float angle;
     float scale;
     char sides;
@@ -155,7 +155,7 @@ public:
     {
         return;
     }
-    const GLfloat* getPosition() const override
+    const glm::vec3 &getPosition() const override
     {
         return te->pos;
     }
@@ -322,7 +322,7 @@ static void addEntryToList(TrackList& list,
 }
 
 
-bool TrackMarks::addMark(const float pos[3], float scale, float angle,
+bool TrackMarks::addMark(const glm::vec3 &pos, float scale, float angle,
                          int phydrv)
 {
     TrackEntry te;
@@ -353,12 +353,11 @@ bool TrackMarks::addMark(const float pos[3], float scale, float angle,
     }
 
     // copy some parameters
-    te.pos[0] = pos[0];
-    te.pos[1] = pos[1];
+    te.pos = pos;
     if (pos[2] < 0.0f)
         te.pos[2] = TextureHeightOffset;
     else
-        te.pos[2] = pos[2] + TextureHeightOffset;
+        te.pos[2] += TextureHeightOffset;
     te.scale = scale;
     te.angle = (float)(angle * (180.0 / M_PI)); // in degress, for glRotatef()
 
@@ -428,8 +427,8 @@ bool TrackMarks::addMark(const float pos[3], float scale, float angle,
 
 static bool onBuilding(const float pos[3])
 {
-    const float dir[3] = {0.0f, 0.0f, -1.0f};
-    const float org[3] = {pos[0], pos[1], pos[2] + 0.1f};
+    const auto dir = glm::vec3(0.0f, 0.0f, -1.0f);
+    const auto org = glm::vec3(pos[0], pos[1], pos[2] + 0.1f);
     Ray ray(org, dir);
     const ObsList* olist = COLLISIONMGR.rayTest (&ray, 0.5f);
     for (int i = 0; i < olist->count; i++)

@@ -151,7 +151,7 @@ void *FlagInfo::pack(void *buf, bool hide)
     return buf;
 }
 
-void FlagInfo::dropFlag(float pos[3], float landingPos[3], bool vanish)
+void FlagInfo::dropFlag(const glm::vec3 &pos, glm::vec3 &landingPos, bool vanish)
 {
     numFlagsInAir++;
     flag.status        = vanish ? FlagGoing : FlagInAir;
@@ -185,7 +185,7 @@ void FlagInfo::dropFlag(float pos[3], float landingPos[3], bool vanish)
     flag.initialVelocity = -gravity * upTime;
 }
 
-void FlagInfo::resetFlag(float position[3], bool teamIsEmpty)
+void FlagInfo::resetFlag(const glm::vec3 &position, bool teamIsEmpty)
 {
     // reset a flag's info
     player      = -1;
@@ -193,9 +193,7 @@ void FlagInfo::resetFlag(float position[3], bool teamIsEmpty)
     if (flagIndex >= numFlags - numExtraFlags)
         flag.type = Flags::Null;
 
-    flag.position[0] = position[0];
-    flag.position[1] = position[1];
-    flag.position[2] = position[2];
+    flag.position = position;
 
     // required flags mustn't just disappear
     if (required)

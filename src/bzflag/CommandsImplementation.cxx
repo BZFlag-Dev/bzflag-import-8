@@ -686,7 +686,7 @@ bool RoamPosCommand::operator() (const char *commandLine)
             if ((myTank != NULL) && (myTank->getTeam() == ObserverTeam))
             {
                 const Roaming::RoamingCamera* camPtr = ROAM.getCamera();
-                float fakeVel[3] = { camPtr->theta, camPtr->phi, camPtr->zoom };
+                const auto fakeVel = glm::vec3(camPtr->theta, camPtr->phi, camPtr->zoom);
                 myTank->move(camPtr->pos, camPtr->theta);
                 myTank->setVelocity(fakeVel);
                 serverLink->sendPlayerUpdate(myTank);

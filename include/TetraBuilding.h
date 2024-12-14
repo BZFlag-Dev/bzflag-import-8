@@ -17,9 +17,13 @@
 #ifndef BZF_TETRA_BUILDING_H
 #define BZF_TETRA_BUILDING_H
 
-#include "common.h"
-#include <string>
+// Inherits from
 #include "Obstacle.h"
+
+// System headers
+#include <string>
+
+// Common headers
 #include "MeshObstacle.h"
 #include "MeshTransform.h"
 #include "BzMaterial.h"
@@ -30,50 +34,35 @@ public:
 
     TetraBuilding();
     TetraBuilding(const MeshTransform& transform,
-                  const float vertices[4][3], const float normals[4][3][3],
+                  const glm::vec3 vertices[4], const float normals[4][3][3],
                   const float texCoords[4][3][2], const bool useNormals[4],
                   const bool useTexCoords[4], const BzMaterial* materials[4],
                   bool drive = false, bool shoot = false, bool ricochet = false);
     ~TetraBuilding();
 
-    Obstacle* copyWithTransform(const MeshTransform&) const;
+    Obstacle* copyWithTransform(const MeshTransform&) const override;
 
     MeshObstacle* makeMesh();
 
     void        finalize();
 
-    const char*     getType() const;
+    const char*     getType() const override;
     static const char*  getClassName(); // const
-    bool        isValid() const;
+    bool        isValid() const override;
 
-    float       intersect(const Ray&) const;
-    void        getNormal(const float* p, float* n) const;
-    void        get3DNormal(const float* p, float* n) const;
+    float       intersect(const Ray&) const override;
+    void        getNormal(const glm::vec3 &p, glm::vec3 &n) const override;
+    void        get3DNormal(const glm::vec3 &p, glm::vec3 &n) const override;
 
-    bool        inCylinder(const float* p, float radius, float height) const;
-    bool        inBox(const float* p, float angle,
-                      float halfWidth, float halfBreadth, float height) const;
-    bool        inMovingBox(const float* oldP, float oldAngle,
-                            const float *newP, float newAngle,
-                            float halfWidth, float halfBreadth, float height) const;
-    bool        isCrossing(const float* p, float angle,
-                           float halfWidth, float halfBreadth, float height,
-                           float* plane) const;
-
-    bool        getHitNormal(
-        const float* pos1, float azimuth1,
-        const float* pos2, float azimuth2,
-        float halfWidth, float halfBreadth,
-        float height,
-        float* normal) const;
+    bool        inCylinder(const glm::vec3 &p, float radius, float height) const override;
 
     void        getCorner(int index, float* pos) const;
 
-    int packSize() const;
-    void *pack(void*) const;
-    const void *unpack(const void*);
+    int packSize() const override;
+    void *pack(void*) const override;
+    const void *unpack(const void*) override;
 
-    void print(std::ostream& out, const std::string& indent) const;
+    void print(std::ostream& out, const std::string& indent) const override;
 
 private:
     void checkVertexOrder();
@@ -82,7 +71,7 @@ private:
     static const char*  typeName;
 
     MeshTransform transform;
-    float vertices[4][3];
+    glm::vec3 vertices[4];
     float normals[4][3][3];
     float texcoords[4][3][2];
     bool useNormals[4];

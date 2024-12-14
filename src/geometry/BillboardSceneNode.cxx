@@ -16,11 +16,14 @@
 // system headers
 #include <stdlib.h>
 #include <math.h>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 // common implementation headers
 #include "BZDBCache.h"
 #include "TextureManager.h"
 #include "mathRoutine.h"
+#include "OpenGLAPI.h"
 
 // local implementation headers
 #include "ViewFrustum.h"
@@ -29,7 +32,7 @@
 // FIXME (SceneRenderer.cxx is in src/bzflag)
 #include "SceneRenderer.h"
 
-BillboardSceneNode::BillboardSceneNode(const GLfloat pos[3]) :
+BillboardSceneNode::BillboardSceneNode(const glm::vec3 &pos) :
     show(false),
     hasAlpha(false),
     hasTexture(false),
@@ -78,17 +81,12 @@ BillboardSceneNode* BillboardSceneNode::copy() const
     e->hasTextureAlpha = hasTextureAlpha;
     e->looping = looping;
     e->lightSource = lightSource;
-    e->lightColor[0] = lightColor[0];
-    e->lightColor[1] = lightColor[1];
-    e->lightColor[2] = lightColor[2];
+    e->lightColor = lightColor;
     e->lightScale = lightScale;
     e->lightCutoffTime = lightCutoffTime;
     e->width = width;
     e->height = height;
-    e->color[0] = color[0];
-    e->color[1] = color[1];
-    e->color[2] = color[2];
-    e->color[3] = color[3];
+    e->color = color;
     e->angle = angle;
     e->duration = duration;
     e->light = light;
@@ -177,9 +175,7 @@ void            BillboardSceneNode::setLight(bool on)
 void            BillboardSceneNode::setLightColor(
     GLfloat r, GLfloat g, GLfloat b)
 {
-    lightColor[0] = r;
-    lightColor[1] = g;
-    lightColor[2] = b;
+    lightColor = glm::vec3(r, g, b);
     prepLight();
 }
 
@@ -214,9 +210,7 @@ void            BillboardSceneNode::prepLight()
     if (!lightSource) return;
     const float s = (t <= lightCutoffTime || lightCutoffTime >= duration) ? 1.0f :
                     (1.0f - (t - lightCutoffTime) / (duration - lightCutoffTime));
-    light.setColor(lightColor[0] * lightScale * s,
-                   lightColor[1] * lightScale * s,
-                   lightColor[2] * lightScale * s);
+    light.setColor(lightColor * lightScale * s);
 }
 
 void            BillboardSceneNode::setSize(float side)
@@ -234,10 +228,7 @@ void            BillboardSceneNode::setSize(float _width, float _height)
 void            BillboardSceneNode::setColor(
     GLfloat r, GLfloat g, GLfloat b, GLfloat a)
 {
-    color[0] = r;
-    color[1] = g;
-    color[2] = b;
-    color[3] = a;
+    color = glm::vec4(r, g, b, a);
     hasAlpha = (color[3] != 1.0f || hasTextureAlpha);
 }
 
@@ -269,7 +260,7 @@ setTextureAnimation(int _cu, int _cv)
     setFrame();
 }
 
-void            BillboardSceneNode::move(const GLfloat pos[3])
+void BillboardSceneNode::move(const glm::vec3 &pos)
 {
     setCenter(pos);
     light.setPosition(pos);
@@ -332,7 +323,7 @@ BillboardSceneNode::BillboardRenderNode::~BillboardRenderNode()
     // do nothing
 }
 
-const GLfloat* BillboardSceneNode::BillboardRenderNode::getPosition() const
+const glm::vec3 &BillboardSceneNode::BillboardRenderNode::getPosition() const
 {
     return sceneNode->getSphere();
 }
@@ -360,20 +351,16 @@ void            BillboardSceneNode::BillboardRenderNode::render()
     // will move in the direction of the view, which isn't necessarily
     // the direction to the billboard from the eye.
     ViewFrustum& frustum = RENDERER.getViewFrustum();
-    const GLfloat* eye = frustum.getEye();
-    const GLfloat* sphere = sceneNode->getSphere();
-    GLfloat dir[3], d;
-    dir[0] = eye[0] - sphere[0];
-    dir[1] = eye[1] - sphere[1];
-    dir[2] = eye[2] - sphere[2];
-    float dist2 = dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2];
-    d = sceneNode->width * bzInverseSqrt(dist2);
+    const auto &eye    = frustum.getEye();
+    const auto &center = getPosition();
+
+    auto dir       = eye - center;
+    dir           *= bzInverseSqrt(glm::length2(dir));
+    const auto pos = center + sceneNode->width * dir;
 
     glPushMatrix();
     {
-        glTranslatef(sphere[0] + d * dir[0],
-                     sphere[1] + d * dir[1],
-                     sphere[2] + d * dir[2]);
+        glTranslate(pos);
         frustum.executeBillboard();
         glRotatef(sceneNode->angle, 0.0f, 0.0f, 1.0f);
 

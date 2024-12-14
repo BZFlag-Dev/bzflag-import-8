@@ -21,19 +21,22 @@
 // Inherits
 #include "SceneNode.h"
 
+// System headers
+#include <glm/vec3.hpp>
+
 class FlagWarpSceneNode : public SceneNode
 {
 public:
-    FlagWarpSceneNode(const GLfloat pos[3]);
+    FlagWarpSceneNode(const glm::vec3 &pos);
     ~FlagWarpSceneNode();
 
     void        setSizeFraction(GLfloat);
 
-    GLfloat     getDistance(const GLfloat*) const;
-    void        move(const GLfloat pos[3]);
+    GLfloat     getDistance(const glm::vec3 &) const override;
+    void        move(const glm::vec3 &pos);
 
-    void        notifyStyleChange();
-    void        addRenderNodes(SceneRenderer&);
+    void        notifyStyleChange() override;
+    void        addRenderNodes(SceneRenderer&) override;
 
 protected:
     class FlagWarpRenderNode : public RenderNode
@@ -42,10 +45,10 @@ protected:
         FlagWarpRenderNode(const FlagWarpSceneNode*);
         ~FlagWarpRenderNode();
         void        render() override;
-        const GLfloat* getPosition() const override;
+        const glm::vec3 &getPosition() const override;
     private:
         const FlagWarpSceneNode* sceneNode;
-        static float ring[12][2];
+        static glm::vec3 ring[12];
     };
     friend class FlagWarpRenderNode;
 
@@ -53,7 +56,7 @@ private:
     GLfloat     size;
     OpenGLGState    gstate;
     FlagWarpRenderNode  renderNode;
-    static const GLfloat color[7][3];
+    static const glm::vec3 color[7];
 };
 
 #endif // BZF_FLAG_WARP_SCENE_NODE_H

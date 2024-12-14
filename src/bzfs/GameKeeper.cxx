@@ -377,13 +377,13 @@ void GameKeeper::Player::handleTcpPacket(fd_set* set)
     }
 }
 
-void GameKeeper::Player::setPlayerState(float pos[3], float azimuth)
+void GameKeeper::Player::setPlayerState(const glm::vec3 &pos, float azimuth)
 {
     serverTimeStamp = (float)TimeKeeper::getCurrent().getSeconds();
-    memcpy(lastState.pos, pos, sizeof(float) * 3);
+    lastState.pos = pos;
     lastState.azimuth = azimuth;
     // Set Speeds to 0 too
-    memset(lastState.velocity, 0, sizeof(float) * 3);
+    lastState.velocity = glm::vec3(0.0f);
     lastState.angVel = 0.0f;
     stateTimeStamp   = 0.0f;
 
@@ -507,9 +507,9 @@ void GameKeeper::Player::setPlayerState(PlayerState state, float timestamp)
     serverTimeStamp = (float)TimeKeeper::getCurrent().getSeconds();
 }
 
-void GameKeeper::Player::getPlayerState(float pos[3], float &azimuth)
+void GameKeeper::Player::getPlayerState(glm::vec3 &pos, float &azimuth)
 {
-    memcpy(pos, lastState.pos, sizeof(float) * 3);
+    pos     = lastState.pos;
     azimuth = lastState.azimuth;
 }
 

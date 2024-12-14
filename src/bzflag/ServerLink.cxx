@@ -746,7 +746,7 @@ void            ServerLink::sendGrabFlag(int flagIndex)
     send(MsgGrabFlag, sizeof(msg), msg);
 }
 
-void            ServerLink::sendDropFlag(const float* position)
+void            ServerLink::sendDropFlag(const glm::vec3 &position)
 {
     char msg[12];
     void* buf = msg;

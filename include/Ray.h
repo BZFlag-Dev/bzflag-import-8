@@ -13,8 +13,12 @@
 #ifndef BZF_RAY_H
 #define BZF_RAY_H
 
+// 1st
 #include "common.h"
+
+// System headers
 #include <string.h> // for memset()
+#include <glm/vec3.hpp>
 
 /** Encapsulates a semi-infinite ray. */
 
@@ -22,18 +26,18 @@ class Ray
 {
 public:
     Ray();
-    Ray(const float* o, const float* d);
+    Ray(const glm::vec3 &o, const glm::vec3 &d);
     Ray(const Ray&);
     ~Ray();
     Ray&        operator=(const Ray&);
 
-    const float*    getOrigin() const;
-    const float*    getDirection() const;
-    void        getPoint(float t, float p[3]) const;
+    const glm::vec3 &getOrigin() const;
+    const glm::vec3 &getDirection() const;
+    void             getPoint(float t, glm::vec3 &p) const;
 
 private:
-    float       o[3];
-    float       d[3];
+    glm::vec3 o;
+    glm::vec3 d;
 };
 
 //
@@ -41,9 +45,8 @@ private:
 //
 
 inline Ray::Ray()
+    : o(0.0f), d(0.0f)
 {
-    memset(o,0,sizeof(float)*3);
-    memset(d,0,sizeof(float)*3);
 }
 
 inline Ray::~Ray()
@@ -51,12 +54,12 @@ inline Ray::~Ray()
     // do nothing
 }
 
-inline const float* Ray::getOrigin() const
+inline const glm::vec3 &Ray::getOrigin() const
 {
     return o;
 }
 
-inline const float* Ray::getDirection() const
+inline const glm::vec3 &Ray::getDirection() const
 {
     return d;
 }

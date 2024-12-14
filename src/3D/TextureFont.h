@@ -30,7 +30,9 @@ public:
     }
 
     virtual void filter(bool dofilter);
-    virtual void drawString(float scale, GLfloat color[4], const char *str, int len);
+    virtual void drawString(float scale,
+                            const glm::vec3 &color, float alpha,
+                            const char *str, int len);
 
     virtual void free();
 

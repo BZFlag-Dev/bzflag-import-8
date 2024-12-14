@@ -23,43 +23,41 @@
 class QuadWallSceneNode : public WallSceneNode
 {
 public:
-    QuadWallSceneNode(const GLfloat base[3],
-                      const GLfloat sEdge[3],
-                      const GLfloat tEdge[3],
+    QuadWallSceneNode(const glm::vec3 &base,
+                      const glm::vec3 &sEdge,
+                      const glm::vec3 &tEdge,
                       float uRepeats = 1.0,
                       float vRepeats = 1.0,
                       bool makeLODs = true,
                       bool fixedUVs = false);
-    QuadWallSceneNode(const GLfloat base[3],
-                      const GLfloat sEdge[3],
-                      const GLfloat tEdge[3],
-                      float uOffset,
-                      float vOffset,
+    QuadWallSceneNode(const glm::vec3 &base,
+                      const glm::vec3 &sEdge,
+                      const glm::vec3 &tEdge,
+                      const glm::vec2 &uvOffset,
                       float uRepeats,
                       float vRepeats,
                       bool makeLODs);
     ~QuadWallSceneNode();
 
-    int         split(const float*, SceneNode*&, SceneNode*&) const;
+    int         split(const glm::vec4 &, SceneNode*&, SceneNode*&) const override;
 
-    void        addRenderNodes(SceneRenderer&);
-    void        addShadowNodes(SceneRenderer&);
-    void        renderRadar();
+    void        addRenderNodes(SceneRenderer&) override;
+    void        addShadowNodes(SceneRenderer&) override;
+    void        renderRadar() override;
 
 
-    bool        inAxisBox (const Extents& exts) const;
+    bool        inAxisBox (const Extents& exts) const override;
 
-    int         getVertexCount () const;
-    const       GLfloat* getVertex (int vertex) const;
+    int         getVertexCount () const override;
+    const glm::vec3 &getVertex (int vertex) const override;
 
-    virtual void    getRenderNodes(std::vector<RenderSet>& rnodes);
+    void    getRenderNodes(std::vector<RenderSet>& rnodes) override;
 
 private:
-    void        init(const GLfloat base[3],
-                     const GLfloat uEdge[3],
-                     const GLfloat vEdge[3],
-                     float uOffset,
-                     float vOffset,
+    void        init(const glm::vec3 &base,
+                     const glm::vec3 &uEdge,
+                     const glm::vec3 &vEdge,
+                     const glm::vec2 &uvOffset,
                      float uRepeats,
                      float vRepeats,
                      bool makeLODs, bool fixedUVs);
@@ -70,11 +68,11 @@ protected:
     public:
         Geometry(QuadWallSceneNode*,
                  int uCount, int vCount,
-                 const GLfloat base[3],
-                 const GLfloat uEdge[3],
-                 const GLfloat vEdge[3],
-                 const GLfloat* normal,
-                 float uOffset, float vOffset,
+                 const glm::vec3 &base,
+                 const glm::vec3 &uEdge,
+                 const glm::vec3 &vEdge,
+                 const glm::vec4 &plane,
+                 const glm::vec2 &uvOffset,
                  float uRepeats, float vRepeats,
                  bool fixedUVs);
         ~Geometry();
@@ -84,8 +82,8 @@ protected:
         }
         void        render() override;
         void        renderShadow() override;
-        const GLfloat*  getVertex(int i) const;
-        const GLfloat* getPosition() const override;
+        const glm::vec3 &getVertex(int i) const;
+        const glm::vec3 &getPosition() const override;
     private:
         void        drawV() const;
         void        drawVT() const;
@@ -94,10 +92,10 @@ protected:
         int     style;
         int     ds, dt;
         int     dsq, dsr;
-        const GLfloat*  normal;
+        const glm::vec4 &plane;
     public:
-        GLfloat3Array   vertex;
-        GLfloat2Array   uv;
+        std::vector<glm::vec3> vertex;
+        std::vector<glm::vec2> uv;
         int      triangles;
     };
 

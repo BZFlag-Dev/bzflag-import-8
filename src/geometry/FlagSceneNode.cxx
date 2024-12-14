@@ -22,6 +22,7 @@
 #include "OpenGLMaterial.h"
 #include "StateDatabase.h"
 #include "BZDBCache.h"
+#include "OpenGLAPI.h"
 
 // local implementation headers
 #include "ViewFrustum.h"
@@ -77,16 +78,16 @@ private:
     float ripple2;
 
     GLuint glList;
-    GLfloat verts[maxChunks * 2][3];
-    GLfloat txcds[maxChunks * 2][2];
+    glm::vec3 verts[maxChunks * 2];
+    glm::vec2 txcds[maxChunks * 2];
 };
 
 
 inline void WaveGeometry::executeNoList() const
 {
     glDisableClientState(GL_NORMAL_ARRAY);
-    glVertexPointer(3, GL_FLOAT, 0, verts);
-    glTexCoordPointer(2, GL_FLOAT, 0, txcds);
+    glVertexPointer(verts);
+    glTexCoordPointer(txcds);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, (flagChunks + 1) * 2);
     glEnableClientState(GL_NORMAL_ARRAY);
     return;
@@ -205,7 +206,7 @@ WaveGeometry allWaves[waveLists];
 // FlagSceneNode
 //
 
-FlagSceneNode::FlagSceneNode(const GLfloat pos[3]) :
+FlagSceneNode::FlagSceneNode(const glm::vec3 &pos) :
     billboard(true),
     angle(0.0f),
     tilt(0.0f),
@@ -237,7 +238,7 @@ void            FlagSceneNode::freeFlag()
         allWaves[i].freeFlag();
 }
 
-void            FlagSceneNode::move(const GLfloat pos[3])
+void FlagSceneNode::move(const glm::vec3 &pos)
 {
     setCenter(pos);
 }
@@ -296,19 +297,13 @@ void            FlagSceneNode::setBillboard(bool _billboard)
 void            FlagSceneNode::setColor(
     GLfloat r, GLfloat g, GLfloat b, GLfloat a)
 {
-    color[0] = r;
-    color[1] = g;
-    color[2] = b;
-    color[3] = a;
+    color = glm::vec4(r, g, b, a);
     transparent = (color[3] != 1.0f);
 }
 
-void            FlagSceneNode::setColor(const GLfloat* rgba)
+void FlagSceneNode::setColor(const glm::vec4 &rgba)
 {
-    color[0] = rgba[0];
-    color[1] = rgba[1];
-    color[2] = rgba[2];
-    color[3] = rgba[3];
+    color = rgba;
     transparent = (color[3] != 1.0f);
 }
 
@@ -378,14 +373,15 @@ void FlagSceneNode::addShadowNodes(SceneRenderer& renderer)
 }
 
 
-bool FlagSceneNode::cullShadow(int planeCount, const float (*planes)[4]) const
+bool FlagSceneNode::cullShadow(int planeCount, const glm::vec4 planes[]) const
 {
-    const float* s = getSphere();
+    const auto s = glm::vec4(getSphere(), 1.0f);
+    const float r = getRadius2();
     for (int i = 0; i < planeCount; i++)
     {
-        const float* p = planes[i];
-        const float d = (p[0] * s[0]) + (p[1] * s[1]) + (p[2] * s[2]) + p[3];
-        if ((d < 0.0f) && ((d * d) > s[3]))
+        const auto &p = planes[i];
+        const float d = glm::dot(p, s);
+        if ((d < 0.0f) && (d * d > r))
             return true;
     }
     return false;
@@ -422,7 +418,7 @@ void            FlagSceneNode::FlagRenderNode::render()
     const bool is_billboard = sceneNode->billboard;
     const bool is_transparent = sceneNode->transparent;
 
-    const GLfloat* sphere = sceneNode->getSphere();
+    const auto &sphere = getPosition();
     const float topHeight = base + Height;
 
     myColor4fv(sceneNode->color);
@@ -432,7 +428,7 @@ void            FlagSceneNode::FlagRenderNode::render()
 
     glPushMatrix();
     {
-        glTranslatef(sphere[0], sphere[1], sphere[2]);
+        glTranslate(sphere);
 
         if (!is_billboard || realFlag)
             glRotatef(sceneNode->angle + 180.0f, 0.0f, 0.0f, 1.0f);
@@ -542,7 +538,7 @@ void            FlagSceneNode::FlagRenderNode::render()
         myStipple(0.5f);
 }
 
-const GLfloat*  FlagSceneNode::FlagRenderNode::getPosition() const
+const glm::vec3 &FlagSceneNode::FlagRenderNode::getPosition() const
 {
     return sceneNode->getSphere();
 }

@@ -16,6 +16,8 @@
 // System headers
 #include <math.h>
 #include <assert.h>
+#include <glm/vec3.hpp>
+#include <glm/geometric.hpp>
 
 // Common headers
 #include "global.h"
@@ -35,7 +37,7 @@ SphereObstacle::SphereObstacle()
 
 
 SphereObstacle::SphereObstacle(const MeshTransform& xform,
-                               const float* _pos, const float* _size,
+                               const glm::vec3 &_pos, const glm::vec3 &_size,
                                float _rotation, const float _texsize[2],
                                bool _useNormals, bool _hemisphere,
                                int _divisions,
@@ -108,7 +110,8 @@ MeshObstacle* SphereObstacle::makeMesh()
 {
     MeshObstacle* mesh;
     int i, j, q;
-    float sz[3], texsz[2];
+    glm::vec3 sz;
+    float texsz[2];
     const float minSize = 1.0e-6f; // cheezy / lazy
     int factor = 2;
 
@@ -117,9 +120,7 @@ MeshObstacle* SphereObstacle::makeMesh()
         factor = 1;
 
     // absolute the sizes
-    sz[0] = fabsf(size[0]);
-    sz[1] = fabsf(size[1]);
-    sz[2] = fabsf(size[2]);
+    sz = glm::abs(size);
 
     // adjust the texture sizes
     memcpy (texsz, texsize, sizeof(float[2]));
@@ -145,26 +146,23 @@ MeshObstacle* SphereObstacle::makeMesh()
 
     // setup the coordinates
     std::vector<char> checkTypes;
-    std::vector<cfvec3> checkPoints;
-    std::vector<cfvec3> vertices;
-    std::vector<cfvec3> normals;
-    std::vector<cfvec2> texcoords;
-    cfvec3 v, n;
-    cfvec2 t;
+    std::vector<glm::vec3> checkPoints;
+    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec2> texcoords;
+    glm::vec3 v, n;
+    glm::vec2 t;
 
     // add the checkpoint (one is sufficient)
-    v[0] = pos[0];
-    v[1] = pos[1];
-    v[2] = pos[2];
+    v = pos;
     if (hemisphere)
         v[2] = v[2] + (0.5f * fabsf(size[2]));
     checkPoints.push_back(v);
     checkTypes.push_back(MeshObstacle::CheckInside);
 
     // the center vertices
-    v[0] = pos[0];
-    v[1] = pos[1];
-    v[2] = pos[2] + sz[2];
+    v     = pos;
+    v[2] += sz[2];
     vertices.push_back(v);
     if (!hemisphere)
     {
@@ -201,25 +199,17 @@ MeshObstacle* SphereObstacle::makeMesh()
             h_angle = h_angle + getRotation();
             float v_angle = (float)((M_PI / 2.0) *
                                     (divisions - i - 1) / (divisions));
-            float unit[3];
+            glm::vec3 unit;
             unit[0] = cosf(h_angle) * cosf(v_angle);
             unit[1] = sinf(h_angle) * cosf(v_angle);
             unit[2] = sinf(v_angle);
             // vertex
-            v[0] = pos[0] + (sz[0] * unit[0]);
-            v[1] = pos[1] + (sz[1] * unit[1]);
-            v[2] = pos[2] + (sz[2] * unit[2]);
+            v = pos + sz * unit;
             vertices.push_back(v);
             // normal
             if (useNormals)
             {
-                n[0] = unit[0] / sz[0];
-                n[1] = unit[1] / sz[1];
-                n[2] = unit[2] / sz[2];
-                const float len = 1.0f / sqrtf(vec3dot(n.data, n.data));
-                n[0] = n[0] * len;
-                n[1] = n[1] * len;
-                n[2] = n[2] * len;
+                n = glm::normalize(unit / sz);
                 normals.push_back(n);
             }
             // texcoord
@@ -460,52 +450,23 @@ float SphereObstacle::intersect(const Ray&) const
     return -1.0f;
 }
 
-void SphereObstacle::get3DNormal(const float*, float*) const
+void SphereObstacle::get3DNormal(const glm::vec3 &, glm::vec3 &) const
 {
     assert(false);
     return;
 }
 
-void SphereObstacle::getNormal(const float*, float*) const
+void SphereObstacle::getNormal(const glm::vec3 &, glm::vec3 &) const
 {
     assert(false);
     return;
 }
 
-bool SphereObstacle::getHitNormal(const float*, float, const float*, float,
-                                  float, float, float, float*) const
+bool SphereObstacle::inCylinder(const glm::vec3 &, float, float) const
 {
     assert(false);
     return false;
 }
-
-bool SphereObstacle::inCylinder(const float*,float, float) const
-{
-    assert(false);
-    return false;
-}
-
-bool SphereObstacle::inBox(const float*, float, float, float, float) const
-{
-    assert(false);
-    return false;
-}
-
-bool SphereObstacle::inMovingBox(const float*, float, const float*, float,
-                                 float, float, float) const
-{
-    assert(false);
-    return false;
-}
-
-bool SphereObstacle::isCrossing(const float* UNUSED(p), float UNUSED(_angle),
-                                float UNUSED(dx), float UNUSED(dy), float UNUSED(height),
-                                float* UNUSED(_plane)) const
-{
-    assert(false);
-    return false;
-}
-
 
 void *SphereObstacle::pack(void *buf) const
 {

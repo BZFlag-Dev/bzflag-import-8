@@ -13,9 +13,12 @@
 // bzflag global header
 #include "common.h"
 
+// Common headers
 #include "bzfsAPI.h"
-#include "bzfs.h"
 #include "StateDatabase.h"
+
+// Local headers
+#include "bzfs.h"
 
 
 // server side bot API
@@ -333,7 +336,9 @@ void bz_ServerSidePlayerHandler::getPosition ( float *p )
     if (!player || !p)
         return;
 
-    memcpy(p, player->lastState.pos, sizeof(float[3]));
+    p[0] = player->lastState.pos[0];
+    p[1] = player->lastState.pos[1];
+    p[2] = player->lastState.pos[2];
 }
 
 void bz_ServerSidePlayerHandler::getVelocity ( float *v )
@@ -342,7 +347,9 @@ void bz_ServerSidePlayerHandler::getVelocity ( float *v )
     if (!player ||!v)
         return;
 
-    memcpy(v,player->lastState.velocity,sizeof(float)*3);
+    v[0] = player->lastState.velocity[0];
+    v[1] = player->lastState.velocity[1];
+    v[2] = player->lastState.velocity[2];
 }
 
 float bz_ServerSidePlayerHandler::getFacing ( void )

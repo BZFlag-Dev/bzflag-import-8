@@ -17,6 +17,8 @@
 #include <fstream>
 #include <time.h>
 #include <assert.h>
+#include <glm/vec3.hpp>
+#include <glm/geometric.hpp>
 
 /* common implementation headers */
 #include "BZDBCache.h"
@@ -34,6 +36,7 @@
 #include "GameTime.h"
 #include "WallObstacle.h"
 #include "MeshObstacle.h"
+#include "OpenGLAPI.h"
 
 //
 // World
@@ -178,36 +181,32 @@ const Teleporter* World::getTeleporter(int source, int& face) const
 }
 
 
-TeamColor       World::whoseBase(const float* pos) const
+TeamColor World::whoseBase(const glm::vec3 &pos) const
 {
     if (gameType != ClassicCTF)
         return NoTeam;
 
     for (int i = 1; i < NumTeams; i++)
-    {
-        for (TeamBases::const_iterator it = bases[i].begin(); it != bases[i].end(); ++it)
+        for (const auto base : bases[i])
         {
-            float nx = pos[0] - it->p[0];
-            float ny = pos[1] - it->p[1];
-            float an = atan2f(ny, nx) - it->p[3];
-            float di = hypotf(nx, ny);
-            float rx = cosf(an) * di;
-            float ry = sinf(an) * di;
-            if (fabsf(rx) < it->p[4] &&
-                    fabsf(ry) < it->p[5])
-            {
-                float nz = it->p[2] + it->p[6];
-                float rz = pos[2] - nz;
-                if (fabsf(rz) < 0.1)   // epsilon kludge
-                    return TeamColor(i);
-            }
+            auto n = pos - base.pos;
+
+            float rz = n.z - base.h;
+            if (fabsf(rz) >= 0.1)   // epsilon kludge
+                continue;
+
+            float an = atan2f(n.y, n.x) - base.rotation;
+            float di = glm::length(glm::vec2(n));
+            auto  r = glm::abs(glm::vec2(cosf(an), sinf(an))) * di;
+            if (r.x >= base.w || r.y >= base.b)
+                continue;
+            return TeamColor(i);
         }
-    }
 
     return NoTeam;
 }
 
-const Obstacle*     World::inBuilding(const float* pos,
+const Obstacle*     World::inBuilding(const glm::vec3 &pos,
                                       float radius, float height) const
 {
     // check everything but walls
@@ -222,24 +221,23 @@ const Obstacle*     World::inBuilding(const float* pos,
     return NULL;
 }
 
-const Obstacle*     World::inBuilding(const float* pos, float angle,
-                                      float dx, float dy, float dz) const
+bool World::inBuilding(const glm::vec3 &pos, float angle, float dx, float dy) const
 {
     // check everything but the walls
-    const ObsList* olist = COLLISIONMGR.boxTest (pos, angle, dx, dy, dz);
+    const ObsList* olist = COLLISIONMGR.boxTest (pos, angle, dx, dy, 0.0f);
 
     for (int i = 0; i < olist->count; i++)
     {
         const Obstacle* obs = olist->list[i];
-        if (obs->inBox(pos, angle, dx, dy, dz))
-            return obs;
+        if (obs->inBox(pos, angle, dx, dy, 0.0f))
+            return true;
     }
 
-    return NULL;
+    return false;
 }
 
 
-const Obstacle*     World::hitBuilding(const float* pos, float angle,
+const Obstacle*     World::hitBuilding(const glm::vec3 &pos, float angle,
                                        float dx, float dy, float dz) const
 {
     // check walls
@@ -353,8 +351,8 @@ static int compareHitNormal (const void* a, const void* b)
         return +1;
 }
 
-const Obstacle* World::hitBuilding(const float* oldPos, float oldAngle,
-                                   const float* pos, float angle,
+const Obstacle* World::hitBuilding(const glm::vec3 &oldPos, float oldAngle,
+                                   const glm::vec3 &pos, float angle,
                                    float dx, float dy, float dz,
                                    bool directional) const
 {
@@ -396,10 +394,7 @@ const Obstacle* World::hitBuilding(const float* oldPos, float oldAngle,
 
     // do some prep work for mesh faces
     int hitCount = 0;
-    float vel[3];
-    vel[0] = pos[0] - oldPos[0];
-    vel[1] = pos[1] - oldPos[1];
-    vel[2] = pos[2] - oldPos[2];
+    auto vel = pos - oldPos;
     bool goingDown = (vel[2] <= 0.0f);
 
     // check mesh faces
@@ -425,8 +420,8 @@ const Obstacle* World::hitBuilding(const float* oldPos, float oldAngle,
                 olist->list[hitCount] = obs;
                 hitCount++;
                 // compute its dot product and stick it in the scratchPad
-                const float* p = face->getPlane();
-                const float dot = (vel[0] * p[0]) + (vel[1] * p[1]) + (vel[2] * p[2]);
+                const glm::vec3 p = face->getPlane();
+                const float dot = glm::dot(vel, p);
                 face->scratchPad = dot;
             }
         }
@@ -459,22 +454,22 @@ const Obstacle* World::hitBuilding(const float* oldPos, float oldAngle,
 }
 
 
-bool            World::crossingTeleporter(const float* pos,
-        float angle, float dx, float dy, float dz,
-        float* plane) const
+bool World::crossingTeleporter(const glm::vec3 &pos,
+                               float angle, float dx, float dy, float dz,
+                               glm::vec4 &plane) const
 {
     const ObstacleList& teleporters = OBSTACLEMGR.getTeles();
     for (unsigned int i = 0; i < teleporters.size(); i++)
     {
         const Teleporter* teleporter = (const Teleporter*) teleporters[i];
-        if (teleporter->isCrossing(pos, angle, dx, dy, dz, plane))
+        if (teleporter->isCrossing(pos, angle, dx, dy, dz, &plane))
             return true;
     }
     return false;
 }
 
-const Teleporter*   World::crossesTeleporter(const float* oldPos,
-        const float* newPos,
+const Teleporter *World::crossesTeleporter(const glm::vec3 &oldPos,
+        const glm::vec3 &newPos,
         int& face) const
 {
     // check teleporters
@@ -505,7 +500,7 @@ const Teleporter*   World::crossesTeleporter(const Ray& r, int& face) const
     return NULL;
 }
 
-float           World::getProximity(const float* p, float r) const
+float           World::getProximity(const glm::vec3 &p, float r) const
 {
     // get maximum over all teleporters
     float bestProximity = 0.0;
@@ -668,7 +663,7 @@ void        World::makeLinkMaterial()
     }
 
     BzMaterial mat;
-    const float color[4] = {0.0f, 0.0f, 0.0f, 0.5f};
+    const auto color = glm::vec4(0.0f, 0.0f, 0.0f, 0.5f);
     mat.setDiffuse(color);
     mat.setDynamicColor(dyncolId);
     mat.setTexture("telelink");
@@ -687,18 +682,16 @@ void            World::initFlag(int index)
     if (index >= maxFlags || index < 0)
         return;
     // set color of flag (opaque)
-    const float* color = flags[index].type->getColor();
+    const auto &color = flags[index].type->getColor();
     flagNodes[index]->setColor(color[0], color[1], color[2]);
 
     // if coming or going then position warp
     Flag& flag = flags[index];
     if (flag.status == FlagComing || flag.status == FlagGoing)
     {
-        GLfloat pos[3];
-        pos[0] = flag.position[0];
-        pos[1] = flag.position[1];
-        pos[2] = 0.5f * flag.flightEnd * (flag.initialVelocity +
-                                          0.25f * BZDBCache::gravity * flag.flightEnd) + flag.position[2];
+        auto pos = flag.position;
+        pos[2] += 0.5f * flag.flightEnd * (flag.initialVelocity +
+                                           0.25f * BZDBCache::gravity * flag.flightEnd);
         flagWarpNodes[index]->move(pos);
         flagWarpNodes[index]->setSizeFraction(0.0f);
     }
@@ -729,7 +722,7 @@ void            World::updateWind(float UNUSED(dt))
 void            World::updateFlag(int index, float dt)
 {
     if (!flagNodes) return;
-    const GLfloat* color = flagNodes[index]->getColor();
+    const auto &color = flagNodes[index]->getColor();
     GLfloat alpha = color[3];
     Flag& flag = flags[index];
 
@@ -746,22 +739,15 @@ void            World::updateFlag(int index, float dt)
         {
             // touchdown
             flag.status = FlagOnGround;
-            flag.position[0] = flag.landingPosition[0];
-            flag.position[1] = flag.landingPosition[1];
-            flag.position[2] = flag.landingPosition[2];
+            flag.position = flag.landingPosition;
         }
         else
         {
             // still flying
             float t = flag.flightTime / flag.flightEnd;
-            flag.position[0] = (1.0f - t) * flag.launchPosition[0] +
-                               t * flag.landingPosition[0];
-            flag.position[1] = (1.0f - t) * flag.launchPosition[1] +
-                               t * flag.landingPosition[1];
-            flag.position[2] = (1.0f - t) * flag.launchPosition[2] +
-                               t * flag.landingPosition[2] +
-                               flag.flightTime * (flag.initialVelocity +
-                                                  0.5f * BZDBCache::gravity * flag.flightTime);
+            flag.position = glm::mix(flag.launchPosition, flag.landingPosition, t);
+            flag.position.z += flag.flightTime
+                               * (flag.initialVelocity + 0.5f * BZDBCache::gravity * flag.flightTime);
         }
         break;
 
@@ -889,7 +875,7 @@ void            World::updateFlag(int index, float dt)
             {
                 float myWind[3];
                 getWind(myWind, flagPlayer->getPosition());
-                const float* vel = flagPlayer->getVelocity();
+                const auto &vel = flagPlayer->getVelocity();
                 myWind[0] -= vel[0];
                 myWind[1] -= vel[1];
                 if (flagPlayer->isFalling())
@@ -952,7 +938,7 @@ static void writeDefaultOBJMaterials(std::ostream& out)
     {
         const char* name;
         const char* texture;
-        float color[4];
+        glm::vec4 color;
     } MatProps;
     const MatProps defaultMats[] =
     {
@@ -1068,7 +1054,7 @@ bool World::writeWorld(const std::string& filename, std::string& fullname)
             out << indent << "  -mp 2,";
             for (int t = RedTeam; t <= PurpleTeam; t++)
             {
-                if (getBase(t, 0) != NULL)
+                if (isBase(t, 0))
                     out << "2,";
                 else
                     out << "0,";
@@ -1247,9 +1233,9 @@ bool World::writeWorld(const std::string& filename, std::string& fullname)
     return true;
 }
 
-static void drawLines (int count, float (*vertices)[3], int color)
+static void drawLines (int count, const glm::vec3 vertices[], int color)
 {
-    const float colors[][4] =
+    const glm::vec4 colors[] =
     {
         { 0.25f, 0.25f, 0.25f, 0.8f }, // gray    (branch node)
         { 0.25f, 0.25f, 0.0f,  0.8f }, // yellow  (regular)
@@ -1262,11 +1248,11 @@ static void drawLines (int count, float (*vertices)[3], int color)
         color = 0;
     else if (color >= colorCount)
         color = colorCount - 1;
-    glColor4fv (colors[color]);
+    glColor(colors[color]);
 
     glBegin (GL_LINE_STRIP);
     for (int i = 0; i < count; i++)
-        glVertex3fv (vertices[i]);
+        glVertex(vertices[i]);
     glEnd ();
 
     return;
@@ -1275,8 +1261,8 @@ static void drawLines (int count, float (*vertices)[3], int color)
 
 static void drawInsideOutsidePoints()
 {
-    std::vector<const float*> insides;
-    std::vector<const float*> outsides;
+    std::vector<const glm::vec3*> insides;
+    std::vector<const glm::vec3*> outsides;
 
     const ObstacleList& meshes = OBSTACLEMGR.getMeshes();
     for (unsigned int i = 0; i < meshes.size(); i++)
@@ -1284,19 +1270,19 @@ static void drawInsideOutsidePoints()
         const MeshObstacle* mesh = (const MeshObstacle*) meshes[i];
         const int    checkCount  = mesh->getCheckCount();
         const char*  checkTypes  = mesh->getCheckTypes();
-        const afvec3* checkPoints = mesh->getCheckPoints();
+        const auto   checkPoints = mesh->getCheckPoints();
         for (int c = 0; c < checkCount; c++)
         {
             switch (checkTypes[c])
             {
             case MeshObstacle::CheckInside:
             {
-                insides.push_back(checkPoints[c]);
+                insides.push_back(&checkPoints[c]);
                 break;
             }
             case MeshObstacle::CheckOutside:
             {
-                outsides.push_back(checkPoints[c]);
+                outsides.push_back(&checkPoints[c]);
                 break;
             }
             default:
@@ -1318,27 +1304,27 @@ static void drawInsideOutsidePoints()
     glBegin(GL_POINTS);
     {
         glColor4f(0.0f, 1.0f, 0.0f, 0.8f);
-        for (size_t i = 0; i < insides.size(); i++)
-            glVertex3fv(insides[i]);
+        for (const auto pt : insides)
+            glVertex(*pt);
         glColor4f(1.0f, 0.0f, 0.0f, 0.8f);
-        for (size_t i = 0; i < outsides.size(); i++)
-            glVertex3fv(outsides[i]);
+        for (const auto pt : outsides)
+            glVertex(*pt);
     }
     glEnd();
 
     glBegin(GL_LINES);
     {
         glColor4f(0.0f, 1.0f, 0.0f, 0.2f);
-        for (size_t i = 0; i < insides.size(); i++)
+        for (const auto pt : insides)
         {
-            glVertex3f(insides[i][0], insides[i][1], 0.0f);
-            glVertex3fv(insides[i]);
+            glVertex3f(pt->x, pt->y, 0.0f);
+            glVertex(*pt);
         }
         glColor4f(1.0f, 0.0f, 0.0f, 0.2f);
-        for (size_t i = 0; i < outsides.size(); i++)
+        for (const auto pt : outsides)
         {
-            glVertex3f(outsides[i][0], outsides[i][1], 0.0f);
-            glVertex3fv(outsides[i]);
+            glVertex3f(pt->x, pt->y, 0.0f);
+            glVertex(*pt);
         }
     }
     glEnd();

@@ -41,7 +41,7 @@ public:
     void        setShakeTimeout(float timeout) const;
     void        setShakeWins(int wins) const;
     void        setBase(TeamColor team,
-                        const float* pos, float rotation,
+                        const glm::vec3 &pos, float rotation,
                         float w, float b, float h);
 
 private:

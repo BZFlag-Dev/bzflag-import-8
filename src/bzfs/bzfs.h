@@ -114,7 +114,7 @@ extern bool  areFoes(TeamColor team1, TeamColor team2);
 extern PingPacket getTeamCounts();
 extern void  zapFlagByPlayer(int playerIndex);
 extern void  resetFlag(FlagInfo &flag);
-extern void  dropFlag(FlagInfo& flag, const float dropPos[3]);
+extern void  dropFlag(FlagInfo& flag, const glm::vec3 &dropPos);
 extern void  publicize();
 extern TeamColor whoseBase(float x, float y, float z);
 bool defineWorld(void);
@@ -170,7 +170,7 @@ void resumeCountdown(int resumedBy = ServerPlayer);
 void startCountdown(int delay, float limit, int playerID = ServerPlayer);
 void cancelCountdown( int playerID = ServerPlayer);
 
-void dropPlayerFlag(GameKeeper::Player &playerData, const float dropPos[3]);
+void dropPlayerFlag(GameKeeper::Player &playerData, const glm::vec3 &dropPos);
 void playerAlive(int playerIndex);
 void sendChatMessage(PlayerId srcPlayer, PlayerId dstPlayer, const char *message, MessageType type);
 

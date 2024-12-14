@@ -36,7 +36,7 @@ public:
     WorldWeapons();
     ~WorldWeapons();
     void fire();
-    void add(const FlagType *type, const float *origin,
+    void add(const FlagType *type, const glm::vec3 &origin,
              float direction, float tilt, TeamColor teamColor,
              float initdelay, const std::vector<float> &delay,
              TimeKeeper &sync);
@@ -46,15 +46,17 @@ public:
     int packSize() const;
     void *pack(void *buf) const;
 
-    uint32_t fireShot(FlagType* type, const float origin[3], const float vector[3], int *shotID,
-                      TeamColor teamColor = RogueTeam, PlayerId targetPlayerID = -1);
+    uint32_t fireShot(FlagType* type, const glm::vec3 &origin,
+                      const float vector[3], int *shotID,
+                      TeamColor teamColor = RogueTeam,
+                      PlayerId targetPlayerID = -1);
 
 private:
     struct Weapon
     {
         const FlagType  *type;
         TeamColor       teamColor;
-        float       origin[3];
+        glm::vec3       origin;
         float       direction;
         float       tilt;
         float   initDelay;
@@ -75,14 +77,16 @@ private:
 class WorldWeaponGlobalEventHandler : public bz_EventHandler
 {
 public:
-    WorldWeaponGlobalEventHandler(FlagType *type, const float *origin,float direction, float tilt,TeamColor teamColor );
+    WorldWeaponGlobalEventHandler(FlagType *type, const glm::vec3 &origin,
+                                  float direction, float tilt,
+                                  TeamColor teamColor);
     virtual ~WorldWeaponGlobalEventHandler();
 
     virtual void process ( bz_EventData *eventData );
 
 protected:
     FlagType    *type;
-    float       origin[3];
+    glm::vec3   origin;
     float       direction;
     float       tilt;
     bz_eTeamType    team;

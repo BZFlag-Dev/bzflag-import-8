@@ -23,6 +23,9 @@
 #include <sstream>
 #include <iostream>
 #include <ctype.h>
+#include <glm/gtc/type_ptr.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 // common implementation headers
 #include "Pack.h"
@@ -95,7 +98,8 @@ MeshDrawInfo::MeshDrawInfo(const MeshDrawInfo* di,
 
     // copy extents and sphere  (xform applied later)
     extents = di->extents;
-    memcpy(sphere, di->sphere, sizeof(float[4]));
+    position = di->position;
+    radius2  = di->radius2;
 
     // counts
     cornerCount = di->cornerCount;
@@ -175,7 +179,8 @@ void MeshDrawInfo::init()
     drawMgr = NULL;
 
     extents.reset();
-    sphere[0] = sphere[1] = sphere[2] = sphere[3] = +MAXFLOAT;
+    position = glm::vec3(+MAXFLOAT);
+    radius2  = +MAXFLOAT;
 
     cornerCount = 0;
     corners = NULL;
@@ -311,7 +316,7 @@ bool MeshDrawInfo::serverSetup(const MeshObstacle* mesh)
         return false;
 
     int vCount;
-    const afvec3* verts;
+    const glm::vec3 *verts;
     if (rawVertCount > 0)
     {
         vCount = rawVertCount;
@@ -324,10 +329,10 @@ bool MeshDrawInfo::serverSetup(const MeshObstacle* mesh)
     }
 
     Extents tmpExts;
-    const bool calcCenter = (sphere[0] == +MAXFLOAT) &&
-                            (sphere[1] == +MAXFLOAT) &&
-                            (sphere[2] == +MAXFLOAT);
-    const bool calcRadius = (sphere[3] == +MAXFLOAT);
+    const bool calcCenter = (position[0] == +MAXFLOAT) &&
+                            (position[1] == +MAXFLOAT) &&
+                            (position[2] == +MAXFLOAT);
+    const bool calcRadius = (radius2 == +MAXFLOAT);
     const bool calcExtents = (extents.mins[0] == tmpExts.mins[0]) &&
                              (extents.mins[1] == tmpExts.mins[1]) &&
                              (extents.mins[2] == tmpExts.mins[2]) &&
@@ -352,12 +357,12 @@ bool MeshDrawInfo::serverSetup(const MeshObstacle* mesh)
             float maxDistSqr = -MAXFLOAT;
             for (int v = 0; v < vCount; v++)
             {
-                const afvec3& p = verts[v];
+                const auto &p = verts[v];
                 if (p[2] < minZ)
                     minZ = p[2];
                 if (p[2] > maxZ)
                     maxZ = p[2];
-                const float distSqr = (p[0] * p[0]) + (p[1] * p[1]);
+                const float distSqr = glm::length2(glm::vec2(p));
                 if (distSqr > maxDistSqr)
                     maxDistSqr = distSqr;
             }
@@ -376,18 +381,10 @@ bool MeshDrawInfo::serverSetup(const MeshObstacle* mesh)
 
     // calculate the sphere params?
     if (calcCenter)
-    {
-        sphere[0] = 0.5f * (extents.maxs[0] + extents.mins[0]);
-        sphere[1] = 0.5f * (extents.maxs[1] + extents.mins[1]);
-        sphere[2] = 0.5f * (extents.maxs[2] + extents.mins[2]);
-    }
+        position = 0.5f * (extents.maxs + extents.mins);
     if (calcRadius)
-    {
-        const float dx = extents.maxs[0] - extents.mins[0];
-        const float dy = extents.maxs[1] - extents.mins[1];
-        const float dz = extents.maxs[2] - extents.mins[2];
-        sphere[3] = 0.25f * (dx*dx + dy*dy + dz*dz); // radius squared
-    }
+        // radius squared
+        radius2 = 0.25f * glm::distance2(extents.maxs, extents.mins);
 
     // calculate the DrawSet spheres?
     for (int lod = 0; lod < lodCount; lod++)
@@ -396,10 +393,10 @@ bool MeshDrawInfo::serverSetup(const MeshObstacle* mesh)
         for (int set = 0; set < drawLod.count; set++)
         {
             DrawSet& drawSet = drawLod.sets[set];
-            const bool calcSetCenter = (drawSet.sphere[0] == +MAXFLOAT) &&
-                                       (drawSet.sphere[1] == +MAXFLOAT) &&
-                                       (drawSet.sphere[2] == +MAXFLOAT);
-            const bool calcSetRadius = (drawSet.sphere[3] == +MAXFLOAT);
+            const bool calcSetCenter = (drawSet.position[0] == +MAXFLOAT) &&
+                                       (drawSet.position[1] == +MAXFLOAT) &&
+                                       (drawSet.position[2] == +MAXFLOAT);
+            const bool calcSetRadius = (drawSet.radius2 == +MAXFLOAT);
             if (calcSetCenter || calcSetRadius)
             {
                 Extents exts;
@@ -413,7 +410,7 @@ bool MeshDrawInfo::serverSetup(const MeshObstacle* mesh)
                         {
                             const unsigned short cIndex = array[idx];
                             const Corner& corner = corners[cIndex];
-                            const float* v = verts[corner.vertex];
+                            const auto v = verts[corner.vertex];
                             exts.expandToPoint(v);
                         }
                     }
@@ -424,24 +421,16 @@ bool MeshDrawInfo::serverSetup(const MeshObstacle* mesh)
                         {
                             const unsigned int cIndex = array[idx];
                             const Corner& corner = corners[cIndex];
-                            const float* v = verts[corner.vertex];
+                            const auto v = verts[corner.vertex];
                             exts.expandToPoint(v);
                         }
                     }
                 }
                 if (calcSetCenter)
-                {
-                    drawSet.sphere[0] = 0.5f * (exts.maxs[0] + exts.mins[0]);
-                    drawSet.sphere[1] = 0.5f * (exts.maxs[1] + exts.mins[1]);
-                    drawSet.sphere[2] = 0.5f * (exts.maxs[2] + exts.mins[2]);
-                }
+                    drawSet.position = 0.5f * (exts.maxs + exts.mins);
                 if (calcSetRadius)
-                {
-                    const float dx = exts.maxs[0] - exts.mins[0];
-                    const float dy = exts.maxs[1] - exts.mins[1];
-                    const float dz = exts.maxs[2] - exts.mins[2];
-                    drawSet.sphere[3] = 0.25f * (dx*dx + dy*dy + dz*dz); // radius squared
-                }
+                    drawSet.radius2 = 0.25f
+                                      * glm::distance2(exts.maxs, exts.mins); // radius squared
             }
         }
     }
@@ -461,9 +450,9 @@ bool MeshDrawInfo::clientSetup(const MeshObstacle* mesh)
     if (!valid)
         return false;
 
-    const afvec3* verts;
-    const afvec3* norms;
-    const afvec2* txcds;
+    const glm::vec3 *verts;
+    const glm::vec3 *norms;
+    const glm::vec2 *txcds;
     if (rawVertCount > 0)
     {
         verts = rawVerts;
@@ -478,15 +467,15 @@ bool MeshDrawInfo::clientSetup(const MeshObstacle* mesh)
     }
 
     // make the element arrays
-    vertices = new afvec3[cornerCount];
-    normals = new afvec3[cornerCount];
-    texcoords = new afvec2[cornerCount];
+    vertices  = new glm::vec3[cornerCount];
+    normals   = new glm::vec3[cornerCount];
+    texcoords = new glm::vec2[cornerCount];
     for (int i = 0; i < cornerCount; i++)
     {
         Corner& corner = corners[i];
-        memcpy(vertices[i],  verts[corner.vertex],   sizeof(afvec3));
-        memcpy(normals[i],   norms[corner.normal],   sizeof(afvec3));
-        memcpy(texcoords[i], txcds[corner.texcoord], sizeof(afvec2));
+        vertices[i]  = verts[corner.vertex];
+        normals[i]   = norms[corner.normal];
+        texcoords[i] = txcds[corner.texcoord];
     }
 
     // tally the triangle counts
@@ -768,8 +757,8 @@ static bool parseDrawSet(std::istream& input, DrawSet& set, int& lines)
             set.wantList = true;
         else if (strcasecmp(label.c_str(), "center") == 0)
         {
-            if (!(parms >> set.sphere[0]) || !(parms >> set.sphere[1]) ||
-                    !(parms >> set.sphere[2]))
+            if (!(parms >> set.position[0]) || !(parms >> set.position[1]) ||
+                    !(parms >> set.position[2]))
             {
                 success = false;
                 logDebugMessage(0,"Bad center\n");
@@ -777,8 +766,8 @@ static bool parseDrawSet(std::istream& input, DrawSet& set, int& lines)
         }
         else if (strcasecmp(label.c_str(), "sphere") == 0)
         {
-            if (!(parms >> set.sphere[0]) || !(parms >> set.sphere[1]) ||
-                    !(parms >> set.sphere[2]) || !(parms >> set.sphere[3]))
+            if (!(parms >> set.position[0]) || !(parms >> set.position[1]) ||
+                    !(parms >> set.position[2]) || !(parms >> set.radius2))
             {
                 success = false;
                 logDebugMessage(0,"Bad sphere\n");
@@ -883,9 +872,9 @@ bool MeshDrawInfo::parse(std::istream& input)
     std::vector<Corner> pCorners;
     std::vector<DrawLod> pLods;
     std::vector<DrawLod> pRadarLods;
-    std::vector<cfvec3> pVerts;
-    std::vector<cfvec3> pNorms;
-    std::vector<cfvec2> pTxcds;
+    std::vector<glm::vec3> pVerts;
+    std::vector<glm::vec3> pNorms;
+    std::vector<glm::vec2> pTxcds;
 
     setupDrawModeMap();
     finishLine(input); // flush the rest of the "drawInfo" line
@@ -938,8 +927,8 @@ bool MeshDrawInfo::parse(std::istream& input)
         }
         else if (strcasecmp(cmd.c_str(), "center") == 0)
         {
-            if (!(parms >> sphere[0]) || !(parms >> sphere[1]) ||
-                    !(parms >> sphere[2]))
+            if (!(parms >> position[0]) || !(parms >> position[1]) ||
+                    !(parms >> position[2]))
             {
                 success = false;
                 logDebugMessage(0,"Bad center\n");
@@ -947,8 +936,8 @@ bool MeshDrawInfo::parse(std::istream& input)
         }
         else if (strcasecmp(cmd.c_str(), "sphere") == 0)
         {
-            if (!(parms >> sphere[0]) || !(parms >> sphere[1]) ||
-                    !(parms >> sphere[2]) || !(parms >> sphere[3]))
+            if (!(parms >> position[0]) || !(parms >> position[1]) ||
+                    !(parms >> position[2]) || !(parms >> radius2))
             {
                 success = false;
                 logDebugMessage(0,"Bad sphere\n");
@@ -974,7 +963,7 @@ bool MeshDrawInfo::parse(std::istream& input)
         }
         else if (strcasecmp(cmd.c_str(), "vertex") == 0)
         {
-            cfvec3 v;
+            glm::vec3 v;
             if ((parms >> v[0]) && (parms >> v[1]) && (parms >> v[2]))
                 pVerts.push_back(v);
             else
@@ -985,7 +974,7 @@ bool MeshDrawInfo::parse(std::istream& input)
         }
         else if (strcasecmp(cmd.c_str(), "normal") == 0)
         {
-            cfvec3 n;
+            glm::vec3 n;
             if ((parms >> n[0]) && (parms >> n[1]) && (parms >> n[2]))
                 pNorms.push_back(n);
             else
@@ -996,7 +985,7 @@ bool MeshDrawInfo::parse(std::istream& input)
         }
         else if (strcasecmp(cmd.c_str(), "texcoord") == 0)
         {
-            cfvec2 t;
+            glm::vec2 t;
             if ((parms >> t[0]) && (parms >> t[1]))
                 pTxcds.push_back(t);
             else
@@ -1051,25 +1040,25 @@ bool MeshDrawInfo::parse(std::istream& input)
     if (!pVerts.empty())
     {
         rawVertCount = pVerts.size();
-        rawVerts = new afvec3[rawVertCount];
+        rawVerts = new glm::vec3[rawVertCount];
         for (i = 0; i < rawVertCount; i++)
-            memcpy(rawVerts[i], pVerts[i].data, sizeof(afvec3));
+            rawVerts[i] = pVerts[i];
     }
     // make raw norms
     if (!pNorms.empty())
     {
         rawNormCount = pNorms.size();
-        rawNorms = new afvec3[rawNormCount];
+        rawNorms = new glm::vec3[rawNormCount];
         for (i = 0; i < rawNormCount; i++)
-            memcpy(rawNorms[i], pNorms[i].data, sizeof(afvec3));
+            rawNorms[i] = pNorms[i];
     }
     // make raw texcoords
     if (!pTxcds.empty())
     {
         rawTxcdCount = pTxcds.size();
-        rawTxcds = new afvec2[rawTxcdCount];
+        rawTxcds = new glm::vec2[rawTxcdCount];
         for (i = 0; i < rawTxcdCount; i++)
-            memcpy(rawTxcds[i], pTxcds[i].data, sizeof(afvec2));
+            rawTxcds[i] = pTxcds[i];
     }
 
     // ask for all display lists
@@ -1124,10 +1113,10 @@ void MeshDrawInfo::print(std::ostream& out, const std::string& indent) const
         << extents.maxs[0] << " "
         << extents.maxs[1] << " "
         << extents.maxs[2] << std::endl;
-    out << indent << "  sphere " << sphere[0] << " "
-        << sphere[1] << " "
-        << sphere[2] << " "
-        << sphere[3] << std::endl;
+    out << indent << "  sphere " << position[0] << " "
+        << position[1] << " "
+        << position[2] << " "
+        << radius2 << std::endl;
 
     if (animInfo != NULL)
     {
@@ -1139,21 +1128,21 @@ void MeshDrawInfo::print(std::ostream& out, const std::string& indent) const
     // raw vertices
     for (i = 0; i < rawVertCount; i++)
     {
-        const afvec3& v = rawVerts[i];
+        const auto &v = rawVerts[i];
         out << indent << "  vertex " << v[0] << " " << v[1] << " "
             << v[2] << std::endl;
     }
     // raw normals
     for (i = 0; i < rawNormCount; i++)
     {
-        const afvec3& n = rawNorms[i];
+        const auto &n = rawNorms[i];
         out << indent << "  normal " << n[0] << " " << n[1] << " "
             << n[2] << std::endl;
     }
     // raw texcoords
     for (i = 0; i < rawTxcdCount; i++)
     {
-        const afvec2& t = rawTxcds[i];
+        const auto &t = rawTxcds[i];
         out << indent << "  texcoord " << t[0] << " " << t[1] << std::endl;
     }
 
@@ -1180,10 +1169,10 @@ void MeshDrawInfo::print(std::ostream& out, const std::string& indent) const
             out << std::endl;
             if (set.wantList)
                 out << indent << "      dlist" << std::endl;
-            out << indent << "      sphere " << set.sphere[0] << " "
-                << set.sphere[1] << " "
-                << set.sphere[2] << " "
-                << set.sphere[3] << std::endl;
+            out << indent << "      sphere " << set.position[0] << " "
+                << set.position[1] << " "
+                << set.position[2] << " "
+                << set.radius2 << std::endl;
             const int cmdCount = set.count;
             for (int k = 0; k < cmdCount; k++)
             {
@@ -1295,13 +1284,13 @@ int MeshDrawInfo::packSize() const
 
     // raw vertices
     fullSize += sizeof(int32_t); // count
-    fullSize += sizeof(afvec3) * rawVertCount;
+    fullSize += sizeof(float[3]) * rawVertCount;
     // raw normals
     fullSize += sizeof(int32_t); // count
-    fullSize += sizeof(afvec3) * rawNormCount;
+    fullSize += sizeof(float[3]) * rawNormCount;
     // raw texcoords
     fullSize += sizeof(int32_t); // count
-    fullSize += sizeof(afvec2) * rawTxcdCount;
+    fullSize += sizeof(float[2]) * rawTxcdCount;
 
     // lods
     fullSize += sizeof(int32_t); // count
@@ -1374,8 +1363,8 @@ void* MeshDrawInfo::pack(void* buf) const
         buf = radarLods[i].pack(buf);
 
     // sphere and extents
-    buf = nboPackVector(buf, sphere);
-    buf = nboPackFloat(buf, sphere[3]);
+    buf = nboPackVector(buf, position);
+    buf = nboPackFloat(buf, radius2);
     buf = nboPackVector(buf, extents.mins);
     buf = nboPackVector(buf, extents.maxs);
 
@@ -1424,19 +1413,19 @@ const void* MeshDrawInfo::unpack(const void* buf)
     // raw vertices
     buf = nboUnpackInt (buf, s32);
     rawVertCount = s32;
-    rawVerts = new afvec3[rawVertCount];
+    rawVerts = new glm::vec3[rawVertCount];
     for (i = 0; i < rawVertCount; i++)
         buf = nboUnpackVector(buf, rawVerts[i]);
     // raw normals
     buf = nboUnpackInt (buf, s32);
     rawNormCount = s32;
-    rawNorms = new afvec3[rawNormCount];
+    rawNorms = new glm::vec3[rawNormCount];
     for (i = 0; i < rawNormCount; i++)
         buf = nboUnpackVector(buf, rawNorms[i]);
     // raw texcoords
     buf = nboUnpackInt (buf, s32);
     rawTxcdCount = s32;
-    rawTxcds = new afvec2[rawTxcdCount];
+    rawTxcds = new glm::vec2[rawTxcdCount];
     for (i = 0; i < rawTxcdCount; i++)
     {
         buf = nboUnpackFloat(buf, rawTxcds[i][0]);
@@ -1458,8 +1447,8 @@ const void* MeshDrawInfo::unpack(const void* buf)
         buf = radarLods[i].unpack(buf);
 
     // sphere and extents
-    buf = nboUnpackVector(buf, sphere);
-    buf = nboUnpackFloat(buf, sphere[3]);
+    buf = nboUnpackVector(buf, position);
+    buf = nboUnpackFloat(buf, radius2);
     buf = nboUnpackVector(buf, extents.mins);
     buf = nboUnpackVector(buf, extents.maxs);
 
@@ -1689,7 +1678,8 @@ DrawSet::DrawSet()
     cmds = NULL;
     material = NULL;
     wantList = false;
-    sphere[0] = sphere[1] = sphere[2] = sphere[3] = +MAXFLOAT;
+    position = glm::vec3(+MAXFLOAT);
+    radius2  = +MAXFLOAT;
     return;
 }
 
@@ -1728,8 +1718,8 @@ void* DrawSet::pack(void* buf) const
     buf = nboPackInt(buf, matindex);
 
     // sphere
-    buf = nboPackVector(buf, sphere);
-    buf = nboPackFloat(buf, sphere[3]);
+    buf = nboPackVector(buf, position);
+    buf = nboPackFloat(buf, radius2);
 
     // state bits
     uint8_t state = 0;
@@ -1754,8 +1744,8 @@ const void* DrawSet::unpack(const void* buf)
     material = MATERIALMGR.getMaterial(s32);
 
     // sphere
-    buf = nboUnpackVector(buf, sphere);
-    buf = nboUnpackFloat(buf, sphere[3]);
+    buf = nboUnpackVector(buf, position);
+    buf = nboUnpackFloat(buf, radius2);
 
     // state bits
     uint8_t state;

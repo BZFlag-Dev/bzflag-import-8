@@ -28,6 +28,7 @@
 
 // system headers
 #include <math.h>
+#include <glm/vec3.hpp>
 
 // local implementation headers
 #include "Address.h"
@@ -47,8 +48,8 @@ public:
 public:
     PlayerId        player;         // who's shot
     uint16_t        id;         // shot id unique to player
-    float       pos[3];         // shot position
-    float       vel[3];         // shot velocity
+    glm::vec3   pos;         // shot position
+    glm::vec3   vel;         // shot velocity
     float       dt;         // time shot has existed
     TeamColor       team;
 };

@@ -22,24 +22,24 @@
 class FlagSceneNode : public SceneNode
 {
 public:
-    FlagSceneNode(const GLfloat pos[3]);
+    FlagSceneNode(const glm::vec3 &pos);
     ~FlagSceneNode();
 
     static void     waveFlag(float dt);
     static void     freeFlag();
 
-    void        move(const GLfloat pos[3]);
+    void        move(const glm::vec3 &pos);
     void        setAngle(GLfloat angle);
     void        setWind(const GLfloat wind[3], float dt);
     void        setBillboard(bool billboard);
 
-    const GLfloat*  getColor() const
+    const glm::vec4 &getColor() const
     {
         return color;
     }
     void        setColor(GLfloat r, GLfloat g,
                          GLfloat b, GLfloat a = 1.0f);
-    void        setColor(const GLfloat* rgba);
+    void        setColor(const glm::vec4 &rgba);
     void        setTexture(const int);
 
     void        notifyStyleChange() override;
@@ -47,7 +47,7 @@ public:
     void        addShadowNodes(SceneRenderer&) override;
 
     bool        cullShadow(int planeCount,
-                           const float (*planes)[4]) const override;
+                           const glm::vec4 planes[]) const override;
 protected:
     class FlagRenderNode : public RenderNode
     {
@@ -55,7 +55,7 @@ protected:
         FlagRenderNode(const FlagSceneNode*);
         ~FlagRenderNode();
         void        render() override;
-        const GLfloat*  getPosition() const override;
+        const glm::vec3 &getPosition() const override;
     private:
         const FlagSceneNode* sceneNode;
         int      waveReference;
@@ -67,7 +67,7 @@ private:
     GLfloat     angle;
     GLfloat     tilt;
     GLfloat     hscl;
-    GLfloat     color[4];
+    glm::vec4   color;
     bool        transparent;
     bool        texturing;
     OpenGLGState    gstate;

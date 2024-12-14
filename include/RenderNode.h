@@ -25,6 +25,7 @@
 
 // System headers
 #include <vector>
+#include <glm/fwd.hpp>
 
 // Global headers
 #include "OpenGLGState.h"
@@ -40,7 +41,7 @@ public:
     virtual void    renderShadow();
     virtual void    renderRadar();
     // Used for sorting objects by distance
-    virtual const GLfloat* getPosition() const = 0;
+    virtual const glm::vec3 &getPosition() const = 0;
 
     static int      getTriangleCount();
     static void     resetTriangleCount();
@@ -91,7 +92,7 @@ public:
     void        append(RenderNode*, const OpenGLGState*, float depth);
     void        render() const;
 
-    void        sort(const GLfloat* eye);
+    void        sort(const glm::vec3 &eye);
 
 private:
     struct Item

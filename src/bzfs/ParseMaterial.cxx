@@ -90,7 +90,7 @@ bool parseMaterials(const char* cmd, std::istream& input,
     else if ((strcasecmp(cmd, "diffuse") == 0) || // currently used by bzflag
              (strcasecmp(cmd, "color") == 0))
     {
-        float diffuse[4];
+        glm::vec4 diffuse;
         error = !parseColorStream(input, diffuse);
         if (!error)
         {
@@ -102,24 +102,24 @@ bool parseMaterials(const char* cmd, std::istream& input,
     }
     else if (strcasecmp(cmd, "specular") == 0)
     {
-        float specular[4];
+        glm::vec4 specular;
         error = !parseColorStream(input, specular);
         if (!error)
         {
             for (i = 0; i < materialCount; i++)
-                materials[i].setSpecular(specular);
+                materials[i].setSpecular(glm::vec3(specular));
         }
         else
             std::cout << "bad " << cmd << " specification" << std::endl;
     }
     else if (strcasecmp(cmd, "emission") == 0)
     {
-        float emission[4];
+        glm::vec4 emission;
         error = !parseColorStream(input, emission);
         if (!error)
         {
             for (i = 0; i < materialCount; i++)
-                materials[i].setEmission(emission);
+                materials[i].setEmission(glm::vec3(emission));
         }
         else
             std::cout << "bad " << cmd << " specification" << std::endl;

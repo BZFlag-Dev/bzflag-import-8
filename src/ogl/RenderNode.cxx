@@ -17,6 +17,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <algorithm>
+#include <glm/vec3.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 //
 // RenderNode
@@ -97,16 +100,13 @@ void RenderNodeGStateList::render() const
 }
 
 
-void RenderNodeGStateList::sort(const GLfloat* e)
+void RenderNodeGStateList::sort(const glm::vec3 &e)
 {
     // calculate distances from the eye (squared)
     for (auto &item : list)
     {
-        const GLfloat* p = item.node->getPosition();
-        const float dx = (p[0] - e[0]);
-        const float dy = (p[1] - e[1]);
-        const float dz = (p[2] - e[2]);
-        item.depth = ((dx * dx) + (dy * dy) + (dz * dz));
+        const auto &p = item.node->getPosition();
+        item.depth = glm::distance2(p, e);
     }
 
     // sort from farthest to closest

@@ -15,6 +15,8 @@
 
 // System headers
 #include <math.h>
+#include <glm/geometric.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 // Common headers
 #include "global.h"
@@ -28,7 +30,7 @@ WallObstacle::WallObstacle()
     // do nothing
 }
 
-WallObstacle::WallObstacle(const float* p, float a, float b, float h, bool rico) :
+WallObstacle::WallObstacle(const glm::vec3 &p, float a, float b, float h, bool rico) :
     Obstacle(p, a, 0.0, b, h, false, false, rico)
 {
     finalize();
@@ -37,7 +39,7 @@ WallObstacle::WallObstacle(const float* p, float a, float b, float h, bool rico)
 void WallObstacle::finalize()
 {
     // compute normal
-    const float* p = getPosition();
+    const auto &p = getPosition();
     const float a = getRotation();
     plane[0] = cosf(a);
     plane[1] = sinf(a);
@@ -64,28 +66,25 @@ const char*     WallObstacle::getClassName() // const
 
 float           WallObstacle::intersect(const Ray& r) const
 {
-    const float* o = r.getOrigin();
-    const float* d = r.getDirection();
-    const float dot = -(d[0] * plane[0] + d[1] * plane[1] + d[2] * plane[2]);
+    const auto o = glm::vec4(r.getOrigin(), 1.0f);
+    const auto &d = r.getDirection();
+    const float dot = -glm::dot(d, glm::vec3(plane));
     if (dot == 0.0f) return -1.0f;
-    float t = (o[0] * plane[0] + o[1] * plane[1] + o[2] * plane[2] +
-               plane[3]) / dot;
+    float t = glm::dot(o, plane) / dot;
     return t;
 }
 
-void            WallObstacle::getNormal(const float*, float* n) const
+void WallObstacle::getNormal(const glm::vec3 &, glm::vec3 &n) const
 {
-    n[0] = plane[0];
-    n[1] = plane[1];
-    n[2] = plane[2];
+    n = plane;
 }
 
-bool            WallObstacle::inCylinder(const float* p, float r, float UNUSED( height )) const
+bool WallObstacle::inCylinder(const glm::vec3 &p, float r, float UNUSED( height )) const
 {
     return p[0] * plane[0] + p[1] * plane[1] + p[2] * plane[2] + plane[3] < r;
 }
 
-bool            WallObstacle::inBox(const float* p, float _angle,
+bool            WallObstacle::inBox(const glm::vec3 &p, float _angle,
                                     float halfWidth, float halfBreadth,
                                     float UNUSED( height )) const
 {
@@ -93,7 +92,7 @@ bool            WallObstacle::inBox(const float* p, float _angle,
     const float yWidth = sinf(_angle);
     const float xBreadth = -yWidth;
     const float yBreadth = xWidth;
-    float corner[3];
+    glm::vec3 corner;
     corner[2] = p[2];
 
     // check to see if any corner is inside negative half-space
@@ -113,21 +112,22 @@ bool            WallObstacle::inBox(const float* p, float _angle,
     return false;
 }
 
-bool            WallObstacle::inMovingBox(const float* UNUSED( oldP ), float UNUSED( oldAngle ),
-        const float* p, float _angle,
-        float halfWidth, float halfBreadth, float height) const
+bool WallObstacle::inMovingBox(const glm::vec3 &UNUSED( oldP ), float UNUSED( oldAngle ),
+                               const glm::vec3 &p, float _angle,
+                               float halfWidth, float halfBreadth, float height) const
 
 {
     return inBox (p, _angle, halfWidth, halfBreadth, height);
 }
 
 bool            WallObstacle::getHitNormal(
-    const float*, float,
-    const float*, float,
+    const glm::vec3 &, float,
+    const glm::vec3 &, float,
     float, float, float,
-    float* normal) const
+    glm::vec3 &normal) const
 {
-    getNormal(NULL, normal);
+    static const auto zero = glm::vec3(0.0f);
+    getNormal(zero, normal);
     return true;
 }
 

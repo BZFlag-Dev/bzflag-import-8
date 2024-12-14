@@ -17,6 +17,7 @@
 #include <math.h>
 #include <string.h>
 #include <vector>
+#include <glm/common.hpp>
 
 /* common implementation headers */
 #include "GameTime.h"
@@ -169,14 +170,14 @@ void DynamicColorManager::print(std::ostream& out, const std::string& indent) co
 
 DynamicColor::DynamicColor()
 {
+    // the parameters are setup so that all channels
+    // are at 1.0f, and that there are no variations
+    color    = glm::vec4(1.0f);
+    minValue = glm::vec4(0.0f);
+    maxValue = glm::vec4(1.0f);
     // setup the channels
     for (int c = 0; c < 4; c++)
     {
-        // the parameters are setup so that all channels
-        // are at 1.0f, and that there are no variations
-        color[c] = 1.0f;
-        channels[c].minValue = 0.0f;
-        channels[c].maxValue = 1.0f;
         channels[c].sequence.count = 0;
         channels[c].sequence.list = NULL;
     }
@@ -221,7 +222,7 @@ void DynamicColor::finalize()
     possibleAlpha = true;
     const ChannelParams& p = channels[3]; // the alpha channel
 
-    if ((p.minValue == 1.0f) && (p.maxValue == 1.0f))
+    if ((minValue.a == 1.0f) && (maxValue.a == 1.0f))
     {
         // opaque regardless of functions
         possibleAlpha = false;
@@ -232,7 +233,7 @@ void DynamicColor::finalize()
         // check the a special sequence case
         const sequenceParams& seq = p.sequence;
         if ((seq.count > 0) &&
-                (noAlphaSeqMid && (p.minValue == 0.0f) && (p.maxValue == 1.0f)))
+                (noAlphaSeqMid && (minValue.a == 0.0f) && (maxValue.a == 1.0f)))
         {
             // transparency, not translucency
             possibleAlpha = false;
@@ -247,7 +248,7 @@ void DynamicColor::finalize()
                     (p.sequence.count == 0))
             {
                 // not using any functions
-                if (p.maxValue == 1.0f)
+                if (maxValue.a == 1.0f)
                     possibleAlpha = false;
             }
         }
@@ -293,8 +294,8 @@ void DynamicColor::setLimits(int channel, float min, float max)
     else if (max > 1.0f)
         max = 1.0f;
 
-    channels[channel].minValue = min;
-    channels[channel].maxValue = max;
+    minValue[channel] = min;
+    maxValue[channel] = max;
 
     return;
 }
@@ -370,6 +371,8 @@ void DynamicColor::addClampDown(int channel, const float clampDown[3])
 
 void DynamicColor::update (double t)
 {
+    // the amount of 'max' in the resultant channel's value
+    auto factor = glm::vec4(1.0f);
     for (int c = 0; c < 4; c++)
     {
         const ChannelParams& channel = channels[c];
@@ -429,16 +432,13 @@ void DynamicColor::update (double t)
             }
         }
 
-        // the amount of 'max' in the resultant channel's value
-        float factor = 1.0f;
-
         // check the clamps
         if (clampUp && clampDown)
-            factor = 0.5f;
+            factor[c] = 0.5f;
         else if (clampUp)
-            factor = 1.0f;
+            factor[c] = 1.0f;
         else if (clampDown)
-            factor = 0.0f;
+            factor[c] = 0.0f;
         // no clamps, try sinusoids
         else if (channel.sinusoids.size() > 0)
         {
@@ -451,16 +451,12 @@ void DynamicColor::update (double t)
                 value += s.weight * (float)cos(clampedPhase * (M_PI * 2.0));
             }
             // center the factor
-            factor = 0.5f + (0.5f * value);
-            if (factor < 0.0f)
-                factor = 0.0f;
-            else if (factor > 1.0f)
-                factor = 1.0f;
+            factor[c] = 0.5f + (0.5f * value);
+            factor[c] = glm::clamp(factor[c], 0.0f, 1.0f);
         }
-
-        color[c] = (channel.minValue * (1.0f - factor)) +
-                   (channel.maxValue * factor);
     }
+
+    color = glm::mix(minValue, maxValue, factor);
 
     return;
 }
@@ -475,8 +471,8 @@ void * DynamicColor::pack(void *buf) const
         const ChannelParams& p = channels[c];
         unsigned int i;
 
-        buf = nboPackFloat (buf, p.minValue);
-        buf = nboPackFloat (buf, p.maxValue);
+        buf = nboPackFloat (buf, minValue[c]);
+        buf = nboPackFloat (buf, maxValue[c]);
 
         // sinusoids
         buf = nboPackUInt (buf, (unsigned int)p.sinusoids.size());
@@ -528,8 +524,8 @@ const void * DynamicColor::unpack(const void *buf)
         unsigned int i;
         uint32_t size;
 
-        buf = nboUnpackFloat (buf, p.minValue);
-        buf = nboUnpackFloat (buf, p.maxValue);
+        buf = nboUnpackFloat (buf, minValue[c]);
+        buf = nboUnpackFloat (buf, maxValue[c]);
 
         // sinusoids
         buf = nboUnpackUInt (buf, size);
@@ -621,10 +617,10 @@ void DynamicColor::print(std::ostream& out, const std::string& indent) const
     {
         const char *colorStr = colorStrings[c];
         const ChannelParams& p = channels[c];
-        if ((p.minValue != 0.0f) || (p.maxValue != 1.0f))
+        if ((minValue[c] != 0.0f) || (maxValue[c] != 1.0f))
         {
             out << indent << "  " << colorStr << " limits "
-                << p.minValue << " " << p.maxValue << std::endl;
+                << minValue[c] << " " << maxValue[c] << std::endl;
         }
         unsigned int i;
         if (p.sequence.count > 0)

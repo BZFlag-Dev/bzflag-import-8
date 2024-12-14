@@ -18,22 +18,26 @@
 #ifndef BZF_EXTENTS_H
 #define BZF_EXTENTS_H
 
+// 1st
 #include "common.h"
 
+// System headers
+#include <glm/vec3.hpp>
+#include <glm/common.hpp>
 
 class Extents
 {
 public:
     Extents();
-    Extents(const float mins[3], const float maxs[3]);
+    Extents(const glm::vec3 &mins, const glm::vec3 &maxs);
 
     void reset();
 
     Extents& operator=(const Extents&);
-    void set(const float mins[3], const float maxs[3]);
+    void set(const glm::vec3 &mins, const glm::vec3 &maxs);
 
     void expandToBox(const Extents& box); // expand to contain the box
-    void expandToPoint(const float[3]); // expand to contain the point
+    void expandToPoint(const glm::vec3&); // expand to contain the point
     void addMargin(float margin);     // widen the extents by "margin"
 
     float getWidth(int axis) const;
@@ -46,27 +50,23 @@ private:
     Extents(const Extents& orig);
 
 public:
-    float mins[3];
-    float maxs[3];
+    glm::vec3 mins;
+    glm::vec3 maxs;
 };
 
 
 inline void Extents::reset()
 {
-    mins[0] = mins[1] = mins[2] = +MAXFLOAT;
-    maxs[0] = maxs[1] = maxs[2] = -MAXFLOAT;
+    mins = glm::vec3(+MAXFLOAT);
+    maxs = glm::vec3(-MAXFLOAT);
     return;
 }
 
 
-inline void Extents::set(const float _mins[3], const float _maxs[3])
+inline void Extents::set(const glm::vec3 &_mins, const glm::vec3 &_maxs)
 {
-    mins[0] = _mins[0];
-    mins[1] = _mins[1];
-    mins[2] = _mins[2];
-    maxs[0] = _maxs[0];
-    maxs[1] = _maxs[1];
-    maxs[2] = _maxs[2];
+    mins = _mins;
+    maxs = _maxs;
     return;
 }
 
@@ -78,7 +78,7 @@ inline Extents::Extents()
 }
 
 
-inline Extents::Extents(const float _mins[3], const float _maxs[3])
+inline Extents::Extents(const glm::vec3 &_mins, const glm::vec3 &_maxs)
 {
     set(_mins, _maxs);
     return;
@@ -87,12 +87,8 @@ inline Extents::Extents(const float _mins[3], const float _maxs[3])
 
 inline Extents& Extents::operator=(const Extents& orig)
 {
-    mins[0] = orig.mins[0];
-    mins[1] = orig.mins[1];
-    mins[2] = orig.mins[2];
-    maxs[0] = orig.maxs[0];
-    maxs[1] = orig.maxs[1];
-    maxs[2] = orig.maxs[2];
+    mins = orig.mins;
+    maxs = orig.maxs;
     return *this;
 }
 
@@ -100,73 +96,43 @@ inline Extents& Extents::operator=(const Extents& orig)
 inline void Extents::expandToBox(const Extents& test)
 {
     // test mins
-    if (test.mins[0] < mins[0])
-        mins[0] = test.mins[0];
-    if (test.mins[1] < mins[1])
-        mins[1] = test.mins[1];
-    if (test.mins[2] < mins[2])
-        mins[2] = test.mins[2];
+    mins = glm::min(mins, test.mins);
     // test maxs
-    if (test.maxs[0] > maxs[0])
-        maxs[0] = test.maxs[0];
-    if (test.maxs[1] > maxs[1])
-        maxs[1] = test.maxs[1];
-    if (test.maxs[2] > maxs[2])
-        maxs[2] = test.maxs[2];
+    maxs = glm::max(maxs, test.maxs);
     return;
 }
 
 
-inline void Extents::expandToPoint(const float point[3])
+inline void Extents::expandToPoint(const glm::vec3 &point)
 {
     // test mins
-    if (point[0] < mins[0])
-        mins[0] = point[0];
-    if (point[1] < mins[1])
-        mins[1] = point[1];
-    if (point[2] < mins[2])
-        mins[2] = point[2];
+    mins = glm::min(mins, point);
     // test maxs
-    if (point[0] > maxs[0])
-        maxs[0] = point[0];
-    if (point[1] > maxs[1])
-        maxs[1] = point[1];
-    if (point[2] > maxs[2])
-        maxs[2] = point[2];
+    maxs = glm::max(maxs, point);
     return;
 }
 
 
 inline bool Extents::touches(const Extents& test) const
 {
-    if ((mins[0] > test.maxs[0]) || (maxs[0] < test.mins[0]) ||
-            (mins[1] > test.maxs[1]) || (maxs[1] < test.mins[1]) ||
-            (mins[2] > test.maxs[2]) || (maxs[2] < test.mins[2]))
-        return false;
-    return true;
+    return glm::all(glm::lessThanEqual(mins, test.maxs)) &&
+           glm::all(glm::greaterThanEqual(maxs, test.mins));
 }
 
 
 inline bool Extents::contains(const Extents& test) const
 {
-    if ((mins[0] < test.mins[0]) && (maxs[0] > test.maxs[0]) &&
-            (mins[1] < test.mins[1]) && (maxs[1] > test.maxs[1]) &&
-            (mins[2] < test.mins[2]) && (maxs[2] > test.maxs[2]))
-        return true;
-    return false;
+    return glm::all(glm::lessThan(mins, test.mins)) &&
+           glm::all(glm::greaterThan(maxs, test.maxs));
 }
 
 
 inline void Extents::addMargin(float margin)
 {
     // subtract from the mins
-    mins[0] -= margin;
-    mins[1] -= margin;
-    mins[2] -= margin;
+    mins -= margin;
     // add to the maxs
-    maxs[0] += margin;
-    maxs[1] += margin;
-    maxs[2] += margin;
+    maxs += margin;
     return;
 }
 

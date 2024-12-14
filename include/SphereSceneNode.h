@@ -26,12 +26,12 @@
 class SphereSceneNode : public SceneNode
 {
 public:
-    SphereSceneNode(const GLfloat pos[3], GLfloat radius);
+    SphereSceneNode(const glm::vec3 &pos, GLfloat radius);
     virtual ~SphereSceneNode();
 
     void setColor(GLfloat r, GLfloat g, GLfloat b, GLfloat a = 1.0f);
-    void setColor(const GLfloat* rgba);
-    void move(const GLfloat pos[3], GLfloat radius);
+    void setColor(const glm::vec4 &rgba);
+    void move(const glm::vec3 &pos, GLfloat radius);
     void notifyStyleChange();
 
     virtual void setShockWave(bool)
@@ -46,7 +46,7 @@ public:
 
 protected:
     GLfloat     radius;
-    GLfloat     color[4];
+    glm::vec4   color;
     bool        transparent;
     OpenGLGState    gstate;
 };
@@ -59,7 +59,7 @@ const int sphereLods = 5;
 class SphereLodSceneNode : public SphereSceneNode
 {
 public:
-    SphereLodSceneNode(const GLfloat pos[3], GLfloat radius);
+    SphereLodSceneNode(const glm::vec3 &pos, GLfloat radius);
     ~SphereLodSceneNode();
 
     void setShockWave(bool value);
@@ -87,7 +87,7 @@ protected:
         ~SphereLodRenderNode();
         void setLod(int lod);
         void render() override;
-        const GLfloat* getPosition() const override;
+        const glm::vec3 &getPosition() const override;
 
     private:
         const SphereLodSceneNode* sceneNode;
@@ -143,9 +143,9 @@ public:
         FragmentRenderNode(const SphereBspSceneNode*,
                            int theta, int phi);
         ~FragmentRenderNode();
-        const GLfloat*  getVertex() const;
+        const glm::vec3 &getVertex() const;
         void        render() override;
-        const GLfloat*  getPosition() const override;
+        const glm::vec3 &getPosition() const override;
     private:
         const SphereBspSceneNode*   sceneNode;
         int     theta, phi;
@@ -163,7 +163,7 @@ class SphereBspSceneNode : public SphereSceneNode
     friend class SphereFragmentSceneNode;
     friend class SphereFragmentSceneNode::FragmentRenderNode;
 public:
-    SphereBspSceneNode(const GLfloat pos[3], GLfloat radius);
+    SphereBspSceneNode(const glm::vec3 &pos, GLfloat radius);
     ~SphereBspSceneNode();
 
     void        addRenderNodes(SceneRenderer&);
@@ -191,13 +191,13 @@ protected:
         void        setHighResolution(bool);
         void        setBaseIndex(int index);
         void        render() override;
-        const GLfloat* getPosition() const override;
+        const glm::vec3 &getPosition() const override;
     private:
         const SphereBspSceneNode* sceneNode;
         bool        highResolution;
         int     baseIndex;
-        static GLfloat  geom[2 * SphereRes * (SphereRes + 1)][3];
-        static GLfloat  lgeom[SphereLowRes * (SphereLowRes + 1)][3];
+        static glm::vec3 geom[2 * SphereRes * (SphereRes + 1)];
+        static glm::vec3 lgeom[SphereLowRes * (SphereLowRes + 1)];
     };
     friend class SphereBspRenderNode;
 

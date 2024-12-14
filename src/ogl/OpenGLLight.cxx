@@ -15,6 +15,7 @@
 
 // System headers
 #include <math.h>
+#include <glm/gtc/type_ptr.hpp>
 
 // Common headers
 #include "OpenGLGState.h"
@@ -26,14 +27,8 @@ GLint OpenGLLight::maxLights = 0;
 
 OpenGLLight::OpenGLLight()
 {
-    pos[0] = 0.0f;
-    pos[1] = 0.0f;
-    pos[2] = 1.0f;
-    pos[3] = 0.0f;
-    color[0] = 0.8f;
-    color[1] = 0.8f;
-    color[2] = 0.8f;
-    color[3] = 1.0f;
+    pos = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
+    color = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
     atten[0] = 1.0f;
     atten[1] = 0.0f;
     atten[2] = 0.0f;
@@ -59,14 +54,8 @@ OpenGLLight::OpenGLLight()
 
 OpenGLLight::OpenGLLight(const OpenGLLight& l)
 {
-    pos[0] = l.pos[0];
-    pos[1] = l.pos[1];
-    pos[2] = l.pos[2];
-    pos[3] = l.pos[3];
-    color[0] = l.color[0];
-    color[1] = l.color[1];
-    color[2] = l.color[2];
-    color[3] = l.color[3];
+    pos = l.pos;
+    color = l.color;
     atten[0] = l.atten[0];
     atten[1] = l.atten[1];
     atten[2] = l.atten[2];
@@ -83,14 +72,8 @@ OpenGLLight& OpenGLLight::operator=(const OpenGLLight& l)
     if (this != &l)
     {
         freeLists();
-        pos[0] = l.pos[0];
-        pos[1] = l.pos[1];
-        pos[2] = l.pos[2];
-        pos[3] = l.pos[3];
-        color[0] = l.color[0];
-        color[1] = l.color[1];
-        color[2] = l.color[2];
-        color[3] = l.color[3];
+        pos = l.pos;
+        color = l.color;
         atten[0] = l.atten[0];
         atten[1] = l.atten[1];
         atten[2] = l.atten[2];
@@ -127,41 +110,38 @@ OpenGLLight::~OpenGLLight()
 }
 
 
-void OpenGLLight::setDirection(const GLfloat* _pos)
+void OpenGLLight::setDirection(const glm::vec3 &_pos)
 {
     freeLists();
-    pos[0] = _pos[0];
-    pos[1] = _pos[1];
-    pos[2] = _pos[2];
-    pos[3] = 0.0f;
+    pos = glm::vec4(_pos, 0.0f);
 }
 
 
-void OpenGLLight::setPosition(const GLfloat* _pos)
+void OpenGLLight::setPosition(const glm::vec3 &_pos)
 {
     freeLists();
-    pos[0] = _pos[0];
-    pos[1] = _pos[1];
-    pos[2] = _pos[2];
-    pos[3] = 1.0f;
+    pos = glm::vec4(_pos, 1.0f);
 }
 
 
 void OpenGLLight::setColor(GLfloat r, GLfloat g, GLfloat b)
 {
     freeLists();
-    color[0] = r;
-    color[1] = g;
-    color[2] = b;
+    color = glm::vec4(r, g, b, 1.0f);
 }
 
 
 void OpenGLLight::setColor(const GLfloat* rgb)
 {
     freeLists();
-    color[0] = rgb[0];
-    color[1] = rgb[1];
-    color[2] = rgb[2];
+    color = glm::vec4(rgb[0], rgb[1], rgb[2], 1.0f);
+}
+
+
+void OpenGLLight::setColor(const glm::vec3 &rgb)
+{
+    freeLists();
+    color = glm::vec4(rgb, 1.0f);
 }
 
 
@@ -213,10 +193,8 @@ void OpenGLLight::calculateImportance(const ViewFrustum& frustum)
 
     // check if the light is in front of the front viewing plane
     bool sphereCull = true;
-    const GLfloat* p = frustum.getDirection();
-    const float fd = (p[0] * pos[0]) +
-                     (p[1] * pos[1]) +
-                     (p[2] * pos[2]) + p[3];
+    const auto &p = frustum.getDirection();
+    const float fd = glm::dot(p, pos);
 
     // cull against the frustum planes
     if (fd > 0.0f)
@@ -225,10 +203,8 @@ void OpenGLLight::calculateImportance(const ViewFrustum& frustum)
         const int planeCount = frustum.getPlaneCount();
         for (int i = 1; i < planeCount; i++)
         {
-            const float* plane = frustum.getSide(i);
-            const float len = (plane[0] * pos[0]) +
-                              (plane[1] * pos[1]) +
-                              (plane[2] * pos[2]) + plane[3];
+            const auto &plane = frustum.getSide(i);
+            const float len = glm::dot(plane, pos);
             if (len < -maxDist)
             {
                 importance = -1.0f;
@@ -238,15 +214,8 @@ void OpenGLLight::calculateImportance(const ViewFrustum& frustum)
     }
 
     // calculate the distance
-    const GLfloat* eye = frustum.getEye();
-    const float v[3] =
-    {
-        (eye[0] - pos[0]),
-        (eye[1] - pos[1]),
-        (eye[2] - pos[2]),
-    };
-    float dist = (v[0] * v[0]) + (v[1] * v[1]) + (v[2] * v[2]);
-    dist = sqrtf(dist);
+    const auto &eye = frustum.getEye();
+    float dist = glm::distance(eye, glm::vec3(pos));
 
     // do a sphere cull if requested
     if (sphereCull && (dist > maxDist))
@@ -300,9 +269,9 @@ void OpenGLLight::execute(int index, bool useList) const
 
 void OpenGLLight::genLight(GLenum light) const
 {
-    glLightfv(light, GL_POSITION, pos);
-    glLightfv(light, GL_DIFFUSE, color);
-    glLightfv(light, GL_SPECULAR, color);
+    glLightfv(light, GL_POSITION, glm::value_ptr(pos));
+    glLightfv(light, GL_DIFFUSE, glm::value_ptr(color));
+    glLightfv(light, GL_SPECULAR, glm::value_ptr(color));
     glLighti(light, GL_SPOT_EXPONENT, 0);
     glLightf(light, GL_CONSTANT_ATTENUATION, atten[0]);
     glLightf(light, GL_LINEAR_ATTENUATION, atten[1]);

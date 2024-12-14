@@ -10,9 +10,6 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* BZFlag common header */
-#include "common.h"
-
 /* interface header */
 #include "ControlPanel.h"
 
@@ -33,6 +30,7 @@
 #ifdef _WIN32
 #  include <DirectoryNames.h>
 #endif
+#include "OpenGLAPI.h"
 
 /* local implementation headers */
 #include "SceneRenderer.h"
@@ -237,7 +235,7 @@ ControlPanel::ControlPanel(MainWindow& _mainWindow, SceneRenderer& _renderer) :
         messages[i].clear();
         unRead[i] = false;
     }
-    teamColor[0] = teamColor[1] = teamColor[2] = (GLfloat)0.0f;
+    teamColor = glm::vec3(0.0f);
 
     maxLines = 30;
 
@@ -294,12 +292,9 @@ void ControlPanel::bzdbCallback(const std::string& UNUSED(name), void* data)
     return;
 }
 
-void            ControlPanel::setControlColor(const GLfloat *color)
+void ControlPanel::setControlColor(const glm::vec3 &color)
 {
-    if (color)
-        memcpy(teamColor, color, 3 * sizeof(float));
-    else
-        memset(teamColor, 0, 3 * sizeof(float));
+    teamColor = color;
 }
 
 void            ControlPanel::render(SceneRenderer& _renderer)
@@ -584,7 +579,7 @@ void            ControlPanel::render(SceneRenderer& _renderer)
         glEnable(GL_BLEND);
 
     // nice border
-    glColor4f(teamColor[0], teamColor[1], teamColor[2],outlineOpacity );
+    glColor(teamColor, outlineOpacity);
     glBegin(GL_LINE_LOOP);
     {
         long xpos;

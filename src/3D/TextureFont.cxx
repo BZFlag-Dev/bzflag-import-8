@@ -20,11 +20,13 @@
 // System headers
 #include <string>
 #include <string.h>
+#include <glm/vec3.hpp>
 
 // Common implementation headers
 #include "bzfgl.h"
 #include "bzfio.h"
 #include "OpenGLGState.h"
+#include "OpenGLAPI.h"
 
 // Local implementation headers
 #include "TextureManager.h"
@@ -148,8 +150,9 @@ void TextureFont::filter(bool dofilter)
     }
 }
 
-void TextureFont::drawString(float scale, GLfloat color[4], const char *str,
-                             int len)
+void TextureFont::drawString(float scale,
+                             const glm::vec3 &color, float alpha,
+                             const char *str, int len)
 {
     if (!str)
         return;
@@ -167,7 +170,7 @@ void TextureFont::drawString(float scale, GLfloat color[4], const char *str,
         return;
 
     if (color[0] >= 0)
-        glColor4fv(color);
+        glColor(color, alpha);
 
     glPushMatrix();
     glScalef(scale, scale, 1);

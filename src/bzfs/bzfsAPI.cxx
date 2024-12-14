@@ -16,6 +16,10 @@
 // implementation wrappers for all the bzf_ API functions
 #include "bzfsAPI.h"
 
+// System headers
+#include <glm/gtc/type_ptr.hpp>
+
+// Common headers
 #include "bzfs.h"
 #include "WorldWeapons.h"
 #include "WorldEventManager.h"
@@ -118,9 +122,9 @@ void setBZMatFromAPIMat (BzMaterial &bzmat, bz_MaterialInfo* material )
 
     bzmat.setName(std::string(material->name.c_str()));
     bzmat.setAmbient(material->ambient);
-    bzmat.setDiffuse(material->diffuse);
-    bzmat.setSpecular(material->specular);
-    bzmat.setEmission(material->emisive);
+    bzmat.setDiffuse(glm::make_vec4(material->diffuse));
+    bzmat.setSpecular(glm::make_vec3(material->specular));
+    bzmat.setEmission(glm::make_vec3(material->emisive));
     bzmat.setShininess(material->shine);
 
     bzmat.setNoCulling(!material->culling);
@@ -1800,7 +1804,8 @@ BZF_API uint32_t bz_fireServerShot(const char* shotType, float origin[3], float 
 
     FlagType *flag = flagMap.find(flagType)->second;
 
-    return world->getWorldWeapons().fireShot(flag, origin, vector, nullptr, (TeamColor)convertTeam(color), targetPlayerId);
+    return world->getWorldWeapons().fireShot(flag, glm::make_vec3(origin), vector, nullptr, (TeamColor)convertTeam(color),
+            targetPlayerId);
 }
 
 BZF_API uint32_t bz_getShotMetaData (int fromPlayer, int shotID, const char* name)
@@ -2891,7 +2896,7 @@ BZF_API bool bz_moveFlag ( int flag, float pos[3] )
     if (teamIndex != ::NoTeam)
         teamIsEmpty = (team[teamIndex].team.size == 0);
 
-    pFlag->resetFlag(pos, teamIsEmpty);
+    pFlag->resetFlag(glm::make_vec3(pos), teamIsEmpty);
     sendFlagUpdate(*pFlag);
 
     return true;
@@ -2932,10 +2937,10 @@ BZF_API bool bz_getFlagPosition ( int flag, float* pos )
         if (!player)
             return false;
 
-        memcpy(pos,player->lastState.pos,sizeof(float)*3);
+        memcpy(pos, glm::value_ptr(player->lastState.pos), sizeof(float) * 3);
     }
     else
-        memcpy(pos,pFlag->flag.position,sizeof(float)*3);
+        memcpy(pos, glm::value_ptr(pFlag->flag.position), sizeof(float) * 3);
 
     return true;
 }
@@ -2945,14 +2950,17 @@ BZF_API bool bz_getNearestFlagSafetyZone(int flag, float *pos)
     FlagInfo *flagInfo = FlagInfo::get(flag);
     TeamColor myTeam = flagInfo->teamIndex();
 
-    float currPos[3];
-    bz_getFlagPosition(flag, currPos);
+    glm::vec3 currPos;
+    bz_getFlagPosition(flag, glm::value_ptr(currPos));
 
     if (myTeam == NoTeam)
         return false;
 
+    auto myPos = glm::make_vec3(pos);
     const std::string &safetyQualifier = CustomZone::getFlagSafetyQualifier(myTeam);
-    return world->getEntryZones().getClosePoint(safetyQualifier, currPos, pos);
+    bool result = world->getEntryZones().getClosePoint(safetyQualifier, currPos, myPos);
+    memcpy(pos, glm::value_ptr(myPos), sizeof(float) * 3);
+    return result;
 }
 
 //-------------------------------------------------------------------------
@@ -3041,7 +3049,7 @@ BZF_API bool bz_addWorldBase( float *pos, float rot, float* scale, int teamIndex
     if (!world || world->isFinisihed() || !pos || !scale)
         return false;
 
-    world->addBase(pos,rot,scale,teamIndex,options.driveThru,options.shootThru);
+    world->addBase(glm::make_vec3(pos),rot,glm::make_vec3(scale),teamIndex,options.driveThru,options.shootThru);
     return true;
 }
 
@@ -3100,7 +3108,7 @@ BZF_API bool bz_addWorldWeapon( const char* _flagType, float *pos, float rot, fl
     for (unsigned int i = 0; i < delays.size(); i++)
         realDelays.push_back(delays.get(i));
 
-    world->addWeapon(flag, pos, rot, tilt, RogueTeam, initDelay, realDelays, synct);
+    world->addWeapon(flag, glm::make_vec3(pos), rot, tilt, RogueTeam, initDelay, realDelays, synct);
     return true;
 }
 
@@ -3318,6 +3326,7 @@ BZF_API bool bz_getSpawnPointWithin ( bz_CustomZoneObject *obj, float randomPos[
     TimeKeeper start = TimeKeeper::getCurrent();
     int tries = 0;
 
+    glm::vec3 posRandom;
     do
     {
         if (tries >= 50)
@@ -3328,13 +3337,15 @@ BZF_API bool bz_getSpawnPointWithin ( bz_CustomZoneObject *obj, float randomPos[
                 return false;
         }
 
-        bz_getRandomPoint(obj, randomPos);
+        bz_getRandomPoint(obj, glm::value_ptr(posRandom));
         ++tries;
     }
     while (
-        !DropGeometry::dropPlayer(randomPos, obj->zMin, obj->zMax) ||
-        !bz_isWithinWorldBoundaries(randomPos)
+        !DropGeometry::dropPlayer(posRandom, obj->zMin, obj->zMax) ||
+        !bz_isWithinWorldBoundaries(glm::value_ptr(posRandom))
     );
+
+    memcpy(randomPos, glm::value_ptr(posRandom), sizeof(float) * 3);
 
     return true;
 }

@@ -17,7 +17,13 @@
 #ifndef BZF_FRUSTUM_H
 #define BZF_FRUSTUM_H
 
+// 1st
 #include "common.h"
+
+// System headers
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+#include <glm/mat4x4.hpp>
 
 // FIXME -- will need a means for off center projections for
 // looking through teleporters
@@ -28,25 +34,24 @@ public:
     Frustum();
     ~Frustum();
 
-    const float*    getEye() const;
-    const float*    getDirection() const;
-    const float*    getUp() const;
-    const float*    getRight() const;
-    const float*    getSide(int index) const;
+    const glm::vec3 &getEye() const;
+    const glm::vec4 &getDirection() const;
+    const glm::vec3 &getUp() const;
+    const glm::vec3 &getRight() const;
+    const glm::vec4 &getSide(int index) const;
     int         getPlaneCount() const;
-    const float*    getFarCorner(int index) const;
+    const glm::vec3 &getFarCorner(int index) const;
     float       getTilt() const; // degrees
     float       getRotation() const; // degrees
     float       getNear() const;
     float       getFar() const;
-    const float*    getViewMatrix() const;
+    const glm::mat4 &getViewMatrix() const;
     float       getFOVx() const;
     float       getFOVy() const;
-    const float*    getProjectionMatrix() const;
-    float       getEyeDepth(const float*) const;
+    const glm::mat4 &getProjectionMatrix() const;
     float       getAreaFactor() const;
 
-    void        setView(const float* eye, const float* target);
+    void        setView(const glm::vec3 &eye, const glm::vec3 &target);
     void        setProjection(float fov,
                               float m_near, float m_far, float m_deep_far,
                               int width, int height, int viewHeight);
@@ -60,41 +65,41 @@ public:
                                float width, float breadth);
 
 protected:
-    void        makePlane(const float* v1, const float* v2, int);
+    void        makePlane(const glm::vec3 &v1, const glm::vec3 &v2, int);
 
 protected:
-    float       eye[3];
-    float       target[3];
-    float       right[3], up[3];
-    float       plane[6][4];        // pointing in
+    glm::vec3   eye;
+    glm::vec3   target;
+    glm::vec3   right, up;
+    glm::vec4   plane[6];        // pointing in
     int         planeCount;
-    float       farCorner[4][3];
+    glm::vec3   farCorner[4];
     float       tilt;
     float       rotation;
-    float       viewMatrix[16];
-    float       billboardMatrix[16];
+    glm::mat4   viewMatrix;
+    glm::mat4   billboardMatrix;
     float       m_near, m_far;
     float       fovx, fovy;
     float       areaFactor;
-    float       projectionMatrix[16];
-    float       deepProjectionMatrix[16];
+    glm::mat4   projectionMatrix;
+    glm::mat4   deepProjectionMatrix;
 };
 
 //
 // Frustum
 //
 
-inline const float* Frustum::getEye() const
+inline const glm::vec3 &Frustum::getEye() const
 {
     return eye;
 }
 
-inline const float* Frustum::getDirection() const
+inline const glm::vec4 &Frustum::getDirection() const
 {
     return plane[0];
 }
 
-inline const float* Frustum::getSide(int index) const
+inline const glm::vec4 &Frustum::getSide(int index) const
 {
     return plane[index];
 }
@@ -104,7 +109,7 @@ inline int      Frustum::getPlaneCount() const
     return planeCount;
 }
 
-inline const float* Frustum::getFarCorner(int index) const
+inline const glm::vec3 &Frustum::getFarCorner(int index) const
 {
     return farCorner[index];
 }
@@ -119,12 +124,12 @@ inline float        Frustum::getRotation() const
     return rotation;
 }
 
-inline const float* Frustum::getUp() const
+inline const glm::vec3 &Frustum::getUp() const
 {
     return up;
 }
 
-inline const float* Frustum::getRight() const
+inline const glm::vec3 &Frustum::getRight() const
 {
     return right;
 }
@@ -149,12 +154,12 @@ inline float        Frustum::getFOVy() const
     return fovy;
 }
 
-inline const float* Frustum::getViewMatrix() const
+inline const glm::mat4 &Frustum::getViewMatrix() const
 {
     return viewMatrix;
 }
 
-inline const float* Frustum::getProjectionMatrix() const
+inline const glm::mat4 &Frustum::getProjectionMatrix() const
 {
     return projectionMatrix;
 }

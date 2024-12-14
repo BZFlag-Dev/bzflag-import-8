@@ -49,8 +49,8 @@ public:
     const ZoneFlagMap& getZoneFlagMap() const;
 
     float getArea() const;
-    void getRandomPoint(float *pt) const;
-    float getDistToPoint (const float *pos) const;
+    void getRandomPoint(glm::vec3 &pt) const;
+    float getDistToPoint (const glm::vec3 &pos) const;
 
 public:
     static const std::string& getFlagIdQualifier(int flagId);

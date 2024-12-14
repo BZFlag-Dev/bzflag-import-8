@@ -15,6 +15,7 @@
 
 // system headers
 #include <math.h>
+#include <glm/geometric.hpp>
 
 // common headers
 #include "Ray.h"
@@ -31,52 +32,37 @@ float TargetingUtils::normalizeAngle(float ang)
     return ang;
 }
 
-void TargetingUtils::getUnitVector( const float *src, const float *target, float unitVector[3] )
+glm::vec2 TargetingUtils::getUnitVector(const glm::vec2 &src,
+                                        const glm::vec2 &target)
 {
-    unitVector[0] = target[0] - src[0];
-    unitVector[1] = target[1] - src[1];
-    unitVector[2] = 0.0f;
+    const auto unitVector = target - src;
 
-    float len = (float) sqrt(unitVector[0] * unitVector[0] +
-                             unitVector[1] * unitVector[1]);
+    if (!(unitVector.x || unitVector.y))
+        return glm::vec2(0.0f);
 
-    if (len == 0.0f)
-        return;
-
-    unitVector[0] /= len;
-    unitVector[1] /= len;
+    return glm::normalize(unitVector);
 }
 
-void TargetingUtils::get3DUnitVector( const float *src, const float *target, float unitVector[3] )
+glm::vec3 TargetingUtils::get3DUnitVector(
+    const glm::vec3 &src,
+    const glm::vec3 &target)
 {
-    unitVector[0] = target[0] - src[0];
-    unitVector[1] = target[1] - src[1];
-    unitVector[2] = target[2] - src[1];
+    const auto unitVector = target - src;
 
-    float len = (float) sqrt(unitVector[0] * unitVector[0] +
-                             unitVector[1] * unitVector[1] +
-                             unitVector[2] * unitVector[2]);
+    if (!(unitVector.x || unitVector.y || unitVector.z))
+        return glm::vec3(0.0f);
 
-    if (len == 0.0f)
-        return;
-
-    unitVector[0] /= len;
-    unitVector[1] /= len;
-    unitVector[2] /= len;
+    return glm::normalize(unitVector);
 }
 
-float TargetingUtils::getTargetDistance( const float *src, const float *target )
+float TargetingUtils::getTargetDistance(const glm::vec2 &src,
+                                        const glm::vec2 &target)
 {
-    float vec[2];
-
-    vec[0] = target[0] - src[0];
-    vec[1] = target[1] - src[1];
-
-    return (float) sqrt(vec[0] * vec[0] +
-                        vec[1] * vec[1]);
+    return glm::distance(src, target);
 }
 
-float TargetingUtils::getTargetAzimuth( const float *src, const float *target )
+float TargetingUtils::getTargetAzimuth(const glm::vec3 &src,
+                                       const glm::vec3 &target)
 {
     return atan2f((target[1] - src[1]), (target[0] - src[0]));
 }
@@ -90,57 +76,50 @@ float TargetingUtils::getTargetRotation( const float startAzimuth, float targetA
     return targetRotation;
 }
 
-float TargetingUtils::getTargetAngleDifference( const float *src, float srcAzimuth, const float *target )
+float TargetingUtils::getTargetAngleDifference(const glm::vec2 &src, float srcAzimuth, const glm::vec3 &target)
 {
-    float targetUnitVector[3];
-    float srcUnitVector[3];
+    const auto targetUnitVector = getUnitVector(src, target);
 
-    getUnitVector(src, target, targetUnitVector);
+    const auto srcUnitVector = glm::vec2(cosf(srcAzimuth), sinf(srcAzimuth));
 
-    srcUnitVector[0] = cosf(srcAzimuth);
-    srcUnitVector[1] = sinf(srcAzimuth);
-    srcUnitVector[2] = 0.0f;
-
-    return acos( targetUnitVector[0]*srcUnitVector[0] + targetUnitVector[1]*srcUnitVector[1] );
+    return acos(glm::dot(targetUnitVector, srcUnitVector));
 }
 
-bool TargetingUtils::isLocationObscured( const float *src, const float *target )
+bool TargetingUtils::isLocationObscured(const glm::vec3 &src, const glm::vec2 &target)
 {
-    float dir[3];
+    const auto src2 = glm::vec2(src);
+    auto dir = glm::vec3(getUnitVector(src2, target), 0.0f);
 
-    getUnitVector(src, target, dir);
-
-    Ray tankRay( src, dir );
-    float targetDistance = getTargetDistance(src, target);
+    Ray tankRay(src, dir);
+    float targetDistance = glm::distance(src2, target);
     const Obstacle *building = ShotStrategy::getFirstBuilding(tankRay, -0.5f, targetDistance);
     return building != NULL;
 }
 
-float TargetingUtils::getOpenDistance( const float *src, const float azimuth )
+float TargetingUtils::getOpenDistance(const glm::vec3 &src, const float azimuth )
 {
     float t = MAXFLOAT; //Some constant?
 
-    float dir[3] = { cosf(azimuth), sinf(azimuth), 0.0f };
-    const float pos[3] = { src[0], src[1], src[2] + 0.1f };   // Don't hit building because you're sitting on one.
+    const auto dir = glm::vec3(cosf(azimuth), sinf(azimuth), 0.0f);
+    auto pos = src;   // Don't hit building because you're sitting on one.
+    pos.z += 0.1f;
     Ray tankRay( pos, dir );
     ShotStrategy::getFirstBuilding(tankRay, -0.5f, t);
     return t;
 }
 
-bool TargetingUtils::getFirstCollisionPoint( const float *src, const float *target, float *collisionPt )
+bool TargetingUtils::getFirstCollisionPoint(
+    const glm::vec3 &src, const glm::vec3 &target, glm::vec3 &collisionPt)
 {
     float t = MAXFLOAT;
-    float dir[3];
-    get3DUnitVector(src, target, dir);
+    const auto dir = get3DUnitVector(src, target);
 
-    Ray tankRay( src, dir );
+    Ray tankRay(src, dir);
     const Obstacle *building = ShotStrategy::getFirstBuilding(tankRay, 0.0f, t);
     if (building == NULL)
         return false;
 
-    collisionPt[0] = src[0] + dir[0] * t;
-    collisionPt[1] = src[1] + dir[1] * t;
-    collisionPt[2] = src[2] + dir[2] * t;
+    collisionPt = src + dir * t;
     return true;
 }
 

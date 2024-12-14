@@ -10,9 +10,15 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "common.h"
-#include <math.h>
+// Its interface
 #include "Intersect.h"
+
+// System headers
+#include <math.h>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
+
+// common headers
 #include "Extents.h"
 
 
@@ -72,13 +78,11 @@ static float getNormalOrigRect(const float* p, float dx, float dy)
 }
 
 
-void getNormalRect(const float* p1, const float* p2,
-                   float angle, float dx, float dy, float* n)
+void getNormalRect(const glm::vec2 p1, const glm::vec2 p2,
+                   float angle, float dx, float dy, glm::vec3 &n)
 {
     // translate origin
-    float pa[2];
-    pa[0] = p1[0] - p2[0];
-    pa[1] = p1[1] - p2[1];
+    auto pa = p1 - p2;
 
     // rotate
     float pb[2];
@@ -90,9 +94,7 @@ void getNormalRect(const float* p1, const float* p2,
     const float normAngle = getNormalOrigRect(pb, dx, dy) + angle;
 
     // make normal
-    n[0] = cosf(normAngle);
-    n[1] = sinf(normAngle);
-    n[2] = 0.0f;
+    n = glm::vec3(cosf(normAngle), sinf(normAngle), 0.0f);
 }
 
 
@@ -127,13 +129,11 @@ bool testOrigRectCircle(float dx, float dy, const float* p, float r)
 }
 
 
-bool testRectCircle(const float* p1, float angle,
-                    float dx, float dy, const float* p2, float r)
+bool testRectCircle(const glm::vec2 p1, float angle,
+                    float dx, float dy, const glm::vec2 p2, float r)
 {
     // translate origin
-    float pa[2];
-    pa[0] = p2[0] - p1[0];
-    pa[1] = p2[1] - p1[1];
+    auto pa = p2 - p1;
 
     // rotate
     float pb[2];
@@ -150,31 +150,25 @@ bool testRectCircle(const float* p1, float angle,
 Ray rayMinusRay(const Ray& r1, float t1, const Ray& r2, float t2)
 {
     // get points at respective times
-    float p1[3], p2[3];
+    glm::vec3 p1, p2;
     r1.getPoint(t1, p1);
     r2.getPoint(t2, p2);
 
     // construct new ray
-    float p[3], d[3];
-    p[0] = p1[0] - p2[0];
-    p[1] = p1[1] - p2[1];
-    p[2] = p1[2] - p2[2];
-    d[0] = r1.getDirection()[0] - r2.getDirection()[0];
-    d[1] = r1.getDirection()[1] - r2.getDirection()[1];
-    d[2] = r1.getDirection()[2] - r2.getDirection()[2];
+    const auto p = p1 - p2;
+    const auto d = r1.getDirection() - r2.getDirection();
     return Ray(p, d);
 }
 
 
 float rayAtDistanceFromOrigin(const Ray& r, float radius)
 {
-    const float* d = r.getDirection();
-    if (d[0] == 0.0 && d[1] == 0.0 && d[2] == 0.0) return 0.0f;
-
-    const float* p = r.getOrigin();
-    const float a = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
-    const float b = -(p[0] * d[0] + p[1] * d[1] + p[2] * d[2]);
-    const float c = p[0] * p[0] + p[1] * p[1] + p[2] * p[2] - radius * radius;
+    const auto &d = r.getDirection();
+    const auto &p = r.getOrigin();
+    const float a = glm::length2(d);
+    if (a == 0.0f) return 0.0f;
+    const float b = -glm::dot(p, d);
+    const float c = glm::length2(p) - radius * radius;
     const float disc = b * b - a * c;
     if (disc < 0.0f) return -1.0f;        // misses sphere
     const float d1_2 = sqrtf(disc);
@@ -267,12 +261,12 @@ static float timeRayHitsOrigBox(const float* p, const float* v,
 }
 
 
-float timeRayHitsBlock(const Ray& r, const float* p1,
+float timeRayHitsBlock(const Ray& r, const glm::vec3 &p1,
                        float angle, float dx, float dy, float dz)
 {
     // get names for ray info
-    const float* p2 = r.getOrigin();
-    const float* d = r.getDirection();
+    const auto &p2 = r.getOrigin();
+    const auto &d  = r.getDirection();
 
     // translate origin
     float pa[2];
@@ -296,41 +290,30 @@ float timeRayHitsBlock(const Ray& r, const float* p1,
 
 /** Computing ray travel time to the plane described by 3 points
  */
-static float timeRayHitsPlane(const float pb[3], const float db[3],
-                              const float x1[3], const float x2[3],
-                              const float x3[3])
+static float timeRayHitsPlane(const glm::vec3 &pb, const glm::vec3 &db,
+                              const glm::vec3 &x1, const glm::vec3 &x2,
+                              const glm::vec3 &x3)
 {
-    float u[3], v[3], d[3];
-    int i;
+    glm::vec3 u, v, d;
 
     // Compute the 2 vectors describing the plane
-    for (i = 0; i < 3; i++)
-        u[i] = x2[i] - x1[i];
-    for (i = 0; i < 3; i++)
-        v[i] = x3[i] - x1[i];
+    u = x2 - x1;
+    v = x3 - x1;
     // Thats a distance vector: a vector from the plane to the ray beginning
-    for (i = 0; i < 3; i++)
-        d[i] = pb[i] - x1[i];
+    d = pb - x1;
 
     // plane versor unnormalized
-    float n[3];
-    n[0] = u[1] * v[2] - u[2] * v[1];
-    n[1] = u[2] * v[0] - u[0] * v[2];
-    n[2] = u[0] * v[1] - u[1] * v[0];
+    auto n = glm::cross(u, v);
 
     // computing unnormalized distance projecting the distance on versor
-    float distance = 0.0;
-    for (i = 0; i < 3; i++)
-        distance += n[i] * d[i];
+    float distance = glm::dot(n, d);
 
     // if distance is negative, plane is already passed
     if (distance <= 0.0f)
         return 0.0f;
 
     // project velocity vector on the plan versor unnormalized
-    float velocity = 0.0f;
-    for (i = 0; i < 3; i++)
-        velocity += n[i] * db[i];
+    float velocity = glm::dot(n, db);
 
     // if velocity is greater or equal than 0 no way to trespass the plane
     if (velocity >= 0.0f)
@@ -341,27 +324,25 @@ static float timeRayHitsPlane(const float pb[3], const float db[3],
 }
 
 
-float timeRayHitsPyramids(const Ray& r, const float* p1, float angle,
+float timeRayHitsPyramids(const Ray& r, const glm::vec3 &p1, float angle,
                           float dx, float dy, float dz, bool flipZ)
 {
 
     const float epsilon = 1.0e-3f;
     // get names for ray info
     int i;
-    const float* p2 = r.getOrigin();
-    const float* d  = r.getDirection();
+    const auto &p2 = r.getOrigin();
+    const auto &d  = r.getDirection();
 
     // translate origin
-    float pa[2];
-    pa[0] = p2[0] - p1[0];
-    pa[1] = p2[1] - p1[1];
+    auto pa = p2 - p1;
 
     // rotate
-    float pb[3], db[3];
+    glm::vec3 pb, db;
     const float c = cosf(-angle), s = sinf(-angle);
     pb[0] = c * pa[0] - s * pa[1];
     pb[1] = c * pa[1] + s * pa[0];
-    pb[2] = p2[2] - p1[2];
+    pb[2] = pa[2];
     db[0] = c * d[0] - s * d[1];
     db[1] = c * d[1] + s * d[0];
     db[2] = d[2];
@@ -380,7 +361,7 @@ float timeRayHitsPyramids(const Ray& r, const float* p1, float angle,
 
     float residualTime = 0.0f;
 
-    float x1[3], x2[3], x3[3];
+    glm::vec3 x1, x2, x3;
     float residualTemp;
 
     x1[2] = 0.0f;
@@ -509,24 +490,22 @@ float timeAndSideRayHitsOrigRect(const float* p, const float* v,
 }
 
 
-float timeAndSideRayHitsRect(const Ray& r, const float* p1, float angle,
+float timeAndSideRayHitsRect(const Ray& r, const glm::vec3 &p1, float angle,
                              float dx, float dy, int& side)
 {
     // get names for ray info
-    const float* p2 = r.getOrigin();
-    const float* d = r.getDirection();
+    const auto &p2 = r.getOrigin();
+    const auto &d = r.getDirection();
 
     // translate origin
-    float pa[2];
-    pa[0] = p2[0] - p1[0];
-    pa[1] = p2[1] - p1[1];
+    auto pa = p2 - p1;
 
     // rotate
     float pb[3], db[3];
     const float c = cosf(-angle), s = sinf(-angle);
     pb[0] = c * pa[0] - s * pa[1];
     pb[1] = c * pa[1] + s * pa[0];
-    pb[2] = p2[2] - p1[2];
+    pb[2] = pa[2];
     db[0] = c * d[0] - s * d[1];
     db[1] = c * d[1] + s * d[0];
     db[2] = d[2];
@@ -620,13 +599,11 @@ static bool testOrigRectRect(const float* p, float angle,
 }
 
 
-bool testRectRect(const float* p1, float angle1, float dx1, float dy1,
-                  const float* p2, float angle2, float dx2, float dy2)
+bool testRectRect(const glm::vec2 p1, float angle1, float dx1, float dy1,
+                  const glm::vec2 p2, float angle2, float dx2, float dy2)
 {
     // translate origin
-    float pa[2];
-    pa[0] = p2[0] - p1[0];
-    pa[1] = p2[1] - p1[1];
+    auto pa = p2 - p1;
 
     // rotate
     float pb[2];
@@ -639,17 +616,15 @@ bool testRectRect(const float* p1, float angle1, float dx1, float dy1,
 }
 
 
-bool testRectInRect(const float* p1, float angle1, float dx1, float dy1,
-                    const float* p2, float angle2, float dx2, float dy2)
+bool testRectInRect(const glm::vec2 p1, float angle1, float dx1, float dy1,
+                    const glm::vec2 p2, float angle2, float dx2, float dy2)
 {
     static const float    box[4][2] = { {  1.0,  1.0 }, {  1.0, -1.0 },
         { -1.0, -1.0 }, { -1.0,  1.0 }
     };
 
     // translate origin
-    float pa[2];
-    pa[0] = p2[0] - p1[0];
-    pa[1] = p2[1] - p1[1];
+    auto pa = p2 - p1;
 
     // rotate
     float pb[2];
@@ -669,11 +644,11 @@ bool testRectInRect(const float* p1, float angle1, float dx1, float dy1,
 }
 
 
-static inline void projectAxisBox(const float* dir, const Extents& extents,
+static inline void projectAxisBox(const glm::vec3 &dir, const Extents& extents,
                                   float* minDist, float* maxDist)
 {
-    static float i[3];
-    static float o[3];
+    glm::vec3 i;
+    glm::vec3 o;
 
     // find the extreme corners
     for (int t = 0; t < 3; t++)
@@ -690,8 +665,8 @@ static inline void projectAxisBox(const float* dir, const Extents& extents,
         }
     }
 
-    float idist = (i[0] * dir[0]) + (i[1] * dir[1]) + (i[2] * dir[2]);
-    float odist = (o[0] * dir[0]) + (o[1] * dir[1]) + (o[2] * dir[2]);
+    float idist = glm::dot(i, dir);
+    float odist = glm::dot(o, dir);
 
     if (idist < odist)
     {
@@ -708,8 +683,8 @@ static inline void projectAxisBox(const float* dir, const Extents& extents,
 }
 
 
-static inline void projectPolygon(const float* dir,
-                                  int count, const float (*points)[3],
+static inline void projectPolygon(const glm::vec3 &dir,
+                                  int count, const glm::vec3 *points,
                                   float* minDist, float* maxDist)
 {
     float mind = MAXFLOAT;
@@ -717,8 +692,8 @@ static inline void projectPolygon(const float* dir,
 
     for (int i = 0; i < count; i++)
     {
-        const float* p = points[i];
-        float dist = (p[0] * dir[0]) + (p[1] * dir[1]) + (p[2] * dir[2]);
+        const auto p = points[i];
+        float dist = glm::dot(p, dir);
         if (dist < mind)
             mind = dist;
         if (dist > maxd)
@@ -734,12 +709,12 @@ static inline void projectPolygon(const float* dir,
 
 // return true if polygon touches the axis aligned box
 // *** assumes that an extents test has already been done ***
-bool testPolygonInAxisBox(int pointCount, const float (*points)[3],
-                          const float* plane, const Extents& extents)
+bool testPolygonInAxisBox(int pointCount, const glm::vec3 *points,
+                          const glm::vec4 &plane, const Extents& extents)
 {
     int t;
-    static float i[3]; // inside point  (assuming partial)
-    static float o[3]; // outside point (assuming partial)
+    static glm::vec4 i; // inside point  (assuming partial)
+    static glm::vec4 o; // outside point (assuming partial)
 
     // test the plane
     for (t = 0; t < 3; t++)
@@ -755,12 +730,10 @@ bool testPolygonInAxisBox(int pointCount, const float (*points)[3],
             o[t] = extents.maxs[t];
         }
     }
-    const float icross = (plane[0] * i[0]) +
-                         (plane[1] * i[1]) +
-                         (plane[2] * i[2]) + plane[3];
-    const float ocross = (plane[0] * o[0]) +
-                         (plane[1] * o[1]) +
-                         (plane[2] * o[2]) + plane[3];
+    i.w = 1.0f;
+    o.w = 1.0f;
+    const float icross = glm::dot(plane, i);
+    const float ocross = glm::dot(plane, o);
     if ((icross * ocross) > 0.0f)
     {
         // same polarity means that the plane doesn't cut the box
@@ -768,24 +741,16 @@ bool testPolygonInAxisBox(int pointCount, const float (*points)[3],
     }
 
     // test the edges
-    const float axisNormals[3][3] =
+    const glm::vec3 axisNormals[3] =
     {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
     for (t = 0; t < pointCount; t++)
     {
         int next = (t + 1) % pointCount;
-        float edge[3];
-        edge[0] = points[next][0] - points[t][0];
-        edge[1] = points[next][1] - points[t][1];
-        edge[2] = points[next][2] - points[t][2];
-        for (int a = 0; a < 3; a++)
+        auto edge = points[next] - points[t];
+        for (const auto &axis : axisNormals)
         {
-            float cross[3];
-            const float* axis = axisNormals[a];
-            cross[0] = (edge[1] * axis[2]) - (edge[2] * axis[1]);
-            cross[1] = (edge[2] * axis[0]) - (edge[0] * axis[2]);
-            cross[2] = (edge[0] * axis[1]) - (edge[1] * axis[0]);
-            const float length =
-                (cross[0] * cross[0]) + (cross[1] * cross[1]) + (cross[2] * cross[2]);
+            const auto cross = glm::cross(edge, axis);
+            const float length = glm::length2(cross);
             if (length < 0.001f)
                 continue;
             // find the projected distances
@@ -812,10 +777,9 @@ IntersectLevel testAxisBoxInFrustum(const Extents& extents,
     // FIXME - use a sphere vs. cone test first?
 
     static int s, t;
-    static float i[3]; // inside point  (assuming partial)
-    static float o[3]; // outside point (assuming partial)
+    static glm::vec4 i; // inside point  (assuming partial)
+    static glm::vec4 o; // outside point (assuming partial)
     static float len;
-    static const float* p; // the plane
     IntersectLevel result = Contained;
 
     // FIXME - 0 is the near clip plane, not that useful really?
@@ -823,10 +787,13 @@ IntersectLevel testAxisBoxInFrustum(const Extents& extents,
 
     const int planeCount = frustum->getPlaneCount();
 
+    i.w = 1.0f;
+    o.w = 1.0f;
+
     for (s = 1 /* NOTE: not 0 */; s < planeCount; s++)
     {
 
-        p = frustum->getSide(s);
+        const auto &p = frustum->getSide(s); // the plane
 
         // setup the inside/outside corners
         // this can be determined easily based
@@ -845,14 +812,14 @@ IntersectLevel testAxisBoxInFrustum(const Extents& extents,
             }
         }
         // check the inside length
-        len = (p[0] * i[0]) + (p[1] * i[1]) + (p[2] * i[2]) + p[3];
+        len = glm::dot(p, i);
         if (len < -1.0f)
         {
             return Outside; // box is fully outside the frustum
         }
 
         // check the outside length
-        len = (p[0] * o[0]) + (p[1] * o[1]) + (p[2] * o[2]) + p[3];
+        len = glm::dot(p, o);
         if (len < -1.0f)
         {
             result = Partial; // partial containment at best
@@ -867,19 +834,20 @@ IntersectLevel testAxisBoxInFrustum(const Extents& extents,
 // is contained within all of the planes.
 // the occluder plane normals point inwards
 IntersectLevel testAxisBoxOcclusion(const Extents& extents,
-                                    const float (*planes)[4], int planeCount)
+                                    const glm::vec4 planes[], int planeCount)
 {
     static int s, t;
-    static float i[3]; // inside point  (assuming partial)
-    static float o[3]; // outside point (assuming partial)
+    static glm::vec4 i; // inside point  (assuming partial)
+    static glm::vec4 o; // outside point (assuming partial)
     static float len;
-    static const float* p; // the plane
     IntersectLevel result = Contained;
+    i.w = 1.0f;
+    o.w = 1.0f;
 
     for (s = 0; s < planeCount; s++)
     {
 
-        p = planes[s];
+        const auto &p = planes[s];
 
         // setup the inside/outside corners
         // this can be determined easily based
@@ -899,7 +867,7 @@ IntersectLevel testAxisBoxOcclusion(const Extents& extents,
         }
 
         // check the inside length
-        len = (p[0] * i[0]) + (p[1] * i[1]) + (p[2] * i[2]) + p[3];
+        len = glm::dot(p, i);
         if (len < +0.1f)
         {
             return Outside; // box is fully outside the occluder
@@ -911,7 +879,7 @@ IntersectLevel testAxisBoxOcclusion(const Extents& extents,
         //   the likely number of loops
 
         // check the outside length
-        len = (p[0] * o[0]) + (p[1] * o[1]) + (p[2] * o[2]) + p[3];
+        len = glm::dot(p, o);
         if (len < +0.1f)
         {
             result =  Partial; // partial containment at best
@@ -927,9 +895,8 @@ bool testRayHitsAxisBox(const Ray* ray, const Extents& exts,
                         float* inTime)
 {
     int a;
-    const float* const o = ray->getOrigin();
-    const float* const v = ray->getDirection();
-    const float* extents[2] = { exts.mins, exts.maxs };
+    const auto &o = ray->getOrigin();
+    const auto &v = ray->getDirection();
     int zone[3];
     bool inside = true;
 
@@ -960,6 +927,7 @@ bool testRayHitsAxisBox(const Ray* ray, const Extents& exts,
         *inTime = 0.0f;
     else
     {
+        const glm::vec3 extents[2] = { exts.mins, exts.maxs };
         int hitPlane;
         // calculate the hitTimes
         for (a = 0; a < 3; a++)
@@ -1006,8 +974,8 @@ bool testRayHitsAxisBox(const Ray* ray, const Extents& extents,
         return false;
 
     int a;
-    const float* const o = ray->getOrigin();
-    const float* const v = ray->getDirection();
+    const auto &o = ray->getOrigin();
+    const auto &v = ray->getDirection();
 
     // calculate the hitTimes for the outTime
     float hitTime[3];

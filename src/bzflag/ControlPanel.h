@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include <deque>
+#include <glm/vec3.hpp>
 
 //common headers
 #include "bzfgl.h"
@@ -55,7 +56,7 @@ public:
     ControlPanel(MainWindow&, SceneRenderer&);
     ~ControlPanel();
 
-    void        setControlColor(const GLfloat *color = NULL);
+    void setControlColor(const glm::vec3 &color = glm::vec3(0.0f));
     void        render(SceneRenderer&);
     void        resize();
     void        invalidate();
@@ -121,7 +122,7 @@ private:
     int         messageAreaPixels[4];
     std::deque<ControlPanelMessage> messages[MessageModeCount];
     int messageMode;
-    GLfloat     teamColor[3];
+    glm::vec3   teamColor;
     static int      messagesOffset;
     static const int    maxScrollPages;
     int         maxLines;

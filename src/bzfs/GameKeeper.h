@@ -104,8 +104,8 @@ public:
         bool       needsHostbanChecked();
 
         // To handle player State
-        void       setPlayerState(float pos[3], float azimuth);
-        void       getPlayerState(float pos[3], float &azimuth);
+        void       setPlayerState(const glm::vec3 &pos, float azimuth);
+        void       getPlayerState(glm::vec3 &pos, float &azimuth);
         void       setPlayerState(PlayerState state, float timestamp);
 
         void       setBzIdentifier(const std::string& id);

@@ -61,7 +61,7 @@ protected:
     OpenGLGState                puddleState;
     std::string             rainSkin;
     std::vector<std::string>        rainTextures;
-    float                   rainColor[2][4];
+    glm::vec4               rainColor[2];
     float                   rainSize[2];
     int                 rainDensity;
     float                   rainSpeed;
@@ -77,14 +77,14 @@ protected:
     float                   rainEndZ;
     float                   maxPuddleTime;
     float                   puddleSpeed;
-    float                   puddleColor[4];
+    glm::vec4               puddleColor;
     GLuint                  dropList;
     GLuint                  puddleList;
 
 public:
     typedef struct
     {
-        float       pos[3];
+        glm::vec3   pos;
         float       speed;
         float       roofTop;
         int     texture;
@@ -95,7 +95,7 @@ protected:
 
     typedef struct
     {
-        float       pos[3];
+        glm::vec3   pos;
         float       time;
         int     texture;
     } puddle;
@@ -106,9 +106,10 @@ protected:
     void buildDropList(bool draw = false);
     void buildPuddleList(bool draw = false);
 
-    bool updateDrop(std::vector<rain>::iterator &drop, float frameTime, std::vector<rain> &toAdd);
+    bool updateDrop(std::vector<rain>::iterator &drop, float frameTime);
     bool updatePuddle(std::vector<puddle>::iterator &splash, float frameTime);
 
+    void drawLineDrop(rain &drop);
     void drawDrop(rain &drop, const SceneRenderer& sr);
     void drawPuddle(puddle &splash);
 
@@ -123,8 +124,8 @@ protected:
 public:
     typedef struct
     {
-        float mins[3];
-        float maxs[3];
+        glm::vec3 mins;
+        glm::vec3 maxs;
     } copyExtents;
 
 protected:

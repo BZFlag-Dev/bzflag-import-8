@@ -32,7 +32,7 @@ WallSceneNode*  BaseSceneNodeGenerator::getNextNode(float uRepeats, float vRepea
     const float height = base->getHeight() + base->getPosition()[2];
     if (getNodeNumber() >= 1 && height == 0) return NULL;
     if (getNodeNumber() >= 6) return NULL;
-    GLfloat bPoint[3], sCorner[3], tCorner[3];
+    glm::vec3 bPoint, sCorner, tCorner;
     if (height == 0)
     {
         fixedUVs = true;
@@ -86,40 +86,25 @@ WallSceneNode*  BaseSceneNodeGenerator::getNextNode(float uRepeats, float vRepea
 
         }
     }
-    GLfloat color[4];
+    glm::vec4 color;
     switch (base->getTeam())
     {
     case 1:
-        color[0] = 0.7f;
-        color[1] = 0.0f;
-        color[2] = 0.0f;
+        color = glm::vec4(0.7f, 0.0f, 0.0f, 1.0f);
         break;
     case 2:
-        color[0] = 0.0f;
-        color[1] = 0.7f;
-        color[2] = 0.0f;
+        color = glm::vec4(0.0f, 0.7f, 0.0f, 1.0f);
         break;
     case 3:
-        color[0] = 0.0f;
-        color[1] = 0.0f;
-        color[2] = 0.7f;
+        color = glm::vec4(0.0f, 0.0f, 0.7f, 1.0f);
         break;
     case 4:
-        color[0] = 0.7f;
-        color[1] = 0.0f;
-        color[2] = 0.7f;
+        color = glm::vec4(0.7f, 0.0f, 0.7f, 1.0f);
         break;
     }
-    color[3] = 1.0;
 
-    GLfloat sEdge[3];
-    GLfloat tEdge[3];
-    sEdge[0] = sCorner[0] - bPoint[0];
-    sEdge[1] = sCorner[1] - bPoint[1];
-    sEdge[2] = sCorner[2] - bPoint[2];
-    tEdge[0] = tCorner[0] - bPoint[0];
-    tEdge[1] = tCorner[1] - bPoint[1];
-    tEdge[2] = tCorner[2] - bPoint[2];
+    const auto sEdge = sCorner - bPoint;
+    const auto tEdge = tCorner - bPoint;
 
     WallSceneNode *retval = new QuadWallSceneNode(bPoint, sEdge, tEdge, uRepeats, vRepeats, lod, fixedUVs);
     retval->setColor(color);

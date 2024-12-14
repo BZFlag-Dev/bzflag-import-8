@@ -17,6 +17,7 @@
 #include <vector>
 #include <map>
 #include <string.h>
+#include <glm/gtc/type_ptr.hpp>
 
 // common headers
 #include "BzfMedia.h"
@@ -543,14 +544,14 @@ void            moveSoundReceiver(float x, float y, float z, float t,
     sendSound(&s);
 }
 
-void            speedSoundReceiver(float vx, float vy, float vz)
+void            speedSoundReceiver(const glm::vec3 &v)
 {
-    SoundCommand s(SoundCommand::SET_VEL, 0, vx, vy, vz);
+    SoundCommand s(SoundCommand::SET_VEL, 0, v.x, v.y, v.z);
     sendSound(&s);
 }
 
-void            playSound(int soundCode, const float pos[3],
-                          bool important, bool localSound)
+void playSound(int soundCode, const glm::vec3 &pos,
+               bool important, bool localSound)
 {
     if (localSound)
         playLocalSound(soundCode);
@@ -559,8 +560,7 @@ void            playSound(int soundCode, const float pos[3],
     return;
 }
 
-void            playWorldSound(int soundCode, const float pos[3],
-                               bool important)
+void playWorldSound(int soundCode, const glm::vec3 &pos, bool important)
 {
     if (soundLevel <= 0)
         return;

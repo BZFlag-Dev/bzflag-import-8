@@ -15,12 +15,16 @@
 
 // system headers
 #include <time.h>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/ext/matrix_projection.hpp>
+#include <glm/gtx/norm.hpp>
 
 /* common implementation headers */
 #include "BundleMgr.h"
 #include "Bundle.h"
 #include "FontManager.h"
 #include "BZDBCache.h"
+#include "OpenGLAPI.h"
 
 /* local implementation headers */
 #include "LocalPlayer.h"
@@ -38,7 +42,6 @@
 // headingOffset:  the number of degrees from the center of the heading
 // strip display to either side.  altitudeOffset is similar.
 const float     HUDRenderer::altitudeOffset = 20.0f;
-const GLfloat       HUDRenderer::black[3] = { 0.0f, 0.0f, 0.0f };
 std::string     HUDRenderer::headingLabel[36];
 std::string     HUDRenderer::restartLabelFormat("Press %s to start");
 std::string     HUDRenderer::resumeLabel("Press Pause to resume");
@@ -46,10 +49,10 @@ std::string     HUDRenderer::autoPilotLabel("AutoPilot on");
 std::string     HUDRenderer::cancelDestructLabel("Press Destruct to cancel");
 std::string     HUDRenderer::gameOverLabel("GAME OVER");
 
-static const GLfloat whiteColor[3]  = { 1.0f, 1.0f, 1.0f };
-static const GLfloat redColor[3]    = { 1.0f, 0.0f, 0.0f };
-static const GLfloat yellowColor[3] = { 1.0f, 1.0f, 0.0f };
-static const GLfloat greenColor[3]  = { 0.0f, 1.0f, 0.0f };
+static const auto whiteColor  = glm::vec3(1.0f, 1.0f, 1.0f);
+static const auto redColor    = glm::vec3(1.0f, 0.0f, 0.0f);
+static const auto yellowColor = glm::vec3(1.0f, 1.0f, 0.0f);
+static const auto greenColor  = glm::vec3(0.0f, 1.0f, 0.0f);
 
 HUDRenderer::HUDRenderer(const BzfDisplay* _display,
                          const SceneRenderer& renderer) :
@@ -82,15 +85,9 @@ HUDRenderer::HUDRenderer(const BzfDisplay* _display,
         dater = true;
 
     // initialize colors
-    hudColor[0] = 1.0f;
-    hudColor[1] = 0.625f;
-    hudColor[2] = 0.125f;
-    messageColor[0] = 1.0f;
-    messageColor[1] = 1.0f;
-    messageColor[2] = 1.0f;
-    warningColor[0] = 1.0f;
-    warningColor[1] = 0.0f;
-    warningColor[2] = 0.0f;
+    hudColor     = glm::vec3(1.0f, 0.625f, 0.125f);
+    messageColor = glm::vec3(1.0f);
+    warningColor = glm::vec3(1.0f, 0.0f, 0.0f);
 
     // make sure we're notified when MainWindow resizes
     window.getWindow()->addResizeCallback(resizeCallback, this);
@@ -306,9 +303,7 @@ void            HUDRenderer::setLabelsFontSize(int, int height)
 
 void            HUDRenderer::setColor(float r, float g, float b)
 {
-    hudColor[0] = r;
-    hudColor[1] = g;
-    hudColor[2] = b;
+    hudColor = glm::vec3(r, g, b);
 }
 
 void            HUDRenderer::setPlaying(bool _playing)
@@ -497,10 +492,8 @@ void            HUDRenderer::initCracks()
     {
         const float d = 0.90f * float(maxMotionSize) * ((float)bzfrand() + 0.90f);
         const float a = (float)(2.0 * M_PI * (double(i) + bzfrand()) / double(HUDNumCracks));
-        cracks[i][0][0] = 0.0f;
-        cracks[i][0][1] = 0.0f;
-        cracks[i][1][0] = d * cosf(a);
-        cracks[i][1][1] = d * sinf(a);
+        cracks[i][0] = glm::vec3(0.0f);
+        cracks[i][1] = d * glm::vec3(cosf(a), sinf(a), 0.0f);
         makeCrack(cracks, i, 1, a);
     }
 }
@@ -515,7 +508,7 @@ void            HUDRenderer::setCracks(bool _showCracks)
     showCracks = _showCracks;
 }
 
-void            HUDRenderer::addMarker(float _heading, const float *_color )
+void HUDRenderer::addMarker(float _heading, const glm::vec3 &_color)
 {
     markers.resize(markers.size() + 1);
     HUDMarker &m = markers[markers.size() - 1];
@@ -524,13 +517,14 @@ void            HUDRenderer::addMarker(float _heading, const float *_color )
     while (_heading < 0.0f) _heading += 360.0f;
     while (_heading >= 360.0f) _heading -= 360.0f;
     m.heading = _heading;
-    memcpy(m.color, _color, sizeof(m.color));
+    m.color   = _color;
 }
 
 
-void HUDRenderer::AddEnhancedNamedMarker(const fvec3& pos, const fvec3& color,
-        std::string name, bool friendly,
-        float zShift)
+void HUDRenderer::AddEnhancedNamedMarker(
+    const glm::vec3 &pos, const glm::vec3 &color,
+    std::string name, bool friendly,
+    float zShift)
 {
     return;
 
@@ -541,8 +535,10 @@ void HUDRenderer::AddEnhancedNamedMarker(const fvec3& pos, const fvec3& color,
     enhancedMarkers.push_back(newMarker);
 }
 
-void HUDRenderer::AddEnhancedMarker(const fvec3& pos, const fvec3& color,
-                                    bool friendly, float zShift )
+void HUDRenderer::AddEnhancedMarker(
+    const glm::vec3 &pos, const glm::vec3 &color,
+    bool friendly,
+    float zShift)
 {
     EnhancedHUDMarker newMarker(pos, color);
     newMarker.pos.z += zShift;
@@ -550,10 +546,10 @@ void HUDRenderer::AddEnhancedMarker(const fvec3& pos, const fvec3& color,
     enhancedMarkers.push_back(newMarker);
 }
 
-void HUDRenderer::AddLockOnMarker(const fvec3& pos, std::string name,
+void HUDRenderer::AddLockOnMarker(const glm::vec3 &pos, std::string name,
                                   bool friendly, float zShift )
 {
-    const fvec3 color(0.75f, 0.125f, 0.125f);
+    const auto color = glm::vec3(0.75f, 0.125f, 0.125f);
     EnhancedHUDMarker newMarker(pos, color);
     newMarker.pos.z += zShift;
     newMarker.name = name;
@@ -641,33 +637,32 @@ std::string     HUDRenderer::makeHelpString(const char* help) const
     return msg;
 }
 
-void            HUDRenderer::makeCrack(float crackpattern[HUDNumCracks][(1 << HUDCrackLevels) + 1][2], int n, int l,
-                                       float a)
+void HUDRenderer::makeCrack(glm::vec3 crackpattern[HUDNumCracks][(1 << HUDCrackLevels) + 1], int n, int l,
+                            float a)
 {
     if (l >= (1 << (HUDCrackLevels - 1))) return;
     float d = 0.5f * float(maxMotionSize) *
               ((float)bzfrand() + 0.5f) * powf(0.5f, 0.69f * logf(float(l)));
     float newAngle = (float)(a + M_PI * bzfrand() / double(HUDNumCracks));
-    crackpattern[n][2*l][0] = crackpattern[n][l][0] + d * cosf(newAngle);
-    crackpattern[n][2*l][1] = crackpattern[n][l][1] + d * sinf(newAngle);
+    crackpattern[n][2 * l] = crackpattern[n][l]
+                             + d * glm::vec3(cosf(newAngle), sinf(newAngle), 0.0f);
     makeCrack(crackpattern, n, 2*l, newAngle);
     d = 0.5f * float(maxMotionSize) *
         ((float)bzfrand() + 0.5f) * powf(0.5f, 0.69f * logf(float(l)));
     newAngle = (float)(a - M_PI * bzfrand() / double(HUDNumCracks));
-    crackpattern[n][2*l+1][0] = crackpattern[n][l][0] + d * cosf(newAngle);
-    crackpattern[n][2*l+1][1] = crackpattern[n][l][1] + d * sinf(newAngle);
+    crackpattern[n][2 * l + 1] = crackpattern[n][l]
+                                 + d * glm::vec3(cosf(newAngle), sinf(newAngle), 0.0f);
     makeCrack(crackpattern, n, 2*l+1, newAngle);
 }
 
 static const float dimFactor = 0.2f;
 
-
-void HUDRenderer::hudColor3Afv(const float * c, const float a)
+void HUDRenderer::hudColor3Afv(const glm::vec3 &c, const float a)
 {
     if ( dim )
-        glColor4f( dimFactor *c[0], dimFactor *c[1], dimFactor *c[2], a );
+        glColor(dimFactor * c, a);
     else
-        glColor4f( c[0],c[1],c[2],a );
+        glColor(c, a);
 }
 
 void            HUDRenderer::drawGeometry()
@@ -873,16 +868,14 @@ void            HUDRenderer::renderStatus(void)
         Player *target = ROAM.getTargetTank();
         if (target)
         {
-            float vel[3] = {0};
-            memcpy(vel,target->getVelocity(),sizeof(float)*3);
+            const auto &vel = target->getVelocity();
 
-            float apparentVel[3] = {0};
-            memcpy(apparentVel,target->getApparentVelocity(),sizeof(float)*3);
+            auto apparentVel = target->getApparentVelocity();
 
-            float linSpeed = sqrt(vel[0]*vel[0]+vel[1]*vel[1]);
+            float linSpeed = glm::length(glm::vec2(vel));
             float vertSpeed = vel[2];
             float rotSpeed = fabs(target->getAngularVelocity());
-            float apparentLinSpeed = sqrt(apparentVel[0]*apparentVel[0]+apparentVel[1]*apparentVel[1]);
+            float apparentLinSpeed = glm::length(glm::vec2(apparentVel));
 
             // calc maximum apparent velocity value for each 0.5s interval
             static float maxApparentLinSpeed = 0.0f;
@@ -964,7 +957,7 @@ void            HUDRenderer::renderStatus(void)
 
 
     // print status top-center
-    const GLfloat* statusColor = warningColor;
+    auto statusColor = warningColor;
     std::string msg;
     // TODO: the upper 4 values of timeLeft (~0u-3 to ~0u)
     // are reserved for future use as timer flags (e.g. paused)
@@ -1041,19 +1034,13 @@ void            HUDRenderer::renderTankLabels(SceneRenderer& renderer)
 
     int offset = window.getViewHeight() - window.getHeight();
 
-    GLint view[] = {window.getOriginX(), window.getOriginY(),
+    auto view = glm::ivec4(
+                    window.getOriginX(), window.getOriginY(),
                     window.getWidth(), window.getHeight()
-                   };
-    const GLfloat *projf = renderer.getViewFrustum().getProjectionMatrix();
-    const GLfloat *modelf = renderer.getViewFrustum().getViewMatrix();
+                );
 
-    // convert to doubles
-    GLdouble proj[16], model[16];
-    for (int j = 0; j < 16; j++)
-    {
-        proj[j] = projf[j];
-        model[j] = modelf[j];
-    }
+    const auto proj = renderer.getViewFrustum().getProjectionMatrix();
+    const auto model = renderer.getViewFrustum().getViewMatrix();
 
     for (int i = 0; i < curMaxPlayers; i++)
     {
@@ -1063,8 +1050,10 @@ void            HUDRenderer::renderTankLabels(SceneRenderer& renderer)
             const std::string name = pl->getCallSign();
             double x, y, z;
             hudColor3Afv(Team::getRadarColor(pl->getTeam()), 1.0f);
-            gluProject(pl->getPosition()[0], pl->getPosition()[1],
-                       pl->getPosition()[2]/*+BZDB.eval(StateDatabase::BZDB_MUZZLEHEIGHT)*3.0f*/, model, proj, view, &x, &y, &z);
+            auto p = glm::project(pl->getPosition(), model, proj, view);
+            x = p.x;
+            y = p.y;
+            z = p.z;
             if (z >= 0.0 && z <= 1.0)
             {
                 FontManager &fm = FontManager::instance();
@@ -1085,9 +1074,8 @@ void            HUDRenderer::renderTankLabels(SceneRenderer& renderer)
 
                 if (roaming && BZDB.isTrue("showVelocities"))
                 {
-                    float vel[3] = {0};
-                    memcpy(vel,pl->getVelocity(),sizeof(float)*3);
-                    std::string speedStr = TextUtils::format("[%5.2f]",sqrt(vel[0]*vel[0]+vel[1]*vel[1]));
+                    const auto vel = pl->getVelocity();
+                    std::string speedStr = TextUtils::format("[%5.2f]", glm::length(glm::vec2(vel)));
                     fm.drawString(float(x) - fm.getStrLength(labelsFontFace, labelsFontSize, speedStr.c_str()) / 2.0f,
                                   float(y) + offset -
                                   (3.0f * fm.getStrHeight(labelsFontFace, labelsFontSize, speedStr.c_str())),
@@ -1113,17 +1101,17 @@ void            HUDRenderer::renderCracks()
     glBegin(GL_LINES);
     for (int i = 0; i < HUDNumCracks; i++)
     {
-        glVertex2fv(cracks[i][0]);
-        glVertex2fv(cracks[i][1]);
+        glVertex(cracks[i][0]);
+        glVertex(cracks[i][1]);
         for (int j = 0; j < maxLevels-1; j++)
         {
             const int num = 1 << j;
             for (int k = 0; k < num; k++)
             {
-                glVertex2fv(cracks[i][num + k]);
-                glVertex2fv(cracks[i][2 * (num + k)]);
-                glVertex2fv(cracks[i][num + k]);
-                glVertex2fv(cracks[i][2 * (num + k) + 1]);
+                glVertex(cracks[i][num + k]);
+                glVertex(cracks[i][2 * (num + k)]);
+                glVertex(cracks[i][num + k]);
+                glVertex(cracks[i][2 * (num + k) + 1]);
             }
         }
     }
@@ -1181,71 +1169,28 @@ void            HUDRenderer::renderTimes(void)
     }
 }
 
-void HUDRenderer::saveMatrixes(const float *mm, const float *pm )
+void HUDRenderer::saveMatrixes(const glm::mat4 &mm, const glm::mat4 &pm)
 {
     // ssave off the stuff before we reset it
-    for (int i = 0; i < 16; i++)
-    {
-        modelMatrix[i] = mm[i];
-        projMatrix[i] = pm[i];
-    }
-    glGetIntegerv(GL_VIEWPORT,(GLint*)viewport);
+    modelMatrix = mm;
+    projMatrix  = pm;
+    viewport    = glGetViewport();
 }
 
 
-void HUDRenderer::drawWaypointMarker(float* color, float alpha, float* object,
-                                     const float* viewPos, std::string name,
-                                     bool friendly)
+void HUDRenderer::drawWaypointMarker(const EnhancedHUDMarker &marker,
+                                     const glm::vec2         &viewPos)
 {
-    double map[3] = {0,0,0};
-    double o[3];
-    o[0] = object[0];
-    o[1] = object[1];
-    o[2] = object[2];
+    const auto &color   = marker.color;
+    const float alpha   = 0.45f;
+    const auto &pos     = marker.pos;
+    const auto &name    = marker.name;
+    const bool friendly = marker.friendly;
+    const auto map      = getMarkerCoordinate(pos, viewPos);
+    float halfWidth     = window.getWidth() * 0.5f;
+    float halfHeight    = window.getHeight() * 0.5f;
 
     hudColor3Afv( color, alpha );
-
-    gluProject(o[0], o[1], o[2], modelMatrix, projMatrix,
-               (GLint*)viewport, &map[0], &map[1], &map[2]);
-
-    float halfWidth = window.getWidth() * 0.5f;
-    float halfHeight = window.getHeight() * 0.5f;
-
-    // comp us back to the view
-    map[0] -= halfWidth;
-    map[1] -= halfHeight;
-
-    const fvec2 headingVec(sinf(heading * DEG2RADf),
-                           cosf(heading * DEG2RADf));
-
-    const fvec2 toPosVec((float)object[0] - viewPos[0],
-                         (float)object[1] - viewPos[1]);
-
-    if (fvec2::dot(toPosVec, headingVec) <= 1.0f /*0.866f*/)
-    {
-        if (NEAR_ZERO(map[0], ZERO_TOLERANCE))
-        {
-            map[0] = -halfWidth;
-            map[1] = 0;
-        }
-        else
-        {
-            map[0] = -halfWidth * (fabs(map[0])/map[0]);
-            map[1] = 0;
-        }
-    }
-    else
-    {
-        if (map[0] < -halfWidth)
-            map[0] = -halfWidth;
-        if (map[0] > halfWidth)
-            map[0] = halfWidth;
-
-        if (map[1] < -halfHeight)
-            map[1] = -halfHeight;
-        if (map[1] > halfHeight)
-            map[1] = halfHeight;
-    }
 
     glPushMatrix();
     glTranslatef((float)map[0],(float)map[1],0);
@@ -1311,59 +1256,17 @@ void HUDRenderer::drawWaypointMarker(float* color, float alpha, float* object,
 // HUDRenderer::drawLockonMarker
 //-------------------------------------------------------------------------
 
-void HUDRenderer::drawLockonMarker(float* color, float alpha, float* object,
-                                   const float *viewPos, std::string name,
-                                   bool friendly)
+void HUDRenderer::drawLockonMarker(const EnhancedHUDMarker &marker,
+                                   const glm::vec2         &viewPos)
 {
-    double map[3] = {0,0,0};
-    double o[3];
-    o[0] = object[0];
-    o[1] = object[1];
-    o[2] = object[2];
+    const auto &color   = marker.color;
+    const float alpha   = 0.45f;
+    const auto &pos     = marker.pos;
+    const auto &name    = marker.name;
+    const bool friendly = marker.friendly;
+    const auto map      = getMarkerCoordinate(pos, viewPos);
 
     hudColor3Afv( color, alpha );
-
-    gluProject(o[0], o[1], o[2], modelMatrix,projMatrix,
-               (GLint*)viewport, &map[0], &map[1], &map[2]);
-
-    float halfWidth = window.getWidth() * 0.5f;
-    float halfHeight = window.getHeight() * 0.5f;
-
-    // comp us back to the view
-    map[0] -= halfWidth;
-    map[1] -= halfHeight;
-
-    const fvec2 headingVec(sinf(heading * DEG2RADf),
-                           cosf(heading * DEG2RADf));
-
-    const fvec2 toPosVec((float)object[0] - viewPos[0],
-                         (float)object[1] - viewPos[1]);
-
-    if (fvec2::dot(toPosVec, headingVec) <= 1.0f)
-    {
-        if (NEAR_ZERO(map[0], ZERO_TOLERANCE))
-        {
-            map[0] = -halfWidth;
-            map[1] = 0;
-        }
-        else
-        {
-            map[0] = -halfWidth * (fabs(map[0])/map[0]);
-            map[1] = 0;
-        }
-    }
-    else
-    {
-        if ( map[0] < -halfWidth )
-            map[0] = -halfWidth;
-        if ( map[0] > halfWidth )
-            map[0] = halfWidth;
-
-        if ( map[1] < -halfHeight )
-            map[1] = -halfHeight;
-        if ( map[1] > halfHeight )
-            map[1] = halfHeight;
-    }
 
     glPushMatrix();
     glTranslatef((float)map[0],(float)map[1],0);
@@ -1408,6 +1311,43 @@ void HUDRenderer::drawLockonMarker(float* color, float alpha, float* object,
     }
 
     glPopMatrix();
+}
+
+glm::vec2 HUDRenderer::getMarkerCoordinate(
+    const glm::vec3 &pos,
+    const glm::vec2 &viewPos)
+{
+    const float headingR  = glm::radians(heading);
+    float halfWidth       = window.getWidth() * 0.5f;
+    float halfHeight      = window.getHeight() * 0.5f;
+    const auto halfLimit  = glm::vec2(halfWidth, halfHeight);
+    const auto headingVec = glm::vec2(sinf(headingR), cosf(headingR));
+    const auto toPosVec   = glm::vec2(pos) - viewPos;
+
+    glm::vec3 map;
+
+    if (glm::length2(toPosVec) < 1.0E-6)
+        map = glm::vec3(halfWidth, 0, 0);
+    else
+        map = glm::project(pos, modelMatrix, projMatrix, viewport);
+
+
+    // comp us back to the view
+    if (glm::dot(toPosVec, headingVec) <= 1.0f)
+    {
+        if (map[0] < halfWidth)
+            map[0] = halfWidth;
+        else
+            map[0] = -halfWidth;
+        map[1] = 0;
+        return glm::vec2(map[0], map[1]);
+    }
+
+    auto result = glm::vec2(map[0], map[1]) - halfLimit;
+
+    result = glm::clamp(result, -halfLimit, +halfLimit);
+
+    return result;
 }
 
 void            HUDRenderer::renderBox(SceneRenderer&)
@@ -1666,23 +1606,17 @@ void HUDRenderer::drawMarkersInView( int centerx, int centery, const LocalPlayer
         glTranslatef((float)centerx,(float)centery,0);
         glLineWidth(2.0f);
 
+        auto viewPos = glm::vec2(myTank->getPosition());
+
         // draw any waypoint markers
-        for (int i = 0; i < (int)enhancedMarkers.size(); i++)
-        {
-            drawWaypointMarker(enhancedMarkers[i].color, 0.45f,
-                               enhancedMarkers[i].pos, myTank->getPosition(),
-                               enhancedMarkers[i].name, enhancedMarkers[i].friendly);
-        }
+        for (const auto &marker : enhancedMarkers)
+            drawWaypointMarker(marker, viewPos);
 
         enhancedMarkers.clear();
 
         // draw any lockon markers
-        for (int i = 0; i < (int)lockOnMarkers.size(); i++)
-        {
-            drawLockonMarker(lockOnMarkers[i].color, 0.45f,
-                             lockOnMarkers[i]. pos,myTank->getPosition(),
-                             lockOnMarkers[i].name, lockOnMarkers[i].friendly);
-        }
+        for (const auto &marker : lockOnMarkers)
+            drawLockonMarker(marker, viewPos);
 
         lockOnMarkers.clear();
 

@@ -21,6 +21,7 @@
 #include "Bundle.h"
 #include "TextureManager.h"
 #include "FontManager.h"
+#include "OpenGLAPI.h"
 
 // local implementation headers
 #include "HUDui.h"
@@ -31,9 +32,8 @@
 //
 
 // init static members
-const GLfloat       HUDuiControl::dimTextColor[3] = { 0.7f, 0.7f, 0.7f };
-const GLfloat       HUDuiControl::moreDimTextColor[3] = { 0.4f, 0.4f, 0.4f };
-const GLfloat       HUDuiControl::textColor[3] = { 1.0f, 1.0f, 1.0f };
+const glm::vec3     HUDuiControl::dimTextColor = { 0.7f, 0.7f, 0.7f };
+const glm::vec3     HUDuiControl::textColor    = { 1.0f, 1.0f, 1.0f };
 OpenGLGState*       HUDuiControl::gstate = NULL;
 int     HUDuiControl::arrow = -1;
 int         HUDuiControl::arrowFrame = 0;
@@ -293,7 +293,7 @@ void            HUDuiControl::renderLabel()
 void            HUDuiControl::render()
 {
     if (hasFocus() && showingFocus) renderFocus();
-    glColor3fv(hasFocus() ? textColor : dimTextColor);
+    glColor(hasFocus() ? textColor : dimTextColor);
     renderLabel();
     doRender();
 }

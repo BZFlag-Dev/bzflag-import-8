@@ -41,7 +41,7 @@ public:
     virtual     ~ShotStrategy();
 
     virtual void    update(float dt) = 0;
-    virtual float   checkHit(const BaseLocalPlayer*, float pos[3]) const = 0;
+    virtual float   checkHit(const BaseLocalPlayer*, glm::vec3 &pos) const = 0;
     virtual bool    isStoppedByHit() const;
     virtual void    addShot(SceneDatabase*, bool colorblind) = 0;
     virtual void    expire();
@@ -56,14 +56,14 @@ public:
     virtual void    readUpdate(uint16_t code, const void* msg);
 
     static const Obstacle*  getFirstBuilding(const Ray&, float min, float& t);
-    static void     reflect(float* v, const float* n); // const
+    static void     reflect(glm::vec3 &v, const glm::vec3 &n); // const
 
 protected:
     const ShotPath& getPath() const;
     FiringInfo&     getFiringInfo(ShotPath*) const;
     void        setReloadTime(float) const;
-    void        setPosition(const float*) const;
-    void        setVelocity(const float*) const;
+    void        setPosition(const glm::vec3 &) const;
+    void        setVelocity(const glm::vec3 &) const;
     void        setExpiring() const;
     void        setExpired() const;
 

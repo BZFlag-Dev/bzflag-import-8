@@ -80,7 +80,7 @@ Player::Player(const PlayerId& _id, TeamColor _team,
     oldStatus(0),
     oldZSpeed(0.0f)
 {
-    static const float zero[3] = { 0.0f, 0.0f, 0.0f };
+    static const auto zero = glm::vec3(0.0f);
     move(zero, 0.0f);
     setVelocity(zero);
     setAngularVelocity(0.0f);
@@ -90,7 +90,7 @@ Player::Player(const PlayerId& _id, TeamColor _team,
     setUserSpeed(0.0f);
     setUserAngVel(0.0f);
 
-    apparentVelocity[0] = apparentVelocity[1] = apparentVelocity[2] = 0.0f;
+    apparentVelocity = glm::vec3(0.0f);
     inputTimestamp = 0.0f;
 
     reportedHits = 0;
@@ -121,11 +121,9 @@ Player::Player(const PlayerId& _id, TeamColor _team,
     dimensions[1] = 0.5f * BZDBCache::tankWidth;
     dimensions[2] = BZDBCache::tankHeight;
     for (int i = 0; i < 3; i++)
-    {
         dimensionsRate[i] = 0.0f;
-        dimensionsScale[i] = 1.0f;
-        dimensionsTarget[i] = 1.0f;
-    }
+    dimensionsScale  = glm::vec3(1.0f);
+    dimensionsTarget = glm::vec3(1.0f);
     useDimensions = false;
 
     // setup alpha properties
@@ -221,7 +219,7 @@ float Player::getMaxSpeed ( void ) const
     return maxSpeed;
 }
 
-void Player::getMuzzle(float* m) const
+glm::vec3 Player::getMuzzle() const
 {
     // NOTE: like getRadius(), we only use dimensionsScale[0].
     //       as well, we do not use BZDB_MUZZLEFRONT, but the
@@ -232,11 +230,10 @@ void Player::getMuzzle(float* m) const
         front = front + (dimensionsRate[0] * 0.1f);
     front = front + 0.1f;
 
-    m[0] = state.pos[0] + (front * forward[0]);
-    m[1] = state.pos[1] + (front * forward[1]);
+    auto m = state.pos + front * forward;
     const float height = BZDB.eval(StateDatabase::BZDB_MUZZLEHEIGHT);
-    m[2] = state.pos[2] + (height * dimensionsScale[2]);
-    return;
+    m[2] += height * dimensionsScale[2];
+    return m;
 }
 
 
@@ -251,12 +248,10 @@ void Player::forceReload(float time)
     jamTime += time;
 }
 
-void Player::move(const float* _pos, float _azimuth)
+void Player::move(const glm::vec3 &_pos, float _azimuth)
 {
     // assumes _forward is normalized
-    state.pos[0] = _pos[0];
-    state.pos[1] = _pos[1];
-    state.pos[2] = _pos[2];
+    state.pos = _pos;
     state.azimuth = _azimuth;
 
     // limit angle
@@ -279,11 +274,9 @@ void Player::move(const float* _pos, float _azimuth)
 }
 
 
-void Player::setVelocity(const float* _velocity)
+void Player::setVelocity(const glm::vec3 &_velocity)
 {
-    state.velocity[0] = _velocity[0];
-    state.velocity[1] = _velocity[1];
-    state.velocity[2] = _velocity[2];
+    state.velocity = _velocity;
 }
 
 
@@ -465,8 +458,7 @@ void Player::updateTrackMarks()
         if (lifeTime > TrackMarks::updateTime)
         {
             bool drawMark = true;
-            float markPos[3];
-            markPos[2] = state.pos[2];
+            auto markPos = state.pos;
             // FIXME - again, this should be pulled for TankGeometryMgr
             const float fullLength = 6.0f;
             const float treadHeight = 1.2f;
@@ -476,14 +468,14 @@ void Player::updateTrackMarks()
             if (relativeSpeed > +minSpeed)
             {
                 // draw the mark at the back of the treads
-                markPos[0] = state.pos[0] - (forward[0] * dist);
-                markPos[1] = state.pos[1] - (forward[1] * dist);
+                markPos[0] -= forward[0] * dist;
+                markPos[1] -= forward[1] * dist;
             }
             else if (relativeSpeed < -minSpeed)
             {
                 // draw the mark at the front of the treads
-                markPos[0] = state.pos[0] + (forward[0] * dist);
-                markPos[1] = state.pos[1] + (forward[1] * dist);
+                markPos[0] += forward[0] * dist;
+                markPos[1] += forward[1] * dist;
             }
             else
                 drawMark = false;
@@ -504,10 +496,9 @@ void Player::updateDimensions(float dt, bool local)
 {
     // copy the current information
     float oldRates[3];
-    float oldScales[3];
     float oldDimensions[3];
     memcpy (oldRates, dimensionsRate, sizeof(float[3]));
-    memcpy (oldScales, dimensionsScale, sizeof(float[3]));
+    auto oldScales = dimensionsScale;
     memcpy (oldDimensions, dimensions, sizeof(float[3]));
 
     // update the dimensions
@@ -556,15 +547,13 @@ void Player::updateDimensions(float dt, bool local)
         {
             // copy the old information
             memcpy (dimensions, oldDimensions, sizeof(float[3]));
-            memcpy (dimensionsScale, oldScales, sizeof(float[3]));
+            dimensionsScale = oldScales;
             memcpy (dimensionsRate, oldRates, sizeof(float[3]));
         }
     }
 
     // check if the dimensions are at a steady state
-    if ((dimensionsScale[0] == dimensionsTarget[0]) &&
-            (dimensionsScale[1] == dimensionsTarget[1]) &&
-            (dimensionsScale[2] == dimensionsTarget[2]))
+    if (dimensionsScale == dimensionsTarget)
         useDimensions = false;
     else
         useDimensions = true;
@@ -731,9 +720,7 @@ void Player::updateFlagEffect(FlagType* effectFlag)
     }
 
     // set the dimension targets
-    dimensionsTarget[0] = 1.0f;
-    dimensionsTarget[1] = 1.0f;
-    dimensionsTarget[2] = 1.0f;
+    dimensionsTarget = glm::vec3(1.0f);
     if (effectFlag == Flags::Obesity)
     {
         const float factor = BZDB.eval(StateDatabase::BZDB_OBESEFACTOR);
@@ -781,7 +768,7 @@ void Player::updateFlagEffect(FlagType* effectFlag)
 
 void Player::endShot(int index, bool isHit, bool showExplosion)
 {
-    float pos[3];
+    glm::vec3 pos;
     if (doEndShot(index, isHit, pos) && showExplosion)
         addShotExplosion(pos);
     return;
@@ -795,25 +782,22 @@ void Player::setVisualTeam (TeamColor visualTeam)
         return;
     lastVisualTeam = visualTeam;
 
-    static const GLfloat  tankSpecular[3] = { 0.1f, 0.1f, 0.1f };
-    static GLfloat    tankEmissive[3] = { 0.0f, 0.0f, 0.0f };
+    static const auto &tankSpecular   = glm::vec3(0.1f);
+    static const auto &tankEmissive   = glm::vec3(0.0f);
     static float      tankShininess = 20.0f;
-    static GLfloat    rabbitEmissive[3] = { 0.0f, 0.0f, 0.0f };
+    static const auto &rabbitEmissive = glm::vec3(0.0f);
     static float      rabbitShininess = 100.0f;
 
-    GLfloat *emissive;
-    GLfloat shininess;
+    const auto &emissive
+        = (visualTeam == RabbitTeam)
+          ? rabbitEmissive
+          : tankEmissive;
 
+    GLfloat shininess;
     if (visualTeam == RabbitTeam)
-    {
-        emissive = rabbitEmissive;
         shininess = rabbitShininess;
-    }
     else
-    {
-        emissive = tankEmissive;
         shininess = tankShininess;
-    }
 
     TextureManager &tm = TextureManager::instance();
     std::string texName;
@@ -830,7 +814,7 @@ void Player::setVisualTeam (TeamColor visualTeam)
     if (tankTexture < 0)
         tankTexture = tm.getTextureID(texName.c_str(),false);
 
-    const float* _color = Team::getTankColor(visualTeam);
+    const auto &_color = Team::getTankColor(visualTeam);
     color[0] = _color[0];
     color[1] = _color[1];
     color[2] = _color[2];
@@ -871,7 +855,7 @@ void Player::addToScene(SceneDatabase* scene, TeamColor effectiveTeam,
                         bool inCockpit, bool seerView,
                         bool showTreads, bool showIDL)
 {
-    const GLfloat groundPlane[4] = {0.0f, 0.0f, 1.0f, 0.0f};
+    const auto groundPlane = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
 
     if (!isAlive() && !isExploding())
     {
@@ -938,15 +922,16 @@ void Player::addToScene(SceneDatabase* scene, TeamColor effectiveTeam,
         if (isCrossingWall())
         {
             // get which plane to compute IDL against
-            GLfloat plane[4];
+            glm::vec4 plane;
             const GLfloat a = atan2f(forward[1], forward[0]);
             const Obstacle* obstacle =
                 World::getWorld()->hitBuilding(state.pos, a,
                                                dimensions[0], dimensions[1],
                                                dimensions[2]);
-            if ((obstacle && obstacle->isCrossing(state.pos, a,
-                                                  dimensions[0], dimensions[1],
-                                                  dimensions[2], plane)) ||
+            if ((obstacle && obstacle->isCrossing(
+                        state.pos, a,
+                        dimensions[0], dimensions[1],
+                        dimensions[2], &plane)) ||
                     World::getWorld()->crossingTeleporter(state.pos, a,
                             dimensions[0], dimensions[1],
                             dimensions[2], plane))
@@ -987,10 +972,9 @@ void Player::addToScene(SceneDatabase* scene, TeamColor effectiveTeam,
         const float fadeRatio = 0.8f;
         if (t > fadeRatio)
         {
-            GLfloat newColor[4];
-            memcpy(newColor, color, sizeof(float[3]));
+            auto newColor = color;
             const float fadeFactor = (1.0f - t) / (1.0f - fadeRatio);
-            newColor[3] = color[3] * fadeFactor;
+            newColor[3] *= fadeFactor;
             tankNode->setColor(newColor);
         }
         tankNode->setExplodeFraction(t);
@@ -1116,51 +1100,42 @@ bool Player::validTeamTarget(const Player *possibleTarget) const
 }
 
 
-void Player::getDeadReckoning(float* predictedPos, float* predictedAzimuth,
-                              float* predictedVel, float dt) const
+void Player::getDeadReckoning(glm::vec3 &predictedPos, float* predictedAzimuth,
+                              glm::vec3 &predictedVel, float dt) const
 {
     *predictedAzimuth = inputAzimuth;
 
     if (inputStatus & PlayerState::Paused)
     {
         // don't move when paused
-        predictedPos[0] = inputPos[0];
-        predictedPos[1] = inputPos[1];
-        predictedPos[2] = inputPos[2];
-        predictedVel[0] = 0.0f;
-        predictedVel[1] = 0.0f;
-        predictedVel[2] = 0.0f;
+        predictedPos = inputPos;
+        predictedVel = glm::vec3(0.0f);
     }
     else if (inputStatus & PlayerState::Falling)
     {
         // no control when falling
-        predictedVel[0] = inputVel[0];
-        predictedVel[1] = inputVel[1];
-        predictedPos[0] = inputPos[0] + (dt * inputVel[0]);
-        predictedPos[1] = inputPos[1] + (dt * inputVel[1]);
+        predictedVel = inputVel;
+        predictedPos = inputPos + dt * predictedVel;
         // only turn if alive
         if (inputStatus & PlayerState::Alive)
             *predictedAzimuth += (dt * inputAngVel);
         // following the parabola
-        predictedVel[2] = inputVel[2] + (BZDBCache::gravity * dt);
-        predictedPos[2] = inputPos[2] + (inputVel[2] * dt) +
-                          (0.5f * BZDBCache::gravity * dt * dt);
+        predictedVel[2] += BZDBCache::gravity * dt;
+        predictedPos[2] += 0.5f * BZDBCache::gravity * dt * dt;
     }
     else
     {
-        // velocity[2] is zero when not falling, except for Burrow flag
-        predictedVel[2] = inputVel[2];
-        predictedPos[2] = inputPos[2] + (inputVel[2] * dt);
-
         // different algorithms for tanks moving in
         // a straight line vs. turning in a circle
         if (!inputTurning)
         {
-            // move straight
+            // velocity[2] is zero when not falling, except for Burrow flag
             predictedVel[0] = inputRelVel[0];
             predictedVel[1] = inputRelVel[1];
-            predictedPos[0] = inputPos[0] + (dt * inputRelVel[0]);
-            predictedPos[1] = inputPos[1] + (dt * inputRelVel[1]);
+            predictedVel[2] = inputVel[2];
+
+            // move straight
+            predictedPos = inputPos + dt * predictedVel;
         }
         else
         {
@@ -1169,13 +1144,18 @@ void Player::getDeadReckoning(float* predictedPos, float* predictedAzimuth,
             *predictedAzimuth += angle;
             const float cos_val = cosf(angle);
             const float sin_val = sinf(angle);
+
+            // velocity[2] is zero when not falling, except for Burrow flag
+            const float* rv = inputRelVel;
+            predictedVel[0] = (rv[0] * cos_val) - (rv[1] * sin_val);
+            predictedVel[1] = (rv[1] * cos_val) + (rv[0] * sin_val);
+            predictedVel[2] = inputVel[2];
+
             const float* tc = inputTurnCenter;
             const float* tv = inputTurnVector;
             predictedPos[0] = tc[0] + ((tv[0] * cos_val) - (tv[1] * sin_val));
             predictedPos[1] = tc[1] + ((tv[1] * cos_val) + (tv[0] * sin_val));
-            const float* rv = inputRelVel;
-            predictedVel[0] = (rv[0] * cos_val) - (rv[1] * sin_val);
-            predictedVel[1] = (rv[1] * cos_val) + (rv[0] * sin_val);
+            predictedPos[2] = inputPos[2] + (inputVel[2] * dt);
         }
 
         // make the physics driver adjustments
@@ -1249,8 +1229,8 @@ bool Player::isDeadReckoningWrong() const
         return true;
 
     // get predicted state
-    float predictedPos[3];
-    float predictedVel[3];
+    glm::vec3 predictedPos;
+    glm::vec3 predictedVel;
     float predictedAzimuth;
     getDeadReckoning(predictedPos, &predictedAzimuth, predictedVel, dt);
 
@@ -1313,8 +1293,8 @@ void Player::doDeadReckoning()
         return;
 
     // get predicted state
-    float predictedPos[3];
-    float predictedVel[3];
+    glm::vec3 predictedPos;
+    glm::vec3 predictedVel;
     float predictedAzimuth;
     float dt = float(TimeKeeper::getTick() - inputTime);
     getDeadReckoning(predictedPos, &predictedAzimuth, predictedVel, dt);
@@ -1407,11 +1387,7 @@ void Player::setDeadReckoning(float timestamp)
     const float dt = timestamp - inputTimestamp;
     inputTimestamp = timestamp;
     if (dt > 0.0f && dt < MaxUpdateTime * 1.5f)
-    {
-        apparentVelocity[0] = (inputPos[0] - state.pos[0]) / dt;
-        apparentVelocity[1] = (inputPos[1] - state.pos[1]) / dt;
-        apparentVelocity[2] = (inputPos[2] - state.pos[2]) / dt;
-    }
+        apparentVelocity = (inputPos - state.pos) / dt;
 
     // set the current state
     setDeadReckoning();
@@ -1428,8 +1404,8 @@ void Player::setDeadReckoning()
     inputStatus = state.status;
     inputAzimuth = state.azimuth;
     inputAngVel = state.angVel;
-    memcpy(inputPos, state.pos, sizeof(float[3]));
-    memcpy(inputVel, state.velocity, sizeof(float[3]));
+    inputPos = state.pos;
+    inputVel = state.velocity;
     inputPhyDrv = state.phydrv;
 
     //
@@ -1454,10 +1430,10 @@ void Player::setDeadReckoning()
     return;
 }
 
-void Player::setExplodePos( const float * p)
+void Player::setExplodePos(const glm::vec3 &p)
 {
     if (tankNode)
-        tankNode->explodePos = fvec3(p[0],p[1],p[2]);
+        tankNode->explodePos = p;
 }
 
 

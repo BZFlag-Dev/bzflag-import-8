@@ -93,7 +93,7 @@ void WorldInfo::addZone(const CustomZone *zone)
     entryZones.addZone( zone );
 }
 
-void WorldInfo::addWeapon(const FlagType *type, const float *origin,
+void WorldInfo::addWeapon(const FlagType *type, const glm::vec3 &origin,
                           float direction, float tilt, TeamColor teamColor,
                           float initdelay, const std::vector<float> &delay,
                           TimeKeeper &sync)
@@ -111,7 +111,7 @@ void WorldInfo::addWaterLevel (float level, const BzMaterial* matref)
 void WorldInfo::addBox(float x, float y, float z, float r,
                        float w, float d, float h, bool drive, bool shoot, bool rico)
 {
-    const float pos[3] = {x, y, z};
+    const auto pos = glm::vec3(x, y, z);
     BoxBuilding* box = new BoxBuilding(pos, r, w, d, h, drive, shoot, rico, false);
     OBSTACLEMGR.addWorldObstacle(box);
 }
@@ -120,7 +120,7 @@ void WorldInfo::addPyramid(float x, float y, float z, float r,
                            float w, float d, float h,
                            bool drive, bool shoot, bool rico, bool flipZ)
 {
-    const float pos[3] = {x, y, z};
+    const auto pos = glm::vec3(x, y, z);
     PyramidBuilding* pyr = new PyramidBuilding(pos, r, w, d, h, drive, shoot, rico);
     if (flipZ)
         pyr->setZFlip();
@@ -131,13 +131,13 @@ void WorldInfo::addTeleporter(float x, float y, float z, float r,
                               float w, float d, float h, float b,
                               bool horizontal, bool drive, bool shoot, bool rico)
 {
-    const float pos[3] = {x, y, z};
+    const auto pos = glm::vec3(x, y, z);
     Teleporter* tele = new Teleporter(pos, r, w, d, h, b, horizontal, drive, shoot, rico);
     OBSTACLEMGR.addWorldObstacle(tele);
 }
 
-void WorldInfo::addBase(const float pos[3], float r,
-                        const float _size[3], int color, bool, bool, bool rico)
+void WorldInfo::addBase(const glm::vec3 &pos, float r,
+                        const glm::vec3 &_size, int color, bool, bool, bool rico)
 {
     BaseBuilding* base = new BaseBuilding(pos, r, _size, color, rico);
     OBSTACLEMGR.addWorldObstacle(base);
@@ -155,7 +155,7 @@ void WorldInfo::makeWaterMaterial()
 
     // the material
     BzMaterial material;
-    const float diffuse[4] = {0.65f, 1.0f, 0.5f, 0.9f};
+    const auto diffuse = glm::vec4(0.65f, 1.0f, 0.5f, 0.9f);
     material.reset();
     material.setName("WaterMaterial");
     material.setTexture("water");
@@ -264,7 +264,7 @@ InBuildingType WorldInfo::inCylinderNoOctree(Obstacle **location,
     if (height < Epsilon)
         height = Epsilon;
 
-    float pos[3] = {x, y, z};
+    const auto pos = glm::vec3(x, y, z);
 
     for (int type = 0; type < GroupDefinition::ObstacleTypeCount; type++)
     {
@@ -289,7 +289,7 @@ InBuildingType WorldInfo::inCylinderNoOctree(Obstacle **location,
 
 
 InBuildingType WorldInfo::cylinderInBuilding(const Obstacle **location,
-        const float* pos, float radius,
+        const glm::vec3 &pos, float radius,
         float height) const
 {
     if (height < Epsilon)
@@ -317,13 +317,13 @@ InBuildingType WorldInfo::cylinderInBuilding(const Obstacle **location,
         float x, float y, float z, float radius,
         float height) const
 {
-    const float pos[3] = {x, y, z};
+    const auto pos = glm::vec3(x, y, z);
     return cylinderInBuilding (location, pos, radius, height);
 }
 
 
 InBuildingType WorldInfo::boxInBuilding(const Obstacle **location,
-                                        const float* pos, float angle,
+                                        const glm::vec3 &pos, float angle,
                                         float width, float breadth, float height) const
 {
     if (height < Epsilon)
@@ -380,8 +380,8 @@ InBuildingType WorldInfo::classifyHit (const Obstacle* obstacle) const
 }
 
 
-bool WorldInfo::getFlagDropPoint(const FlagInfo* fi, const float* pos,
-                                 float* pt) const
+bool WorldInfo::getFlagDropPoint(const FlagInfo* fi, const glm::vec3 &pos,
+                                 glm::vec3 &pt) const
 {
     FlagType* flagType = fi->flag.type;
     const int team = (int)flagType->flagTeam;
@@ -409,7 +409,7 @@ bool WorldInfo::getFlagDropPoint(const FlagInfo* fi, const float* pos,
 }
 
 
-bool WorldInfo::getFlagSpawnPoint(const FlagInfo* fi, float* pt) const
+bool WorldInfo::getFlagSpawnPoint(const FlagInfo* fi, glm::vec3 &pt) const
 {
     FlagType* flagType = fi->flag.type;
     const int team = (int)flagType->flagTeam;
@@ -431,7 +431,7 @@ bool WorldInfo::getFlagSpawnPoint(const FlagInfo* fi, float* pt) const
 }
 
 
-bool WorldInfo::getPlayerSpawnPoint(const PlayerInfo* pi, float* pt) const
+bool WorldInfo::getPlayerSpawnPoint(const PlayerInfo* pi, glm::vec3 &pt) const
 {
     const std::string& teamQual =
         CustomZone::getPlayerTeamQualifier((int)pi->getTeam());

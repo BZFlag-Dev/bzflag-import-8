@@ -16,6 +16,9 @@
 // BZFlag common header
 #include "common.h"
 
+// System headers
+#include <glm/fwd.hpp>
+
 class SceneDatabase;
 
 namespace TrackMarks
@@ -30,7 +33,7 @@ void notifyStyleChange();
 void renderGroundTracks();   // zbuffer is not used
 void renderObstacleTracks(); // zbuffer is used
 
-bool addMark(const float pos[3], float scale, float angle, int phydrv);
+bool addMark(const glm::vec3 &pos, float scale, float angle, int phydrv);
 
 void setUserFade(float);
 float getUserFade();

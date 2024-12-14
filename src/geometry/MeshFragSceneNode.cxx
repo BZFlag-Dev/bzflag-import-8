@@ -17,6 +17,8 @@
 #include <assert.h>
 #include <cmath>
 #include <cstring>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 // common implementation headers
 #include "Intersect.h"
@@ -26,6 +28,7 @@
 #include "StateDatabase.h"
 #include "BZDBCache.h"
 #include "SceneRenderer.h"
+#include "OpenGLAPI.h"
 
 
 // FIXME - no tessellation is done on for shot lighting
@@ -103,7 +106,7 @@ inline void MeshFragSceneNode::Geometry::drawV() const
     glDisableClientState(GL_NORMAL_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
-    glVertexPointer(3, GL_FLOAT, 0, sceneNode.vertices);
+    glVertexPointer(sceneNode.vertices);
     glDrawArrays(GL_TRIANGLES, 0, sceneNode.arrayCount * 3);
 
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -117,7 +120,7 @@ inline void MeshFragSceneNode::Geometry::drawVT() const
 {
     glDisableClientState(GL_NORMAL_ARRAY);
 
-    glVertexPointer(3, GL_FLOAT, 0, sceneNode.vertices);
+    glVertexPointer(sceneNode.vertices);
     glTexCoordPointer(2, GL_FLOAT, 0, sceneNode.texcoords);
     glDrawArrays(GL_TRIANGLES, 0, sceneNode.arrayCount * 3);
 
@@ -131,7 +134,7 @@ inline void MeshFragSceneNode::Geometry::drawVN() const
 {
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
-    glVertexPointer(3, GL_FLOAT, 0, sceneNode.vertices);
+    glVertexPointer(sceneNode.vertices);
     glNormalPointer(GL_FLOAT, 0, sceneNode.normals);
     glDrawArrays(GL_TRIANGLES, 0, sceneNode.arrayCount * 3);
 
@@ -143,7 +146,7 @@ inline void MeshFragSceneNode::Geometry::drawVN() const
 
 inline void MeshFragSceneNode::Geometry::drawVTN() const
 {
-    glVertexPointer(3, GL_FLOAT, 0, sceneNode.vertices);
+    glVertexPointer(sceneNode.vertices);
     glNormalPointer(GL_FLOAT, 0, sceneNode.normals);
     glTexCoordPointer(2, GL_FLOAT, 0, sceneNode.texcoords);
     glDrawArrays(GL_TRIANGLES, 0, sceneNode.arrayCount * 3);
@@ -199,7 +202,7 @@ void MeshFragSceneNode::Geometry::renderShadow()
         glCallList(list);
     else
     {
-        glVertexPointer(3, GL_FLOAT, 0, sceneNode.vertices);
+        glVertexPointer(sceneNode.vertices);
         glDrawArrays(GL_TRIANGLES, 0, triangles * 3);
     }
     addTriangleCount(triangles);
@@ -211,7 +214,7 @@ void MeshFragSceneNode::Geometry::setStyle(int style_)
     style = style_;
 }
 
-const GLfloat* MeshFragSceneNode::Geometry::getPosition() const
+const glm::vec3 &MeshFragSceneNode::Geometry::getPosition() const
 {
     return sceneNode.getSphere();
 }
@@ -233,7 +236,7 @@ MeshFragSceneNode::MeshFragSceneNode(int faceCount_, const MeshFace** faces_)
     assert ((faceCount > 0) && (faces != NULL));
 
     // disable the plane
-    static const float fakePlane[4] = {0.0f, 0.0f, 1.0f, 0.0f};
+    static const auto fakePlane = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f);
     setPlane(fakePlane);
 
     const BzMaterial* bzmat = faces[0]->getMaterial();
@@ -253,17 +256,11 @@ MeshFragSceneNode::MeshFragSceneNode(int faceCount_, const MeshFace** faces_)
     }
 
     // setup sphere
-    float diffs[3];
-    diffs[0] = extents.maxs[0] - extents.mins[0];
-    diffs[1] = extents.maxs[1] - extents.mins[1];
-    diffs[2] = extents.maxs[2] - extents.mins[2];
-    float mySphere[4];
-    mySphere[0] = 0.5f * (extents.maxs[0] + extents.mins[0]);
-    mySphere[1] = 0.5f * (extents.maxs[1] + extents.mins[1]);
-    mySphere[2] = 0.5f * (extents.maxs[2] + extents.mins[2]);
-    mySphere[3] = 0.25f *
-                  ((diffs[0] * diffs[0]) + (diffs[1] * diffs[1]) + (diffs[2] * diffs[2]));
-    setSphere(mySphere);
+    auto mySphere = 0.5f * (extents.maxs + extents.mins);
+    setCenter(mySphere);
+
+    float radius = 0.25f * glm::distance2(extents.maxs, extents.mins);
+    setRadius(radius);
 
     // count the number of actual vertices
     for (i = 0; i < faceCount; i++)
@@ -274,9 +271,9 @@ MeshFragSceneNode::MeshFragSceneNode(int faceCount_, const MeshFace** faces_)
 
     // make the lists
     const int vertexCount = (arrayCount * 3);
-    normals = new GLfloat[vertexCount * 3];
-    vertices = new GLfloat[vertexCount * 3];
-    texcoords = new GLfloat[vertexCount * 2];
+    normals   = new glm::vec3[vertexCount];
+    vertices  = new glm::vec3[vertexCount];
+    texcoords = new glm::vec2[vertexCount];
 
     // fill in the lists
     int arrayIndex = 0;
@@ -285,12 +282,12 @@ MeshFragSceneNode::MeshFragSceneNode(int faceCount_, const MeshFace** faces_)
         const MeshFace* face = faces[i];
 
         // pre-generate the texcoords if required
-        GLfloat2Array t(face->getVertexCount());
+        std::vector<glm::vec2> t(face->getVertexCount());
         if (!face->useTexcoords())
         {
-            GLfloat3Array v(face->getVertexCount());
+            std::vector<glm::vec3> v(face->getVertexCount());
             for (j = 0; j < face->getVertexCount(); j++)
-                memcpy(v[j], face->getVertex(j), sizeof(float[3]));
+                v[j] = face->getVertex(j);
             MeshSceneNodeGenerator::makeTexcoords(face->getPlane(), v, t);
         }
 
@@ -309,19 +306,19 @@ MeshFragSceneNode::MeshFragSceneNode(int faceCount_, const MeshFace** faces_)
                     vIndex = (j + k) % face->getVertexCount();
 
                 // get the vertices
-                memcpy(&vertices[aIndex * 3], face->getVertex(vIndex), sizeof(float[3]));
+                vertices[aIndex] = face->getVertex(vIndex);
 
                 // get the normals
                 if (face->useNormals())
-                    memcpy(&normals[aIndex * 3], face->getNormal(vIndex), sizeof(float[3]));
+                    normals[aIndex] = face->getNormal(vIndex);
                 else
-                    memcpy(&normals[aIndex * 3], face->getPlane(), sizeof(float[3]));
+                    normals[aIndex] = face->getPlane();
 
                 // get the texcoords
                 if (face->useTexcoords())
-                    memcpy(&texcoords[aIndex * 2], face->getTexcoord(vIndex), sizeof(float[2]));
+                    texcoords[aIndex] = face->getTexcoord(vIndex);
                 else
-                    memcpy(&texcoords[aIndex * 2], t[vIndex], sizeof(float[2]));
+                    texcoords[aIndex] = t[vIndex];
             }
         }
 
@@ -343,7 +340,7 @@ MeshFragSceneNode::~MeshFragSceneNode()
 }
 
 
-const GLfloat* MeshFragSceneNode::getPlane() const
+const glm::vec4 *MeshFragSceneNode::getPlane() const
 {
     return NULL;
 }
@@ -368,7 +365,7 @@ bool MeshFragSceneNode::inAxisBox (const Extents& exts) const
 {
     // NOTE: it should be OK to use the faces while building
 
-    float pos[3];
+    glm::vec3 pos;
     pos[0] = 0.5f * (exts.maxs[0] + exts.mins[0]);
     pos[1] = 0.5f * (exts.maxs[1] + exts.mins[1]);
     pos[2] = exts.mins[2];
@@ -390,8 +387,8 @@ bool MeshFragSceneNode::inAxisBox (const Extents& exts) const
 void MeshFragSceneNode::addRenderNodes(SceneRenderer& renderer)
 {
     renderNode.setStyle(getStyle());
-    const GLfloat* dyncol = getDynamicColor();
-    if ((dyncol == NULL) || (dyncol[3] != 0.0f))
+    const auto dyncol = getDynamicColor();
+    if ((dyncol == NULL) || (dyncol->a != 0.0f))
         renderer.addRenderNode(&renderNode, getWallGState());
 }
 
@@ -400,8 +397,8 @@ void MeshFragSceneNode::addShadowNodes(SceneRenderer& renderer)
 {
     if (!noShadow)
     {
-        const GLfloat* dyncol = getDynamicColor();
-        if ((dyncol == NULL) || (dyncol[3] != 0.0f))
+        const auto dyncol = getDynamicColor();
+        if ((dyncol == NULL) || (dyncol->a != 0.0f))
             renderer.addShadowNode(&renderNode);
     }
 }

@@ -36,7 +36,7 @@ public:
     int getFrustumList (SceneNode** list, int listSize,
                         const Frustum* frustum) const;
     int getShadowList (SceneNode** list, int listSize,
-                       int planeCount, const float (*planes)[4]) const;
+                       int planeCount, const glm::vec4 *planes) const;
     int getRadarList (SceneNode** list, int listSize,
                       const Frustum* frustum) const;
 

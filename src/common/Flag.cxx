@@ -10,8 +10,6 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "common.h"
-
 /* interface header */
 #include "Flag.h"
 
@@ -20,6 +18,7 @@
 #include <string>
 #include <assert.h>
 #include <string.h>
+#include <glm/vec3.hpp>
 
 /* common implementation headers */
 #include "Team.h"
@@ -406,9 +405,9 @@ FlagSet& Flag::getBadFlags()
     return FlagType::flagSets[FlagBad];
 }
 
-const float* FlagType::getColor() const
+const glm::vec3 &FlagType::getColor() const
 {
-    static const float superColor[3] = { 1.0, 1.0, 1.0 };
+    static const auto superColor = glm::vec3(1.0f);
 
     if (flagTeam == NoTeam)
         return superColor;
@@ -416,9 +415,9 @@ const float* FlagType::getColor() const
         return Team::getTankColor(flagTeam);
 }
 
-const float* FlagType::getRadarColor() const
+const glm::vec3 &FlagType::getRadarColor() const
 {
-    static const float superColor[3] = { 1.0, 1.0, 1.0 };
+    static const auto superColor = glm::vec3(1.0f);
 
     if (flagTeam == NoTeam)
         return superColor;

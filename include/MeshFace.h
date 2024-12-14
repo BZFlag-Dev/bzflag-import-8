@@ -17,16 +17,18 @@
 #ifndef BZF_MESH_FACE_OBSTACLE_H
 #define BZF_MESH_FACE_OBSTACLE_H
 
-#include "common.h"
+// Inherits from
+#include "Obstacle.h"
+
+// System headers
 #include <string>
 #include <iostream>
-#include "vectors.h"
+#include <glm/vec4.hpp>
+
+// Common headers
 #include "Ray.h"
-#include "Obstacle.h"
 #include "global.h"
 #include "BzMaterial.h"
-//#include "PhysicsDrive.h"
-
 
 class MeshFace : public Obstacle
 {
@@ -37,43 +39,43 @@ class MeshFace : public Obstacle
 public:
     MeshFace(class MeshObstacle* mesh);
     MeshFace(MeshObstacle* mesh, int vertexCount,
-             float** vertices, float** normals, float** texcoords,
+             glm::vec3 *vertices[], glm::vec3 **normals, glm::vec2 **texcoords,
              const BzMaterial* material, int physics,
              bool noclusters, bool smoothBounce, bool drive, bool shoot, bool ricochet);
     ~MeshFace();
 
-    const char* getType() const;
+    const char* getType() const override;
     static const char* getClassName(); // const
-    bool isValid() const;
-    bool isFlatTop() const;
+    bool isValid() const override;
+    bool isFlatTop() const override;
 
-    float intersect(const Ray&) const;
-    void getNormal(const float* p, float* n) const;
-    void get3DNormal(const float* p, float* n) const;
+    float intersect(const Ray&) const override;
+    void getNormal(const glm::vec3 &p, glm::vec3 &n) const override;
+    void get3DNormal(const glm::vec3 &p, glm::vec3 &n) const override;
 
-    bool inCylinder(const float* p, float radius, float height) const;
-    bool inBox(const float* p, float angle,
-               float halfWidth, float halfBreadth, float height) const;
-    bool inMovingBox(const float* oldP, float oldAngle,
-                     const float *newP, float newAngle,
-                     float halfWidth, float halfBreadth, float height) const;
-    bool isCrossing(const float* p, float angle,
+    bool inCylinder(const glm::vec3 &p, float radius, float height) const override;
+    bool inBox(const glm::vec3 &p, float angle,
+               float halfWidth, float halfBreadth, float height) const override;
+    bool inMovingBox(const glm::vec3 &oldP, float oldAngle,
+                     const glm::vec3 &newP, float newAngle,
+                     float halfWidth, float halfBreadth, float height) const override;
+    bool isCrossing(const glm::vec3 &p, float angle,
                     float halfWidth, float halfBreadth, float height,
-                    float* plane) const;
+                    glm::vec4 *plane) const override;
 
-    bool getHitNormal(const float* pos1, float azimuth1,
-                      const float* pos2, float azimuth2,
+    bool getHitNormal(const glm::vec3 &pos1, float azimuth1,
+                      const glm::vec3 &pos2, float azimuth2,
                       float halfWidth, float halfBreadth,
-                      float height, float* normal) const;
+                      float height, glm::vec3 &normal) const override;
 
     MeshObstacle* getMesh() const;
     int getVertexCount() const;
     bool useNormals() const;
     bool useTexcoords() const;
-    const float* getVertex(int index) const;
-    const float* getNormal(int index) const;
-    const float* getTexcoord(int index) const;
-    const float* getPlane() const;
+    const glm::vec3 &getVertex(int index) const;
+    const glm::vec3 &getNormal(int index) const;
+    const glm::vec2 &getTexcoord(int index) const;
+    const glm::vec4 &getPlane() const;
     const BzMaterial* getMaterial() const;
     int getPhysicsDriver() const;
     bool noClusters() const;
@@ -90,11 +92,11 @@ public:
     void setLink(const MeshFace* link);
     const MeshFace* getLink() const;
 
-    int packSize() const;
-    void *pack(void*) const;
-    const void *unpack(const void*);
+    int packSize() const override;
+    void *pack(void*) const override;
+    const void *unpack(const void*) override;
 
-    void print(std::ostream& out, const std::string& indent) const;
+    void print(std::ostream& out, const std::string& indent) const override;
 
 public:
     mutable float scratchPad;
@@ -107,16 +109,16 @@ private:
 
     class MeshObstacle* mesh;
     int vertexCount;
-    float** vertices;
-    float** normals;
-    float** texcoords;
+    glm::vec3 **vertices;
+    glm::vec3 **normals;
+    glm::vec2 **texcoords;
     const BzMaterial* bzMaterial;
     bool smoothBounce;
     bool noclusters;
     int phydrv;
 
-    afvec4 plane;
-    afvec4* edgePlanes;
+    glm::vec4 plane;
+    glm::vec4 *edgePlanes;
 
     MeshFace* edges; // edge 0 is between vertex 0 and 1, etc...
     // not currently used for anything
@@ -181,7 +183,7 @@ inline int MeshFace::getPhysicsDriver() const
     return phydrv;
 }
 
-inline const float* MeshFace::getPlane() const
+inline const glm::vec4 &MeshFace::getPlane() const
 {
     return plane;
 }
@@ -191,19 +193,19 @@ inline int MeshFace::getVertexCount() const
     return vertexCount;
 }
 
-inline const float* MeshFace::getVertex(int index) const
+inline const glm::vec3 &MeshFace::getVertex(int index) const
 {
-    return (const float*)vertices[index];
+    return *vertices[index];
 }
 
-inline const float* MeshFace::getNormal(int index) const
+inline const glm::vec3 &MeshFace::getNormal(int index) const
 {
-    return (const float*)normals[index];
+    return *normals[index];
 }
 
-inline const float* MeshFace::getTexcoord(int index) const
+inline const glm::vec2 &MeshFace::getTexcoord(int index) const
 {
-    return (const float*)texcoords[index];
+    return *texcoords[index];
 }
 
 inline bool MeshFace::useNormals() const

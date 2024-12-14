@@ -44,14 +44,13 @@ bool Plan::isValid()
 
 void Plan::execute(float &, float &)
 {
-    float pos[3];
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    memcpy(pos, myTank->getPosition(), sizeof(pos));
+    auto pos = myTank->getPosition();
     if (pos[2] < 0.0f)
         pos[2] = 0.01f;
     float myAzimuth = myTank->getAngle();
 
-    float dir[3] = {cosf(myAzimuth), sinf(myAzimuth), 0.0f};
+    auto dir = glm::vec3(cosf(myAzimuth), sinf(myAzimuth), 0.0f);
     pos[2] += myTank->getMuzzleHeight();
     Ray tankRay(pos, dir);
     pos[2] -= myTank->getMuzzleHeight();
@@ -69,15 +68,12 @@ void Plan::execute(float &, float &)
                         !remotePlayers[t]->isNotResponding())
                 {
 
-                    const float *tp = remotePlayers[t]->getPosition();
-                    float enemyPos[3];
+                    const auto &tp = remotePlayers[t]->getPosition();
 
                     //toss in some lag adjustment/future prediction - 300 millis
-                    memcpy(enemyPos,tp,sizeof(enemyPos));
-                    const float *tv = remotePlayers[t]->getVelocity();
-                    enemyPos[0] += 0.3f * tv[0];
-                    enemyPos[1] += 0.3f * tv[1];
-                    enemyPos[2] += 0.3f * tv[2];
+                    auto enemyPos = tp;
+                    const auto &tv = remotePlayers[t]->getVelocity();
+                    enemyPos += 0.3f * tv;
 
                     if (enemyPos[2] < 0.0f)
                         enemyPos[2] = 0.0f;
@@ -122,14 +118,11 @@ void Plan::execute(float &, float &)
                             && (myTank->getFlag() != Flags::SuperBullet))
                         continue;
 
-                    const float *tp = remotePlayers[t]->getPosition();
-                    float enemyPos[3];
+                    const auto &tp = remotePlayers[t]->getPosition();
                     //toss in some lag adjustment/future prediction - 300 millis
-                    memcpy(enemyPos,tp,sizeof(enemyPos));
-                    const float *tv = remotePlayers[t]->getVelocity();
-                    enemyPos[0] += 0.3f * tv[0];
-                    enemyPos[1] += 0.3f * tv[1];
-                    enemyPos[2] += 0.3f * tv[2];
+                    auto enemyPos = tp;
+                    const auto &tv = remotePlayers[t]->getVelocity();
+                    enemyPos += 0.3f * tv;
                     if (enemyPos[2] < 0.0f)
                         enemyPos[2] = 0.0f;
 
@@ -165,7 +158,7 @@ void Plan::execute(float &, float &)
 bool Plan::avoidBullet(float &rotation, float &speed)
 {
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    const float *pos = myTank->getPosition();
+    const auto pos = glm::vec2(myTank->getPosition());
 
     if ((myTank->getFlag() == Flags::Narrow) || (myTank->getFlag() == Flags::Burrow))
         return false; // take our chances
@@ -176,13 +169,13 @@ bool Plan::avoidBullet(float &rotation, float &speed)
     if ((shot == NULL) || (minDistance > 100.0f))
         return false;
 
-    const float *shotPos = shot->getPosition();
-    const float *shotVel = shot->getVelocity();
-    float shotAngle = atan2f(shotVel[1],shotVel[0]);
-    float shotUnitVec[2] = {cosf(shotAngle), sinf(shotAngle)};
+    const auto  shotPos = glm::vec2(shot->getPosition());
+    const auto  shotVel = shot->getVelocity();
+    const float shotAngle = atan2f(shotVel[1],shotVel[0]);
+    const auto  shotUnitVec = glm::vec2(cosf(shotAngle), sinf(shotAngle));
 
-    float trueVec[2] = {(pos[0]-shotPos[0])/minDistance,(pos[1]-shotPos[1])/minDistance};
-    float dotProd = trueVec[0]*shotUnitVec[0]+trueVec[1]*shotUnitVec[1];
+    auto trueVec = (pos - shotPos) / minDistance;
+    float dotProd = glm::dot(trueVec, shotUnitVec);
 
     if (((World::getWorld()->allowJumping() || (myTank->getFlag()) == Flags::Jumping
             || (myTank->getFlag()) == Flags::Wings))
@@ -231,7 +224,7 @@ bool Plan::avoidBullet(float &rotation, float &speed)
 ShotPath *Plan::findWorstBullet(float &minDistance)
 {
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    const float *pos = myTank->getPosition();
+    const auto &pos = myTank->getPosition();
     ShotPath *minPath = NULL;
 
     minDistance = Infinity;
@@ -256,7 +249,7 @@ ShotPath *Plan::findWorstBullet(float &minDistance)
                     (myTank->getFlag() == Flags::Cloaking))
                 continue; //cloaked tanks can't die from lasers
 
-            const float* shotPos = shot->getPosition();
+            const auto &shotPos = shot->getPosition();
             if ((fabs(shotPos[2] - pos[2]) > BZDBCache::tankHeight) &&
                     (shot->getFlag() != Flags::GuidedMissile))
                 continue;
@@ -264,7 +257,7 @@ ShotPath *Plan::findWorstBullet(float &minDistance)
             const float dist = TargetingUtils::getTargetDistance(pos, shotPos);
             if (dist < minDistance)
             {
-                const float *shotVel = shot->getVelocity();
+                const auto shotVel = shot->getVelocity();
                 float shotAngle = atan2f(shotVel[1], shotVel[0]);
                 float shotUnitVec[2] = {cosf(shotAngle), sinf(shotAngle)};
 
@@ -293,14 +286,14 @@ ShotPath *Plan::findWorstBullet(float &minDistance)
         if (shot->getFlag() == Flags::Laser && myTank->getFlag() == Flags::Cloaking)
             continue; //cloaked tanks can't die from lasers
 
-        const float* shotPos = shot->getPosition();
+        const auto &shotPos = shot->getPosition();
         if ((fabs(shotPos[2] - pos[2]) > BZDBCache::tankHeight) && (shot->getFlag() != Flags::GuidedMissile))
             continue;
 
         const float dist = TargetingUtils::getTargetDistance( pos, shotPos );
         if (dist < minDistance)
         {
-            const float *shotVel = shot->getVelocity();
+            const auto shotVel = shot->getVelocity();
             float shotAngle = atan2f(shotVel[1], shotVel[0]);
             float shotUnitVec[2] = {cosf(shotAngle), sinf(shotAngle)};
 
@@ -441,7 +434,7 @@ bool WeavePlan::isValid()
         return false;
 
     LocalPlayer *myTank = LocalPlayer::getMyTank();
-    const float *pVel = myTank->getVelocity();
+    const auto &pVel = myTank->getVelocity();
     if ((pVel[0] == 0.0f) && (pVel[1] == 0.0f) && (pVel[2] == 0.0f))
         return false;
 

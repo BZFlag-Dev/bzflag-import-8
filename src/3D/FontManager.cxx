@@ -10,9 +10,6 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-// BZFlag common header
-#include "common.h"
-
 // Interface header
 #include "FontManager.h"
 
@@ -31,13 +28,14 @@
 #include "OpenGLGState.h"
 #include "TimeKeeper.h"
 #include "TextUtils.h"
+#include "OpenGLAPI.h"
 
 // Local implementation headers
 #include "ImageFont.h"
 #include "TextureFont.h"
 
 // ANSI code GLFloat equivalents - these should line up with the enums in AnsiCodes.h
-static GLfloat BrightColors[9][3] =
+static glm::vec3 BrightColors[9] =
 {
     {1.0f,1.0f,0.0f}, // yellow
     {1.0f,0.0f,0.0f}, // red
@@ -50,29 +48,17 @@ static GLfloat BrightColors[9][3] =
     {0.0f,1.0f,1.0f}  // cyan
 };
 
-GLfloat FontManager::underlineColor[4];
+glm::vec3 FontManager::underlineColor;
 void FontManager::callback(const std::string &, void *)
 {
     // set underline color
     const std::string uColor = BZDB.get("underlineColor");
     if (strcasecmp(uColor.c_str(), "text") == 0)
-    {
-        underlineColor[0] = -1.0f;
-        underlineColor[1] = -1.0f;
-        underlineColor[2] = -1.0f;
-    }
+        underlineColor = glm::vec3(-1.0f);
     else if (strcasecmp(uColor.c_str(), "cyan") == 0)
-    {
-        underlineColor[0] = BrightColors[CyanColor][0];
-        underlineColor[1] = BrightColors[CyanColor][1];
-        underlineColor[2] = BrightColors[CyanColor][2];
-    }
+        underlineColor = BrightColors[CyanColor];
     else if (strcasecmp(uColor.c_str(), "grey") == 0)
-    {
-        underlineColor[0] = BrightColors[GreyColor][0];
-        underlineColor[1] = BrightColors[GreyColor][1];
-        underlineColor[2] = BrightColors[GreyColor][2];
-    }
+        underlineColor = BrightColors[GreyColor];
 }
 
 FontManager::FontManager() : Singleton<FontManager>(),
@@ -244,7 +230,7 @@ const char* FontManager::getFaceName(int faceID)
 }
 
 void FontManager::drawString(float x, float y, float z, int faceID, float size,
-                             const std::string &text, const float* resetColor)
+                             const std::string &text, glm::vec3 resetColor)
 {
     if (text.size() == 0)
         return;
@@ -296,25 +282,16 @@ void FontManager::drawString(float x, float y, float z, int faceID, float size,
     bool pulsating = false;
     bool underline = false;
     // negatives are invalid, we use them to signal "no change"
-    GLfloat color[4] = {-1.0f, -1.0f, -1.0f, opacity};
-    if (resetColor != NULL)
-    {
-        color[0] = resetColor[0] * darkness;
-        color[1] = resetColor[1] * darkness;
-        color[2] = resetColor[2] * darkness;
-    }
+    auto color = glm::vec3(-1.0f);
+    if (resetColor.x >= 0)
+        color = resetColor * darkness;
     else
         resetColor = BrightColors[WhiteColor];
 
     const float darkDim = dimFactor * darkness;
 
     // underline color changes for bright == false
-    GLfloat dimUnderlineColor[4] = { underlineColor[0] * darkDim,
-                                     underlineColor[1] * darkDim,
-                                     underlineColor[2] * darkDim,
-                                     opacity
-                                   };
-    underlineColor[3] = opacity;
+    auto dimUnderlineColor = underlineColor * darkDim;
 
     /*
      * ANSI code interpretation is somewhat limited, we only accept values
@@ -338,7 +315,7 @@ void FontManager::drawString(float x, float y, float z, int faceID, float size,
     {
         // pulsate the text, if desired
         if (pulsating)
-            getPulseColor(color, color);
+            color *= getPulseFactor();
         // render text
         int len = endSend - startSend;
         if (len > 0)
@@ -351,17 +328,20 @@ void FontManager::drawString(float x, float y, float z, int faceID, float size,
             GLboolean depthMask;
             glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
             glDepthMask(0);
-            pFont->drawString(scale, color, &tmpText[startSend], len);
+            pFont->drawString(scale, color, opacity, &tmpText[startSend], len);
             if (underline)
             {
                 glDisable(GL_TEXTURE_2D);
                 glEnable(GL_BLEND);
-                if (bright && underlineColor[0] >= 0)
-                    glColor4fv(underlineColor);
-                else if (underlineColor[0] >= 0)
-                    glColor4fv(dimUnderlineColor);
+                if (underlineColor[0] >= 0)
+                {
+                    if (bright)
+                        glColor(underlineColor, opacity);
+                    else
+                        glColor(dimUnderlineColor, opacity);
+                }
                 else if (color[0] >= 0)
-                    glColor4fv(color);
+                    glColor(color, opacity);
                 // still have a translated matrix, these coordinates are
                 // with respect to the string just drawn
                 glBegin(GL_LINES);
@@ -389,17 +369,9 @@ void FontManager::drawString(float x, float y, float z, int faceID, float size,
                 if (tmpText == ColorStrings[i])
                 {
                     if (bright)
-                    {
-                        color[0] = BrightColors[i][0] * darkness;
-                        color[1] = BrightColors[i][1] * darkness;
-                        color[2] = BrightColors[i][2] * darkness;
-                    }
+                        color = BrightColors[i] * darkness;
                     else
-                    {
-                        color[0] = BrightColors[i][0] * darkDim;
-                        color[1] = BrightColors[i][1] * darkDim;
-                        color[2] = BrightColors[i][2] * darkDim;
-                    }
+                        color = BrightColors[i] * darkDim;
                     tookCareOfANSICode = true;
                     break;
                 }
@@ -413,18 +385,14 @@ void FontManager::drawString(float x, float y, float z, int faceID, float size,
                     bright = true;
                     pulsating = false;
                     underline = false;
-                    color[0] = resetColor[0] * darkness;
-                    color[1] = resetColor[1] * darkness;
-                    color[2] = resetColor[2] * darkness;
+                    color = resetColor * darkness;
                 }
                 else if (tmpText == ANSI_STR_RESET_FINAL)
                 {
                     bright = false;
                     pulsating = false;
                     underline = false;
-                    color[0] = resetColor[0] * darkDim;
-                    color[1] = resetColor[1] * darkDim;
-                    color[2] = resetColor[2] * darkDim;
+                    color = resetColor * darkDim;
                 }
                 else if (tmpText == ANSI_STR_BRIGHT)
                     bright = true;
@@ -474,14 +442,6 @@ void FontManager::drawString(float x, float y, float z, int faceID, float size,
         pFont->filter(false);
 
     return;
-}
-
-void FontManager::drawString(float x, float y, float z,
-                             const std::string &face, float size,
-                             const std::string &text,
-                             const float* resetColor)
-{
-    drawString(x, y, z, getFaceID(face), size, text, resetColor);
 }
 
 float FontManager::getStrLength(int faceID, float size, const std::string &text,
@@ -600,7 +560,7 @@ ImageFont*    FontManager::getClosestRealSize(int faceID, float desiredSize, flo
     return font;
 }
 
-void        FontManager::getPulseColor(const GLfloat *color, GLfloat *pulseColor) const
+float FontManager::getPulseFactor() const
 {
     float pulseTime = (float)TimeKeeper::getCurrent().getSeconds();
 
@@ -613,9 +573,7 @@ void        FontManager::getPulseColor(const GLfloat *color, GLfloat *pulseColor
     pulseFactor = fabsf(pulseFactor) / (pulseRate/2.0f);
     pulseFactor = pulseDepth * pulseFactor + (1.0f - pulseDepth);
 
-    pulseColor[0] = color[0] * pulseFactor;
-    pulseColor[1] = color[1] * pulseFactor;
-    pulseColor[2] = color[2] * pulseFactor;
+    return pulseFactor;
 }
 
 // Local Variables: ***

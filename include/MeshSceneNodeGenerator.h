@@ -36,9 +36,9 @@ public:
                                   const BzMaterial* mat);
     static MeshPolySceneNode* getMeshPolySceneNode(const MeshFace* face);
 
-    static bool makeTexcoords(const float* plane,
-                              const GLfloat3Array& vertices,
-                              GLfloat2Array& texcoords);
+    static void makeTexcoords(const glm::vec4 &plane,
+                              const std::vector<glm::vec3> &vertices,
+                              std::vector<glm::vec2> &texcoords);
 
 protected:
     MeshSceneNodeGenerator(const MeshObstacle*);

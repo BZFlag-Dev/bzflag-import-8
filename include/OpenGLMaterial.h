@@ -30,15 +30,21 @@
 #ifndef BZF_OPENGL_MATERIAL_H
 #define BZF_OPENGL_MATERIAL_H
 
+// 1st
 #include "common.h"
+
+// System headers
+#include <glm/vec3.hpp>
+
+// Common headers
 #include "bzfgl.h"
 
 class OpenGLMaterial
 {
 public:
     OpenGLMaterial();
-    OpenGLMaterial(const GLfloat specularRGB[3],
-                   const GLfloat emissiveRGB[3],
+    OpenGLMaterial(const glm::vec3 &specularRGB,
+                   const glm::vec3 &emissiveRGB,
                    GLfloat shininess = 0.0f);
     OpenGLMaterial(const OpenGLMaterial&);
     ~OpenGLMaterial();
@@ -48,8 +54,8 @@ public:
     bool        operator!=(const OpenGLMaterial&) const;
     bool        operator<(const OpenGLMaterial&) const;
 
-    const GLfloat*  getSpecularColor() const;
-    const GLfloat*  getEmissiveColor() const;
+    const glm::vec3 &getSpecularColor() const;
+    const glm::vec3 &getEmissiveColor() const;
     GLfloat     getShininess() const;
 
     bool        isValid() const;
@@ -63,12 +69,12 @@ private:
         void        ref();
         void        unref();
         void        execute();
-        static Rep* getRep(const GLfloat* specular,
-                           const GLfloat* emissive,
+        static Rep* getRep(const glm::vec3 &specular,
+                           const glm::vec3 &emissive,
                            GLfloat shininess);
     private:
-        Rep(const GLfloat* specular,
-            const GLfloat* emissive,
+        Rep(const glm::vec3 &specular,
+            const glm::vec3 &emissive,
             GLfloat shininess);
         static void freeContext(void*);
         static void initContext(void*);
@@ -77,8 +83,8 @@ private:
         Rep*        prev;
         Rep*        next;
         GLuint      list;
-        GLfloat     specular[4];
-        GLfloat     emissive[4];
+        glm::vec3   specular;
+        glm::vec3   emissive;
         GLfloat     shininess;
         static Rep* head;
     };
@@ -89,12 +95,12 @@ private:
 // OpenGLMaterial
 //
 
-inline const GLfloat*   OpenGLMaterial::getSpecularColor() const
+inline const glm::vec3 &OpenGLMaterial::getSpecularColor() const
 {
     return rep->specular;
 }
 
-inline const GLfloat*   OpenGLMaterial::getEmissiveColor() const
+inline const glm::vec3 &OpenGLMaterial::getEmissiveColor() const
 {
     return rep->emissive;
 }

@@ -10,7 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+// Interface
 #include "BoxSceneNodeGenerator.h"
+
+// Common headers
 #include "WallSceneNode.h"
 #include "BoxBuilding.h"
 #include "QuadWallSceneNode.h"
@@ -35,7 +38,7 @@ WallSceneNode*      BoxSceneNodeGenerator::getNextNode(
 {
     if (getNodeNumber() == 6) return NULL;
 
-    GLfloat base[3], sCorner[3], tCorner[3];
+    glm::vec3 base, sCorner, tCorner;
     switch (incNodeNumber())
     {
     case 1:
@@ -76,14 +79,8 @@ WallSceneNode*      BoxSceneNodeGenerator::getNextNode(
         break;
     }
 
-    GLfloat sEdge[3];
-    GLfloat tEdge[3];
-    sEdge[0] = sCorner[0] - base[0];
-    sEdge[1] = sCorner[1] - base[1];
-    sEdge[2] = sCorner[2] - base[2];
-    tEdge[0] = tCorner[0] - base[0];
-    tEdge[1] = tCorner[1] - base[1];
-    tEdge[2] = tCorner[2] - base[2];
+    const auto sEdge = sCorner - base;
+    const auto tEdge = tCorner - base;
     return new QuadWallSceneNode(base, sEdge, tEdge, uRepeats, vRepeats, lod);
 }
 

@@ -28,8 +28,8 @@ int Obstacle::objCounter = 0;
 
 Obstacle::Obstacle()
 {
-    memset(pos, 0, sizeof(float) * 3);
-    memset(size, 0, sizeof(float) * 3);
+    pos = glm::vec3(0.0f);
+    size = glm::vec3(0.0f);
     angle = 0;
     driveThrough = false;
     shootThrough = false;
@@ -41,13 +41,11 @@ Obstacle::Obstacle()
     insideNodes = NULL;
 }
 
-Obstacle::Obstacle(const float* _pos, float _angle,
+Obstacle::Obstacle(const glm::vec3 &_pos, float _angle,
                    float _width, float _breadth, float _height,
                    bool drive, bool shoot, bool rico)
 {
-    pos[0] = _pos[0];
-    pos[1] = _pos[1];
-    pos[2] = _pos[2];
+    pos = _pos;
     angle = _angle;
     size[0] = _width;
     size[1] = _breadth;
@@ -83,12 +81,13 @@ void            Obstacle::setExtents()
 {
     float xspan = (fabsf(cosf(angle)) * size[0]) + (fabsf(sinf(angle)) * size[1]);
     float yspan = (fabsf(cosf(angle)) * size[1]) + (fabsf(sinf(angle)) * size[0]);
-    extents.mins[0] = pos[0] - xspan;
-    extents.maxs[0] = pos[0] + xspan;
-    extents.mins[1] = pos[1] - yspan;
-    extents.maxs[1] = pos[1] + yspan;
-    extents.mins[2] = pos[2];
-    extents.maxs[2] = pos[2] + size[2];
+    extents.mins = pos;
+    extents.maxs = pos;
+    extents.mins[0] -= xspan;
+    extents.maxs[0] += xspan;
+    extents.mins[1] -= yspan;
+    extents.maxs[1] += yspan;
+    extents.maxs[2] += size[2];
     return;
 }
 
@@ -108,20 +107,45 @@ bool            Obstacle::getZFlip ( void ) const
 }
 
 
-bool            Obstacle::isCrossing(const float*, float,
-                                     float, float, float, float*) const
+void Obstacle::get3DNormal(const glm::vec3 &p, glm::vec3 &n) const
+{
+    getNormal(p, n);
+}
+
+bool Obstacle::inBox(const glm::vec3 &, float, float, float, float) const
+{
+    return false;
+}
+
+bool Obstacle::getHitNormal(const glm::vec3 &, float,
+                            const glm::vec3 &, float,
+                            float, float,
+                            float, glm::vec3 &) const
+{
+    return false;
+}
+
+bool Obstacle::inMovingBox(const glm::vec3 &, float, const glm::vec3 &, float,
+                           float, float, float) const
+{
+    assert(false);
+    return false;
+}
+
+bool Obstacle::isCrossing(const glm::vec3 &, float,
+                          float, float, float, glm::vec4 *) const
 {
     // never crossing by default
     return false;
 }
 
 float           Obstacle::getHitNormal(
-    const float* pos1, float azimuth1,
-    const float* pos2, float azimuth2,
+    const glm::vec3 &pos1, float azimuth1,
+    const glm::vec3 &pos2, float azimuth2,
     float width, float breadth,
-    const float* oPos, float oAzimuth,
+    const glm::vec3 &oPos, float oAzimuth,
     float oWidth, float oBreadth, float oHeight,
-    float* normal) const
+    glm::vec3 &normal) const
 {
     static const float    square[4][2] =
     {
@@ -141,13 +165,14 @@ float           Obstacle::getHitNormal(
     float minTime = 1.0f;
     for (i = 0; i < 4; i++)
     {
-        float p[3], d[3];
-        p[0] = pos1[0] + square[i][0]*c1*width - square[i][1]*s1*breadth;
-        p[1] = pos1[1] + square[i][0]*s1*width + square[i][1]*c1*breadth;
-        p[2] = 0;
-        d[0] = pos2[0] + square[i][0]*c2*width - square[i][1]*s2*breadth - p[0];
-        d[1] = pos2[1] + square[i][0]*s2*width + square[i][1]*c2*breadth - p[1];
-        d[2] = 0;
+        auto p = glm::vec3(
+                     pos1[0] + square[i][0]*c1*width - square[i][1]*s1*breadth,
+                     pos1[1] + square[i][0]*s1*width + square[i][1]*c1*breadth,
+                     0.0f);
+        auto d = glm::vec3(
+                     pos2[0] + square[i][0]*c2*width - square[i][1]*s2*breadth,
+                     pos2[1] + square[i][0]*s2*width + square[i][1]*c2*breadth,
+                     0.0f) - p;
         int side;
         const float t = timeAndSideRayHitsRect(Ray(p, d),
                                                oPos, oAzimuth, oWidth, oBreadth, side);
@@ -209,25 +234,17 @@ float           Obstacle::getHitNormal(
     // get normal
     if (bestSide == -1) return -1.0f;
     if (bestSide == 4)
-    {
-        normal[0] = 0.0f;
-        normal[1] = 0.0f;
-        normal[2] = 1.0f;
-    }
+        normal = glm::vec3(0.0f, 0.0f, 1.0f);
     else if (!isObstacle)
     {
         const float _angle = (float)(0.5 * M_PI * (float)bestSide + oAzimuth);
-        normal[0] = cosf(_angle);
-        normal[1] = sinf(_angle);
-        normal[2] = 0.0f;
+        normal = glm::vec3(cosf(_angle), sinf(_angle), 0.0f);
     }
     else
     {
         const float _angle = (float)(0.5 * M_PI * (float)bestSide +
                                      minTime * (azimuth2 - azimuth1) + azimuth1);
-        normal[0] = -cosf(_angle);
-        normal[1] = -sinf(_angle);
-        normal[2] = 0.0f;
+        normal = glm::vec3(-cosf(_angle), -sinf(_angle), 0.0f);
     }
     return minTime;
 }

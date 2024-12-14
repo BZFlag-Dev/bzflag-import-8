@@ -37,7 +37,7 @@ public:
     ~SegmentedShotStrategy();
 
     void        update(float dt);
-    float       checkHit(const BaseLocalPlayer*, float[3]) const;
+    float       checkHit(const BaseLocalPlayer*, glm::vec3 &) const;
     void        addShot(SceneDatabase*, bool colorblind);
     void        radarRender() const;
     TeamColor   team;
@@ -55,8 +55,8 @@ protected:
     void        setCurrentTime(const TimeKeeper&);
     const TimeKeeper&   getLastTime() const;
 
-    bool        isOverlapping(const float (*bbox1)[3],
-                              const float (*bbox2)[3]) const;
+    bool        isOverlapping(const glm::vec3 bbox1[2],
+                              const glm::vec3 bbox2[2]) const;
 
     void        setCurrentSegment(int segment);
 
@@ -67,7 +67,7 @@ private:
     int         segment, lastSegment;
     std::vector<ShotPathSegment>    segments;
     BoltSceneNode*  boltSceneNode;
-    float       bbox[2][3];
+    glm::vec3       bbox[2];
 };
 
 class NormalShotStrategy : public SegmentedShotStrategy

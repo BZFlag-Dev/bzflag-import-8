@@ -16,6 +16,8 @@
 // system headers
 #include <assert.h>
 #include <math.h>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 // FIXME (SceneRenderer.cxx is in src/bzflag)
 #include "SceneRenderer.h"
@@ -25,11 +27,11 @@
 //
 
 PolyWallSceneNode::Geometry::Geometry(PolyWallSceneNode* _wall,
-                                      const GLfloat3Array& _vertex,
-                                      const GLfloat2Array& _uv,
-                                      const GLfloat* _normal) :
+                                      const std::vector<glm::vec3> &_vertex,
+                                      const std::vector<glm::vec2> &_uv,
+                                      const glm::vec4 &_plane) :
     wall(_wall),
-    normal(_normal),
+    plane(_plane),
     vertex(_vertex),
     uv(_uv)
 {
@@ -41,7 +43,7 @@ PolyWallSceneNode::Geometry::~Geometry()
     // do nothing
 }
 
-const GLfloat* PolyWallSceneNode::Geometry::getPosition() const
+const glm::vec3 &PolyWallSceneNode::Geometry::getPosition() const
 {
     return wall->getSphere();
 }
@@ -49,27 +51,26 @@ const GLfloat* PolyWallSceneNode::Geometry::getPosition() const
 void            PolyWallSceneNode::Geometry::render()
 {
     wall->setColor();
-    glNormal3fv(normal);
+    glNormal3fv(plane);
     if (style >= 2)
         drawVT();
     else
         drawV();
-    addTriangleCount(vertex.getSize() - 2);
+    addTriangleCount(vertex.size() - 2);
     return;
 }
 
 void            PolyWallSceneNode::Geometry::drawV() const
 {
-    const int count = vertex.getSize();
     glBegin(GL_TRIANGLE_FAN);
-    for (int i = 0; i < count; i++)
-        glVertex3fv(vertex[i]);
+    for (auto v : vertex)
+        glVertex3fv(v);
     glEnd();
 }
 
 void            PolyWallSceneNode::Geometry::drawVT() const
 {
-    const int count = vertex.getSize();
+    const int count = vertex.size();
     glBegin(GL_TRIANGLE_FAN);
     for (int i = 0; i < count; i++)
     {
@@ -83,44 +84,33 @@ void            PolyWallSceneNode::Geometry::drawVT() const
 // PolyWallSceneNode
 //
 
-PolyWallSceneNode::PolyWallSceneNode(const GLfloat3Array& vertex,
-                                     const GLfloat2Array& uv)
+PolyWallSceneNode::PolyWallSceneNode(const std::vector<glm::vec3> &vertex,
+                                     const std::vector<glm::vec2> &uv)
 {
-    const int count = vertex.getSize();
-    assert(uv.getSize() == count);
+    const size_t count = vertex.size();
+    assert(uv.size() == count);
 
     // figure out plane (find non-colinear edges and get cross product)
-    GLfloat uEdge[3], vEdge[3], myPlane[4];
-    GLfloat uLen, vLen, nLen;
-    uEdge[0] = vertex[0][0] - vertex[count - 1][0];
-    uEdge[1] = vertex[0][1] - vertex[count - 1][1];
-    uEdge[2] = vertex[0][2] - vertex[count - 1][2];
-    uLen = uEdge[0] * uEdge[0] + uEdge[1] * uEdge[1] + uEdge[2] * uEdge[2];
-    int i;
+    auto uEdge = vertex[0] - vertex[count - 1];
+    GLfloat uLen = glm::length2(uEdge);
+    glm::vec3 cross;
+    size_t i;
     for (i = 1; i < count; i++)
     {
-        vEdge[0] = vertex[i][0] - vertex[i - 1][0];
-        vEdge[1] = vertex[i][1] - vertex[i - 1][1];
-        vEdge[2] = vertex[i][2] - vertex[i - 1][2];
-        vLen = vEdge[0] * vEdge[0] + vEdge[1] * vEdge[1] + vEdge[2] * vEdge[2];
-        myPlane[0] = uEdge[1] * vEdge[2] - uEdge[2] * vEdge[1];
-        myPlane[1] = uEdge[2] * vEdge[0] - uEdge[0] * vEdge[2];
-        myPlane[2] = uEdge[0] * vEdge[1] - uEdge[1] * vEdge[0];
-        nLen = myPlane[0] * myPlane[0] + myPlane[1] * myPlane[1]
-               + myPlane[2] * myPlane[2];
+        auto vEdge = vertex[i] - vertex[i - 1];
+        GLfloat vLen = glm::length2(vEdge);
+        cross = glm::cross(uEdge, vEdge);
+        GLfloat nLen = glm::length2(cross);
         if (nLen > 1.0e-5f * uLen * vLen) break;
-        uEdge[0] = vEdge[0];
-        uEdge[1] = vEdge[1];
-        uEdge[2] = vEdge[2];
+        uEdge = vEdge;
         uLen = vLen;
     }
-    myPlane[3] = -(myPlane[0] * vertex[0][0] + myPlane[1] * vertex[0][1] +
-                   myPlane[2] * vertex[0][2]);
+    auto myPlane = glm::vec4(cross, -glm::dot(cross, vertex[0]));
     setPlane(myPlane);
 
     // choose axis to ignore (the one with the largest normal component)
     int ignoreAxis;
-    const auto normal = plane;
+    const auto &normal = plane;
     if (fabsf(normal[0]) > fabsf(normal[1]))
         if (fabsf(normal[0]) > fabsf(normal[2]))
             ignoreAxis = 0;
@@ -132,7 +122,7 @@ PolyWallSceneNode::PolyWallSceneNode(const GLfloat3Array& vertex,
         ignoreAxis = 2;
 
     // project vertices onto plane
-    GLfloat2Array flat(vertex.getSize());
+    GLfloat2Array flat(vertex.size());
     switch (ignoreAxis)
     {
     case 0:
@@ -173,25 +163,19 @@ PolyWallSceneNode::PolyWallSceneNode(const GLfloat3Array& vertex,
     setNumLODs(1, area);
 
     // compute bounding sphere, put center at average of vertices
-    GLfloat mySphere[4];
-    mySphere[0] = mySphere[1] = mySphere[2] = mySphere[3] = 0.0f;
-    for (i = 0; i < count; i++)
+    auto mySphere = glm::vec3(0.0f);
+    for (auto v : vertex)
+        mySphere += v;
+    mySphere /= (float)count;
+    setCenter(mySphere);
+
+    float myRadius = 0.0f;
+    for (auto v : vertex)
     {
-        mySphere[0] += vertex[i][0];
-        mySphere[1] += vertex[i][1];
-        mySphere[2] += vertex[i][2];
+        GLfloat r = glm::distance2(mySphere, v);
+        if (r > myRadius) myRadius = r;
     }
-    mySphere[0] /= (float)count;
-    mySphere[1] /= (float)count;
-    mySphere[2] /= (float)count;
-    for (i = 0; i < count; i++)
-    {
-        GLfloat r = (mySphere[0] - vertex[i][0]) * (mySphere[0] - vertex[i][0]) +
-                    (mySphere[1] - vertex[i][1]) * (mySphere[1] - vertex[i][1]) +
-                    (mySphere[2] - vertex[i][2]) * (mySphere[2] - vertex[i][2]);
-        if (r > mySphere[3]) mySphere[3] = r;
-    }
-    setSphere(mySphere);
+    setRadius(myRadius);
 }
 
 PolyWallSceneNode::~PolyWallSceneNode()
@@ -200,7 +184,7 @@ PolyWallSceneNode::~PolyWallSceneNode()
     delete shadowNode;
 }
 
-int         PolyWallSceneNode::split(const float* _plane,
+int         PolyWallSceneNode::split(const glm::vec4 &_plane,
                                      SceneNode*& front, SceneNode*& back) const
 {
     return WallSceneNode::splitWall(_plane, node->vertex, node->uv, front, back);

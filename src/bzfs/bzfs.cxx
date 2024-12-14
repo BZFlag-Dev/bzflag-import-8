@@ -24,6 +24,9 @@
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
 #endif
+#include <glm/gtc/type_ptr.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 // implementation-specific bzflag headers
 #include "NetHandler.h"
@@ -509,7 +512,7 @@ void sendTeamUpdate(int playerIndex, int teamIndex1, int teamIndex2)
         directMessage(playerIndex, MsgTeamUpdate, (char*)buf - (char*)bufStart, bufStart);
 }
 
-void sendClosestFlagMessage(int playerIndex,FlagType *type, float pos[3] )
+static void sendClosestFlagMessage(int playerIndex, FlagType *type, glm::vec3 &pos)
 {
     if (!type)
         return;
@@ -1053,7 +1056,7 @@ static void relayPlayerPacket(int index, uint16_t len, const void *rawbuf, uint1
 
 void addWall(float x, float y, float z, float r, float w, float h)
 {
-    const float pos[3] = { x, y, z };
+    const auto pos = glm::vec3(x, y, z);
     WallObstacle* wall = new WallObstacle(pos, r, w, h, false);
     OBSTACLEMGR.addWorldObstacle(wall);
 }
@@ -2604,15 +2607,16 @@ void resetFlag(FlagInfo &flag)
         data.playerID = player;
         data.flagID = flag.getIndex();
         data.flagType = flag.flag.type->flagAbbv.c_str();
-        memcpy(data.pos, flag.flag.position, sizeof(float)*3);
-
+        data.pos[0] = flag.flag.position[0];
+        data.pos[1] = flag.flag.position[1];
+        data.pos[2] = flag.flag.position[2];
         worldEventManager.callEvents(bz_eFlagDroppedEvent,&data);
     }
 
     float baseSize = BZDB.eval(StateDatabase::BZDB_BASESIZE);
 
     // reposition flag (middle of the map might be a bad idea)
-    float flagPos[3] = {0.0f, 0.0f, 0.0f};
+    auto flagPos = glm::vec3(0.0f);
 
     TeamColor teamIndex = flag.teamIndex();
     if ((teamIndex >= ::RedTeam) &&  (teamIndex <= ::PurpleTeam)
@@ -2706,7 +2710,9 @@ void zapFlag(FlagInfo &flag)
     data.playerID = player;
     data.flagID = flag.getIndex();
     data.flagType = flag.flag.type->flagAbbv.c_str();
-    memcpy(data.pos, flag.flag.position, sizeof(float)*3);
+    data.pos[0]   = flag.flag.position[0];
+    data.pos[1]   = flag.flag.position[1];
+    data.pos[2]   = flag.flag.position[2];
 
     worldEventManager.callEvents(bz_eFlagDroppedEvent,&data);
 
@@ -3264,7 +3270,7 @@ void playerAlive(int playerIndex)
 
     // update last position immediately
     playerData->player.setRestartOnBase(false);
-    playerData->setPlayerState(spawnData.pos, spawnData.rot);
+    playerData->setPlayerState(glm::make_vec3(spawnData.pos), spawnData.rot);
 
     // send MsgAlive
     void *buf, *bufStart = getDirectMessageBuffer();
@@ -3632,7 +3638,7 @@ static void searchFlag(GameKeeper::Player &playerData)
 
     const PlayerId playerIndex = playerData.getIndex();
 
-    const float *tpos    = playerData.lastState.pos;
+    const auto &tpos = playerData.lastState.pos;
     float radius2 = radius * radius;
 
     int closestFlag = -1;
@@ -3644,10 +3650,8 @@ static void searchFlag(GameKeeper::Player &playerData)
         if (flag.flag.status != FlagOnGround)
             continue;
 
-        const float *fpos = flag.flag.position;
-        float dist = (tpos[0] - fpos[0]) * (tpos[0] - fpos[0])
-                     + (tpos[1] - fpos[1]) * (tpos[1] - fpos[1])
-                     + (tpos[2] - fpos[2]) * (tpos[2] - fpos[2]);
+        const auto &fpos = flag.flag.position;
+        float dist = glm::distance2(tpos, fpos);
 
         if (dist < radius2)
         {
@@ -3665,7 +3669,9 @@ static void searchFlag(GameKeeper::Player &playerData)
     FlagInfo &flag = *FlagInfo::get(closestFlag);
     if (closestFlag != playerData.getLastIdFlag())
     {
-        sendClosestFlagMessage(playerIndex,flag.flag.type,flag.flag.position);
+        sendClosestFlagMessage(playerIndex,
+                               flag.flag.type,
+                               flag.flag.position);
         playerData.setLastIdFlag(closestFlag);
     }
 }
@@ -3684,17 +3690,15 @@ void grabFlag(int playerIndex, FlagInfo &flag, bool checkPos)
             (checkPos && flag.flag.status != FlagOnGround))
         return;
 
-    const float* fpos = flag.flag.position;
+    const auto &fpos = flag.flag.position;
     if (checkPos)
     {
         //last Pos might be lagged by TankSpeed so include in calculation
         const float tankRadius = BZDBCache::tankRadius;
         const float tankSpeed = BZDBCache::tankSpeed;
-        const float radius2 = (tankSpeed + tankRadius + BZDBCache::flagRadius) * (tankSpeed + tankRadius +
-                              BZDBCache::flagRadius);
-        const float* tpos = playerData->lastState.pos;
-        const float delta = (tpos[0] - fpos[0]) * (tpos[0] - fpos[0]) +
-                            (tpos[1] - fpos[1]) * (tpos[1] - fpos[1]);
+        const float radius2 = powf(tankSpeed + tankRadius + BZDBCache::flagRadius, 2);
+        const auto &tpos = playerData->lastState.pos;
+        const float delta = glm::distance2(glm::vec2(tpos), glm::vec2(fpos));
 
         if ((fabs(tpos[2] - fpos[2]) < 0.1f) && (delta > radius2))
         {
@@ -3735,19 +3739,21 @@ void grabFlag(int playerIndex, FlagInfo &flag, bool checkPos)
     bz_FlagGrabbedEventData_V1 data;
     data.flagID = flag.getIndex();
     data.flagType = flag.flag.type->flagAbbv.c_str();
-    memcpy(data.pos,fpos,sizeof(float)*3);
+    data.pos[0]   = fpos[0];
+    data.pos[1]   = fpos[1];
+    data.pos[2]   = fpos[2];
     data.playerID = playerIndex;
 
     worldEventManager.callEvents(bz_eFlagGrabbedEvent,&data);
 }
 
 
-void dropFlag(FlagInfo& drpFlag, const float dropPos[3])
+void dropFlag(FlagInfo& drpFlag, const glm::vec3 &dropPos)
 {
     assert(world != NULL);
 
     const float size = BZDBCache::worldSize * 0.5f;
-    float pos[3];
+    glm::vec3 pos;
     pos[0] = ((dropPos[0] < -size) || (dropPos[0] > size)) ? 0.0f : dropPos[0];
     pos[1] = ((dropPos[1] < -size) || (dropPos[1] > size)) ? 0.0f : dropPos[1];
     pos[2] = (dropPos[2] > maxWorldHeight) ? maxWorldHeight : dropPos[2];
@@ -3771,7 +3777,7 @@ void dropFlag(FlagInfo& drpFlag, const float dropPos[3])
         minZ = waterLevel;
     const float maxZ = MAXFLOAT;
 
-    float landing[3] = {pos[0], pos[1], pos[2]};
+    auto landing = pos;
     bool safelyDropped =
         DropGeometry::dropTeamFlag(landing, minZ, maxZ, flagTeam);
 
@@ -3862,14 +3868,16 @@ void dropFlag(FlagInfo& drpFlag, const float dropPos[3])
     data.playerID = player;
     data.flagID = flagIndex;
     data.flagType = drpFlag.flag.type->flagAbbv.c_str();
-    memcpy(data.pos, pos, sizeof(float)*3);
+    data.pos[0]   = pos[0];
+    data.pos[1]   = pos[1];
+    data.pos[2]   = pos[2];
 
     worldEventManager.callEvents(bz_eFlagDroppedEvent,&data);
 
 }
 
 
-void dropPlayerFlag(GameKeeper::Player &playerData, const float dropPos[3])
+void dropPlayerFlag(GameKeeper::Player &playerData, const glm::vec3 &dropPos)
 {
     const int flagIndex = playerData.player.getFlag();
     if (flagIndex < 0)
@@ -3962,7 +3970,11 @@ bool captureFlag(int playerIndex, TeamColor teamCaptured, TeamColor teamCapped, 
     allowCap.teamCapped = convertTeam(teamIndex);
     allowCap.teamCapping = convertTeam(teamCaptured);
     allowCap.playerCapping = playerIndex;
-    playerData->getPlayerState(allowCap.pos, allowCap.rot);
+    glm::vec3 allowCapPos;
+    playerData->getPlayerState(allowCapPos, allowCap.rot);
+    allowCap.pos[0] = allowCapPos[0];
+    allowCap.pos[1] = allowCapPos[1];
+    allowCap.pos[2] = allowCapPos[2];
 
     allowCap.allow = true;
 
@@ -3987,7 +3999,11 @@ bool captureFlag(int playerIndex, TeamColor teamCaptured, TeamColor teamCapped, 
     eventData.teamCapped = convertTeam(teamIndex);
     eventData.teamCapping = convertTeam(teamCaptured);
     eventData.playerCapping = playerIndex;
-    playerData->getPlayerState(eventData.pos, eventData.rot);
+    glm::vec3 eventDataPos;
+    playerData->getPlayerState(eventDataPos, eventData.rot);
+    eventData.pos[0] = eventDataPos[0];
+    eventData.pos[1] = eventDataPos[1];
+    eventData.pos[2] = eventDataPos[2];
 
     worldEventManager.callEvents(bz_eCaptureEvent,&eventData);
 
@@ -4287,9 +4303,7 @@ static void shotFired(int playerIndex, void *buf, int len)
                 {
                     // drop flag at last known position of player
                     // also handle case where limit was set to 0
-                    float lastPos [3];
-                    for (int i = 0; i < 3; i ++)
-                        lastPos[i] = playerData->lastState.pos[i];
+                    const auto &lastPos = playerData->lastState.pos;
                     fInfo->grabs = 0; // recycle this flag now
                     dropFlag(*fInfo, lastPos);
                 }
@@ -4565,7 +4579,7 @@ static bool isTeleporterMotion ( GameKeeper::Player &playerData, PlayerState &st
     for (i = 0; i < maxTele; i++)
     {
         Obstacle *currentTele = teleporterList[i];
-        const float *telePosition = currentTele->getPosition();
+        const auto &telePosition = currentTele->getPosition();
         float deltaInitial2 = squareAndAdd(state.pos[0] - telePosition[0],state.pos[1] - telePosition[1]);
         float deltaFinal2 = squareAndAdd(playerData.lastState.pos[0] - telePosition[0],
                                          playerData.lastState.pos[1] - telePosition[1]);
@@ -4924,7 +4938,7 @@ static void handleCommand(int t, void *rawbuf, bool udp)
     case MsgDropFlag:
     {
         // data: position of drop
-        float pos[3];
+        glm::vec3 pos;
         buf = nboUnpackVector(buf, pos);
         dropPlayerFlag(*playerData, pos);
         break;
@@ -7916,8 +7930,12 @@ void playerStateToAPIState(bz_PlayerUpdateState &apiState, const PlayerState &pl
     apiState.phydrv = (playerState.status & PlayerState::OnDriver) ? playerState.phydrv : -1;
     apiState.rotation = playerState.azimuth;
     apiState.angVel = playerState.angVel;
-    memcpy(apiState.pos,playerState.pos,sizeof(float)*3);
-    memcpy(apiState.velocity,playerState.velocity,sizeof(float)*3);
+    apiState.pos[0]      = playerState.pos[0];
+    apiState.pos[1]      = playerState.pos[1];
+    apiState.pos[2]      = playerState.pos[2];
+    apiState.velocity[0] = playerState.velocity[0];
+    apiState.velocity[1] = playerState.velocity[1];
+    apiState.velocity[2] = playerState.velocity[2];
 }
 
 
@@ -7966,8 +7984,12 @@ void APIStateToplayerState(PlayerState &playerState, const bz_PlayerUpdateState 
 
     playerState.azimuth = apiState.rotation;
     playerState.angVel = apiState.angVel;
-    memcpy(playerState.pos,apiState.pos,sizeof(float)*3);
-    memcpy(playerState.velocity,apiState.velocity,sizeof(float)*3);
+    playerState.pos[0]      = apiState.pos[0];
+    playerState.pos[1]      = apiState.pos[1];
+    playerState.pos[2]      = apiState.pos[2];
+    playerState.velocity[0] = apiState.velocity[0];
+    playerState.velocity[1] = apiState.velocity[1];
+    playerState.velocity[2] = apiState.velocity[2];
 }
 
 

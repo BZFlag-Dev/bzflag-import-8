@@ -17,9 +17,12 @@
 #ifndef BZF_SOUND_H
 #define BZF_SOUND_H
 
+// 1st
 #include "common.h"
 
+// System headers
 #include <string>
+#include <glm/fwd.hpp>
 
 #define SFX_FIRE    0       /* shell fired */
 #define SFX_EXPLOSION   1       /* something other than me blew up */
@@ -62,14 +65,14 @@ bool            isSoundOpen();
 /* reposition sound receiver (no Doppler) or move it (w/Doppler effect) */
 void            moveSoundReceiver(float x, float y, float z, float t,
                                   int discontinuity);
-void            speedSoundReceiver(float vx, float vy, float vz);
+void            speedSoundReceiver(const glm::vec3 &v);
 
 /* sound effect event at given position in world, or possible locally */
-void            playSound(int soundCode, const float pos[3],
+void            playSound(int soundCode, const glm::vec3 &pos,
                           bool important, bool localSound);
 
 /* sound effect event at given position in world */
-void            playWorldSound(int soundCode, const float pos[3],
+void            playWorldSound(int soundCode, const glm::vec3 &pos,
                                bool important = false);
 
 /* sound effect positioned at receiver */

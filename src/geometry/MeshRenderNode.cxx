@@ -13,6 +13,9 @@
 // implementation header
 #include "MeshRenderNode.h"
 
+// System headers
+#include <cstring>
+
 // common implementation headers
 #include "RenderNode.h"
 #include "MeshDrawMgr.h"
@@ -30,7 +33,7 @@
 
 OpaqueRenderNode::OpaqueRenderNode(MeshDrawMgr* _drawMgr,
                                    GLfloat *_xformMatrix, bool _normalize,
-                                   const GLfloat* _color,
+                                   const glm::vec4 *_color,
                                    int _lod, int _set,
                                    const Extents* _exts, int tris)
 {
@@ -45,10 +48,10 @@ OpaqueRenderNode::OpaqueRenderNode(MeshDrawMgr* _drawMgr,
 }
 
 
-const GLfloat* OpaqueRenderNode::getPosition() const
+const auto nullVec3 = glm::vec3(0.0f);
+const glm::vec3 &OpaqueRenderNode::getPosition() const
 {
     // Better to not crash if called on sort
-    static GLfloat nullVec3[3];
     return nullVec3;
 }
 
@@ -59,7 +62,7 @@ void OpaqueRenderNode::render()
         RENDERER.disableLights(exts->mins, exts->maxs);
 
     // set the color
-    myColor4fv(color);
+    myColor4fv(*color);
 
     // do the transformation
     glPushMatrix();
@@ -102,26 +105,26 @@ void OpaqueRenderNode::renderShadow()
 AlphaGroupRenderNode::AlphaGroupRenderNode(MeshDrawMgr* _drawMgr,
         GLfloat *_xformMatrix,
         bool _normalize,
-        const GLfloat* _color,
+        const glm::vec4 *_color,
         int _lod, int _set,
         const Extents* _exts,
-        const GLfloat _pos[3],
+        const glm::vec3 &_pos,
         int _triangles) :
     OpaqueRenderNode(_drawMgr, _xformMatrix, _normalize,
                      _color, _lod, _set, _exts, _triangles)
 {
-    memcpy(pos, _pos, sizeof(GLfloat[3]));
+    pos = _pos;
     return;
 }
 
-const GLfloat* AlphaGroupRenderNode::getPosition() const
+const glm::vec3 &AlphaGroupRenderNode::getPosition() const
 {
     return pos;
 }
 
-void AlphaGroupRenderNode::setPosition(const GLfloat* _pos)
+void AlphaGroupRenderNode::setPosition(const glm::vec3 &_pos)
 {
-    memcpy(pos, _pos, sizeof(GLfloat[3]));
+    pos = _pos;
     return;
 }
 

@@ -15,11 +15,16 @@
 
 // System headers
 #include <math.h>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/vec3.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/mixed_product.hpp>
+#include <glm/gtx/norm.hpp>
+#include <glm/geometric.hpp>
 
 // Common headers
 #include "global.h"
 #include "Pack.h"
-#include "vectors.h"
 #include "MeshObstacle.h"
 #include "PhysicsDriver.h"
 #include "Intersect.h"
@@ -49,10 +54,11 @@ MeshFace::MeshFace(MeshObstacle* _mesh)
 }
 
 
-MeshFace::MeshFace(MeshObstacle* _mesh, int _vertexCount,
-                   float** _vertices, float** _normals, float** _texcoords,
-                   const BzMaterial* _bzMaterial, int physics,
-                   bool _noclusters, bool bounce, bool drive, bool shoot, bool rico)
+MeshFace::MeshFace(
+    MeshObstacle* _mesh, int _vertexCount,
+    glm::vec3 *_vertices[], glm::vec3 **_normals, glm::vec2 **_texcoords,
+    const BzMaterial* _bzMaterial, int physics,
+    bool _noclusters, bool bounce, bool drive, bool shoot, bool rico)
 {
     mesh = _mesh;
     vertexCount = _vertexCount;
@@ -80,29 +86,30 @@ MeshFace::MeshFace(MeshObstacle* _mesh, int _vertexCount,
 void MeshFace::finalize()
 {
     float maxCrossSqr = 0.0f;
-    float bestCross[3] = { 0.0f, 0.0f, 0.0f };
+    auto bestCross = glm::vec3(0.0f);
     int bestSet[3] = { -1, -1, -1 };
 
     // find the best vertices for making the plane
     int i, j, k;
     for (i = 0; i < (vertexCount - 2); i++)
     {
+        auto &verti = *vertices[i];
         for (j = i; j < (vertexCount - 1); j++)
         {
+            auto &vertj = *vertices[j];
+            auto edge2 = verti - vertj;
             for (k = j; k < (vertexCount - 0); k++)
             {
-                float edge1[3], edge2[3], cross[3];
-                vec3sub(edge1, vertices[k], vertices[j]);
-                vec3sub(edge2, vertices[i], vertices[j]);
-                vec3cross(cross, edge1, edge2);
-                const float lenSqr = vec3dot(cross, cross);
+                auto edge1 = *vertices[k] - vertj;
+                auto cross = glm::cross(edge1, edge2);
+                const float lenSqr = glm::length2(cross);
                 if (lenSqr > maxCrossSqr)
                 {
                     maxCrossSqr = lenSqr;
                     bestSet[0] = i;
                     bestSet[1] = j;
                     bestSet[2] = k;
-                    memcpy (bestCross, cross, sizeof(float[3]));
+                    bestCross = cross;
                 }
             }
         }
@@ -116,7 +123,7 @@ void MeshFace::finalize()
         {
             logDebugMessage(0,":");
             for (i = 0; i < vertexCount; i++)
-                logDebugMessage(0," %i", (int)((afvec3*)vertices[i] - mesh->getVertices()));
+                logDebugMessage(0," %i", vertices[i] - mesh->getVertices());
             print(std::cerr, "");
         }
         logDebugMessage(1,"\n");
@@ -127,21 +134,18 @@ void MeshFace::finalize()
 
     // make the plane
     float scale = 1.0f / sqrtf (maxCrossSqr);
-    const float* vert = vertices[bestSet[1]];
-    plane[0] = bestCross[0] * scale;
-    plane[1] = bestCross[1] * scale;
-    plane[2] = bestCross[2] * scale;
-    plane[3] = -vec3dot(plane, vert);
+    const auto &vert = *vertices[bestSet[1]];
+    bestCross *= scale;
+    plane = glm::vec4(bestCross, -glm::dot(bestCross, vert));
 
     // see if the whole face is convex
     int v;
+    auto v0 = *vertices[0];
+    auto v1 = *vertices[1];
     for (v = 0; v < vertexCount; v++)
     {
-        float a[3], b[3], c[3];
-        vec3sub(a, vertices[(v + 1) % vertexCount], vertices[(v + 0) % vertexCount]);
-        vec3sub(b, vertices[(v + 2) % vertexCount], vertices[(v + 1) % vertexCount]);
-        vec3cross(c, a, b);
-        const float d = vec3dot(c, plane);
+        auto &v2 = *vertices[(v + 2) % vertexCount];
+        const float d = glm::mixedProduct(v1 - v0, v2 - v1, bestCross);
         if (d <= 0.0f)
         {
 
@@ -150,7 +154,7 @@ void MeshFace::finalize()
             {
                 logDebugMessage(0,":");
                 for (i = 0; i < vertexCount; i++)
-                    logDebugMessage(0," %i", (int)((afvec3*)vertices[i] - mesh->getVertices()));
+                    logDebugMessage(0," %i", vertices[i] - mesh->getVertices());
                 print(std::cerr, "");
             }
             logDebugMessage(1,"\n");
@@ -158,12 +162,14 @@ void MeshFace::finalize()
             vertexCount = 0;
             return;
         }
+        v0 = v1;
+        v1 = v2;
     }
 
     // see if the vertices are coplanar
     for (v = 0; v < vertexCount; v++)
     {
-        const float cross = vec3dot(vertices[v], plane);
+        const float cross = glm::dot(*vertices[v], bestCross);
         if (fabsf(cross + plane[3]) > 1.0e-3)
         {
             logDebugMessage(1,"non-planar mesh face (%f)", cross + plane[3]);
@@ -171,7 +177,7 @@ void MeshFace::finalize()
             {
                 logDebugMessage(0,":");
                 for (i = 0; i < vertexCount; i++)
-                    logDebugMessage(0," %i", (int)((afvec3*)vertices[i] - mesh->getVertices()));
+                    logDebugMessage(0," %i", vertices[i] - mesh->getVertices());
                 print(std::cerr, "");
             }
             logDebugMessage(1,"\n");
@@ -183,7 +189,7 @@ void MeshFace::finalize()
 
     // setup extents
     for (v = 0; v < vertexCount; v++)
-        extents.expandToPoint(vertices[v]);
+        extents.expandToPoint(*vertices[v]);
 
     // setup fake obstacle parameters
     pos[0] = (extents.maxs[0] + extents.mins[0]) / 2.0f;
@@ -196,18 +202,15 @@ void MeshFace::finalize()
     ZFlip = false;
 
     // make the edge planes
-    edgePlanes = new afvec4[vertexCount];
+    edgePlanes = new glm::vec4[vertexCount];
+    v1 = *vertices[0];
     for (v = 0; v < vertexCount; v++)
     {
-        float edge[3];
         const int next = (v + 1) % vertexCount;
-        vec3sub(edge, vertices[next], vertices[v]);
-        vec3cross(edgePlanes[v], edge, plane);
-        scale = 1.0f / sqrtf(vec3dot(edgePlanes[v], edgePlanes[v]));
-        edgePlanes[v][0] = edgePlanes[v][0] * scale;
-        edgePlanes[v][1] = edgePlanes[v][1] * scale;
-        edgePlanes[v][2] = edgePlanes[v][2] * scale;
-        edgePlanes[v][3] = -vec3dot(vertices[v], edgePlanes[v]);
+        auto &v2 = *vertices[next];
+        auto edgePlane = glm::normalize(glm::cross(v2 - v1, bestCross));
+        edgePlanes[v] = glm::vec4(edgePlane, -glm::dot(v1, edgePlane));
+        v1 = v2;
     }
 
     // set the plane type
@@ -308,39 +311,32 @@ float MeshFace::intersect(const Ray& ray) const
     //
     //  t = - (d + (N dot Lo)) / (N dot L)     { time of impact }
     //
-    const float* dir = ray.getDirection();
-    const float* origin = ray.getOrigin();
-    float hitTime;
+    const auto &dir    = ray.getDirection();
+    const auto &origin = ray.getOrigin();
+    const auto normal  = glm::vec3(plane);
 
     // get the time until the shot would hit each plane
-    const float linedot = (plane[0] * dir[0]) +
-                          (plane[1] * dir[1]) +
-                          (plane[2] * dir[2]);
-    if (linedot >= -0.001f)
+    const float linedot = -glm::dot(normal, dir);
+    if (linedot <= 0.001f)
     {
         // shot is either parallel, or going through backwards
         return -1.0f;
     }
-    const float origindot = (plane[0] * origin[0]) +
-                            (plane[1] * origin[1]) +
-                            (plane[2] * origin[2]);
+    const float origindot = glm::dot(normal, origin);
     // linedot should be safe to divide with now
-    hitTime = - (plane[3] + origindot) / linedot;
+    float hitTime = plane[3] + origindot;
     if (hitTime < 0.0f)
         return -1.0f;
 
+    hitTime /= linedot;
+
     // get the contact location
-    float point[3];
-    point[0] = (dir[0] * hitTime) + origin[0];
-    point[1] = (dir[1] * hitTime) + origin[1];
-    point[2] = (dir[2] * hitTime) + origin[2];
+    auto point = glm::vec4(dir * hitTime + origin, 1.0f);
 
     // now test against the edge planes
     for (int q = 0; q < vertexCount; q++)
     {
-        float d = (edgePlanes[q][0] * point[0]) +
-                  (edgePlanes[q][1] * point[1]) +
-                  (edgePlanes[q][2] * point[2]) + edgePlanes[q][3];
+        float d = glm::dot(edgePlanes[q], point);
         if (d > 0.001f)
             return -1.0f;
     }
@@ -349,12 +345,12 @@ float MeshFace::intersect(const Ray& ray) const
 }
 
 
-void MeshFace::get3DNormal(const float* p, float* n) const
+void MeshFace::get3DNormal(const glm::vec3 &p, glm::vec3 &n) const
 {
     if (!smoothBounce || !useNormals())
     {
         // just use the plain normal
-        memcpy (n, plane, sizeof(float[3]));
+        n = plane;
     }
     else
     {
@@ -363,14 +359,14 @@ void MeshFace::get3DNormal(const float* p, float* n) const
         int i;
         // calculate the triangle ares
         float* areas = new float[vertexCount];
+        auto v1 = *vertices[0];
+        auto vp = p;
         for (i = 0; i < vertexCount; i++)
         {
             int next = (i + 1) % vertexCount;
-            float ea[3], eb[3], cross[3];
-            vec3sub(ea, p, vertices[i]);
-            vec3sub(eb, vertices[next], vertices[i]);
-            vec3cross(cross, ea, eb);
-            areas[i] = sqrtf(vec3dot(cross, cross));
+            auto &v2 = *vertices[next];
+            areas[i] = glm::length(glm::cross(vp - v1, v2 - v1));
+            v1 = v2;
         }
         float smallestArea = MAXFLOAT;
         float* twinAreas = new float[vertexCount];
@@ -380,7 +376,7 @@ void MeshFace::get3DNormal(const float* p, float* n) const
             twinAreas[i] = areas[i] + areas[next];
             if (twinAreas[i] < 1.0e-10f)
             {
-                memcpy (n, normals[next], sizeof(float[3]));
+                n = *normals[next];
                 delete[] areas;
                 delete[] twinAreas;
                 return;
@@ -388,40 +384,29 @@ void MeshFace::get3DNormal(const float* p, float* n) const
             if (twinAreas[i] < smallestArea)
                 smallestArea = twinAreas[i];
         }
-        float normal[3] = {0.0f, 0.0f, 0.0f};
+        delete[] areas;
+        auto normal = glm::vec3(0.0f);
         for (i = 0; i < vertexCount; i++)
         {
             int next = (i + 1) % vertexCount;
             float factor = smallestArea / twinAreas[i];
-            normal[0] = normal[0] + (normals[next][0] * factor);
-            normal[1] = normal[1] + (normals[next][1] * factor);
-            normal[2] = normal[2] + (normals[next][2] * factor);
+            normal += *normals[next] * factor;
         }
-        float len = sqrtf(vec3dot(normal, normal));
-        if (len < 1.0e-10)
-        {
-            memcpy (n, plane, sizeof(float[3]));
-            delete[] areas;
-            delete[] twinAreas;
-            return;
-        }
-        len = 1.0f / len;
-        n[0] = normal[0] * len;
-        n[1] = normal[1] * len;
-        n[2] = normal[2] * len;
-
-        delete[] areas;
         delete[] twinAreas;
+        if (normal.x || normal.y || normal.z)
+            n = glm::normalize(normal);
+        else
+            n = plane;
+        return;
     }
 
     return;
 }
 
 
-void MeshFace::getNormal(const float* UNUSED(p), float* n) const
+void MeshFace::getNormal(const glm::vec3 &, glm::vec3 &n) const
 {
-    if (n)
-        memcpy (n, plane, sizeof(float[3]));
+    n = plane;
     return;
 }
 
@@ -431,24 +416,23 @@ void MeshFace::getNormal(const float* UNUSED(p), float* n) const
 ///////////////////////////////////////////////////////////////
 
 
-bool MeshFace::getHitNormal(const float* UNUSED(oldPos), float UNUSED(oldAngle),
-                            const float* UNUSED(newPos), float UNUSED(newAngle),
+bool MeshFace::getHitNormal(const glm::vec3 &UNUSED(oldPos), float UNUSED(oldAngle),
+                            const glm::vec3 &UNUSED(newPos), float UNUSED(newAngle),
                             float UNUSED(dx), float UNUSED(dy), float UNUSED(height),
-                            float* normal) const
+                            glm::vec3 &normal) const
 {
-    if (normal)
-        memcpy (normal, plane, sizeof(float[3]));
+    normal = plane;
     return true;
 }
 
 
-bool MeshFace::inCylinder(const float* p,float radius, float height) const
+bool MeshFace::inCylinder(const glm::vec3 &p,float radius, float height) const
 {
     return inBox(p, 0.0f, radius, radius, height);
 }
 
 
-bool MeshFace::inBox(const float* p, float _angle,
+bool MeshFace::inBox(const glm::vec3 &p, float _angle,
                      float dx, float dy, float height) const
 {
     int i;
@@ -462,23 +446,23 @@ bool MeshFace::inBox(const float* p, float _angle,
     // to move the polygon then the box, tris and quads will
     // probably be the dominant polygon types).
 
-    float pln[4]; // translated plane
-    afvec3* v = new afvec3[vertexCount]; // translated vertices
+    glm::vec4 pln; // translated plane
+    glm::vec3 *v = new glm::vec3[vertexCount]; // translated vertices
     const float cos_val = cosf(-_angle);
     const float sin_val = sinf(-_angle);
     for (i = 0; i < vertexCount; i++)
     {
         float h[2];
-        h[0] = vertices[i][0] - p[0];
-        h[1] = vertices[i][1] - p[1];
+        h[0] = vertices[i]->x - p[0];
+        h[1] = vertices[i]->y - p[1];
         v[i][0] = (cos_val * h[0]) - (sin_val * h[1]);
         v[i][1] = (cos_val * h[1]) + (sin_val * h[0]);
-        v[i][2] = vertices[i][2] - p[2];
+        v[i][2] = vertices[i]->z - p[2];
     }
     pln[0] = (cos_val * plane[0]) - (sin_val * plane[1]);
     pln[1] = (cos_val * plane[1]) + (sin_val * plane[0]);
     pln[2] = plane[2];
-    pln[3] = plane[3] + vec3dot(plane, p);
+    pln[3] = plane[3] + glm::dot(glm::vec3(plane), p);
 
     // testPolygonInAxisBox() expects us to have already done all of the
     // separation tests with respect to the box planes. we could not do
@@ -537,12 +521,12 @@ bool MeshFace::inBox(const float* p, float _angle,
 }
 
 
-bool MeshFace::inMovingBox(const float* oldPos, float UNUSED(oldAngle),
-                           const float* newPos, float newAngle,
+bool MeshFace::inMovingBox(const glm::vec3 &oldPos, float UNUSED(oldAngle),
+                           const glm::vec3 &newPos, float newAngle,
                            float dx, float dy, float height) const
 {
     // expand the box with respect to Z axis motion
-    float _pos[3];
+    glm::vec3 _pos;
     _pos[0] = newPos[0];
     _pos[1] = newPos[1];
     if (oldPos[2] < newPos[2])
@@ -555,12 +539,11 @@ bool MeshFace::inMovingBox(const float* oldPos, float UNUSED(oldAngle),
 }
 
 
-bool MeshFace::isCrossing(const float* UNUSED(p), float UNUSED(_angle),
-                          float UNUSED(dx), float UNUSED(dy), float UNUSED(height),
-                          float* _plane) const
+bool MeshFace::isCrossing(const glm::vec3 &, float, float, float, float,
+                          glm::vec4 *_plane) const
 {
     if (_plane != NULL)
-        memcpy(_plane, plane, sizeof(float[4]));
+        *_plane = plane;
     return true;
 }
 
@@ -582,7 +565,7 @@ void *MeshFace::pack(void *buf) const
     buf = nboPackInt(buf, vertexCount);
     for (int i = 0; i < vertexCount; i++)
     {
-        int32_t index = (afvec3*)vertices[i] - mesh->getVertices();
+        int32_t index = vertices[i] - mesh->getVertices();
         buf = nboPackInt(buf, index);
     }
 
@@ -591,7 +574,7 @@ void *MeshFace::pack(void *buf) const
     {
         for (int i = 0; i < vertexCount; i++)
         {
-            int32_t index = (afvec3*)normals[i] - mesh->getNormals();
+            int32_t index = normals[i] - mesh->getNormals();
             buf = nboPackInt(buf, index);
         }
     }
@@ -601,7 +584,7 @@ void *MeshFace::pack(void *buf) const
     {
         for (int i = 0; i < vertexCount; i++)
         {
-            int32_t index = (afvec2*)texcoords[i] - mesh->getTexcoords();
+            int32_t index = texcoords[i] - mesh->getTexcoords();
             buf = nboPackInt(buf, index);
         }
     }
@@ -636,35 +619,35 @@ const void *MeshFace::unpack(const void *buf)
     // vertices
     buf = nboUnpackInt(buf, inTmp);
     vertexCount = int(inTmp);
-    vertices = new float*[vertexCount];
+    vertices = new glm::vec3*[vertexCount];
     for (int i = 0; i < vertexCount; i++)
     {
         int32_t index;
         buf = nboUnpackInt(buf, index);
-        vertices[i] = mesh->getVertices()[index];
+        vertices[i] = &mesh->getVertices()[index];
     }
 
     // normals
     if (tmpNormals)
     {
-        normals = new float*[vertexCount];
+        normals = new glm::vec3*[vertexCount];
         for (int i = 0; i < vertexCount; i++)
         {
             int32_t index;
             buf = nboUnpackInt(buf, index);
-            normals[i] = mesh->getNormals()[index];
+            normals[i] = &mesh->getNormals()[index];
         }
     }
 
     // texcoords
     if (tmpTexcoords)
     {
-        texcoords = new float*[vertexCount];
+        texcoords = new glm::vec2*[vertexCount];
         for (int i = 0; i < vertexCount; i++)
         {
             int32_t index;
             buf = nboUnpackInt(buf, index);
-            texcoords[i] = mesh->getTexcoords()[index];
+            texcoords[i] = &mesh->getTexcoords()[index];
         }
     }
 
@@ -716,14 +699,14 @@ void MeshFace::print(std::ostream& out, const std::string& indent) const
     out << indent << "    vertices";
     for (i = 0; i < vertexCount; i++)
     {
-        int index = (afvec3*)vertices[i] - mesh->getVertices();
+        int index = vertices[i] - mesh->getVertices();
         out << " " << index;
     }
     if (debugLevel >= 3)
     {
         out << indent << " #";
         for (i = 0; i < vertexCount; i++)
-            out << " " << vertices[i][0] << " " << vertices[i][1] << " " << vertices[i][2];
+            out << " " << vertices[i]->x << " " << vertices[i]->y << " " << vertices[i]->z;
     }
     out << std::endl;
 
@@ -732,14 +715,14 @@ void MeshFace::print(std::ostream& out, const std::string& indent) const
         out << indent << "    normals";
         for (i = 0; i < vertexCount; i++)
         {
-            int index = (afvec3*)normals[i] - mesh->getNormals();
+            int index = normals[i] - mesh->getNormals();
             out << " " << index;
         }
         if (debugLevel >= 3)
         {
             out << " #";
             for (i = 0; i < vertexCount; i++)
-                out << " " << normals[i][0] <<  " " << normals[i][1] << " " << normals[i][2];
+                out << " " << normals[i]->x <<  " " << normals[i]->y << " " << normals[i]->z;
         }
         out << std::endl;
     }
@@ -749,14 +732,14 @@ void MeshFace::print(std::ostream& out, const std::string& indent) const
         out << indent << "    texcoords";
         for (i = 0; i < vertexCount; i++)
         {
-            int index = (afvec2*)texcoords[i] - mesh->getTexcoords();
+            int index = texcoords[i] - mesh->getTexcoords();
             out << " " << index;
         }
         if (debugLevel >= 3)
         {
             out << " #";
             for (i = 0; i < vertexCount; i++)
-                out << " " << texcoords[i][0] <<  " " << texcoords[i][1];
+                out << " " << texcoords[i]->s <<  " " << texcoords[i]->t;
         }
         out << std::endl;
     }

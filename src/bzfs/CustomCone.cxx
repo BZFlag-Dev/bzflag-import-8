@@ -151,20 +151,20 @@ void CustomCone::writeToGroupDef(GroupDefinition *groupdef)
     }
     else
     {
-        const float zAxis[3] = {0.0f, 0.0f, 1.0f};
-        const float origin[3] = {0.0f, 0.0f, 0.0f};
+        const auto zAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+        const auto origin = glm::vec3(0.0f);
         MeshTransform xform;
         if (flipz || (size[2] < 0.0f))
         {
-            const float flipScale[3] = {1.0f, 1.0f, -1.0f};
-            const float flipShift[3] = {0.0f, 0.0f, +size[2]};
+            const auto flipScale = glm::vec3(1.0f, 1.0f, -1.0f);
+            const auto flipShift = glm::vec3(0.0f, 0.0f, +size[2]);
             xform.addScale(flipScale);
             xform.addShift(flipShift);
         }
         xform.addSpin((float)(rotation * (180.0 / M_PI)), zAxis);
         xform.addShift(pos);
         xform.append(transform);
-        float newSize[3];
+        glm::vec3 newSize;
         newSize[0] = (float)(size[0] * M_SQRT2);
         newSize[1] = (float)(size[1] * M_SQRT2);
         newSize[2] = fabsf(size[2]);

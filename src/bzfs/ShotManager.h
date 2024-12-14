@@ -15,11 +15,7 @@
 
 #include "common.h"
 
-/* common interface headers */
-#include "global.h"  /* for TeamColor */
-#include "ShotUpdate.h"
-#include "vectors.h"
-
+// System headers
 #include <string>
 #include <vector>
 #include <map>
@@ -32,6 +28,11 @@
 #include <memory>
 #include <functional>
 #endif
+#include <glm/vec3.hpp>
+
+/* common interface headers */
+#include "global.h"  /* for TeamColor */
+#include "ShotUpdate.h"
 
 /** a ShotManager is used track shots fired by players and the server
  */
@@ -50,21 +51,25 @@ public:
     virtual void End ( Shot& UNUSED(shot) ) {}
     virtual void Retarget ( Shot& UNUSED(shot), PlayerId UNUSED(newTarget) ) {};
 
-    virtual bool CollideBox ( Shot& UNUSED(shot), fvec3& UNUSED(center), fvec3& UNUSED(size), float UNUSED(rotation) )
+    virtual bool CollideBox (
+        Shot& UNUSED(shot), glm::vec3 &UNUSED(center),
+        glm::vec3 &UNUSED(size), float UNUSED(rotation))
     {
         return false;
     }
-    virtual bool CollideSphere ( Shot& UNUSED(shot), fvec3& UNUSED(center), float UNUSED(radius) )
+    virtual bool CollideSphere ( Shot& UNUSED(shot), glm::vec3 &UNUSED(center), float UNUSED(radius) )
     {
         return false;
     }
-    virtual bool CollideCylinder ( Shot& UNUSED(shot), fvec3& UNUSED(center), float UNUSED(height), float UNUSED(radius) )
+    virtual bool CollideCylinder (
+        Shot& UNUSED(shot), glm::vec3 &UNUSED(center),
+        float UNUSED(height), float UNUSED(radius) )
     {
         return false;
     }
 
 protected:
-    virtual fvec3 ProjectShotLocation( Shot& shot, double deltaT );
+    virtual glm::vec3 ProjectShotLocation( Shot& shot, double deltaT );
 };
 
 typedef std::map<std::string, FlightLogic*> FlightLogicMap;
@@ -88,8 +93,8 @@ protected:
     std::map<std::string, MetaDataItem> MetaData;
 
 public:
-    fvec3       StartPosition;
-    fvec3       LastUpdatePosition;
+    glm::vec3   StartPosition;
+    glm::vec3   LastUpdatePosition;
     double      LastUpdateTime;
     double      StartTime;
 
@@ -138,15 +143,15 @@ public:
         return (LastUpdateTime-StartTime)/LifeTime;
     }
 
-    bool CollideBox ( fvec3 &center, fvec3 size, float rotation )
+    bool CollideBox (glm::vec3 &center, glm::vec3 size, float rotation)
     {
         return Logic.CollideBox(*this,center,size,rotation);
     }
-    bool CollideSphere ( fvec3 &center, float radius )
+    bool CollideSphere (glm::vec3 &center, float radius)
     {
         return Logic.CollideSphere(*this,center,radius);
     }
-    bool CollideCylinder ( fvec3 &center, float height, float radius)
+    bool CollideCylinder (glm::vec3 &center, float height, float radius)
     {
         return Logic.CollideCylinder(*this,center,height,radius);
     }
@@ -247,12 +252,16 @@ public:
     virtual void Setup(Shot& shot );
     virtual bool Update ( Shot& shot );
 
-    virtual bool CollideBox ( Shot& shot, fvec3& ecnter, fvec3& size, float rotation );
-    virtual bool CollideSphere ( Shot& shot, fvec3& center, float radius );
-    virtual bool CollideCylinder ( Shot& shot, fvec3& center, float height, float radius );
+    virtual bool CollideBox (
+        Shot& shot, glm::vec3 &center,
+        glm::vec3& size, float rotation);
+    virtual bool CollideSphere (
+        Shot& shot, glm::vec3 &center, float radius );
+    virtual bool CollideCylinder (
+        Shot& shot, glm::vec3 &center, float height, float radius);
 
 protected:
-    bool PointInSphere ( fvec3& point, Shot& shot );
+    bool PointInSphere (glm::vec3 &point, Shot& shot);
 };
 }
 #endif  /* __SHOT_MANAGER_H__ */

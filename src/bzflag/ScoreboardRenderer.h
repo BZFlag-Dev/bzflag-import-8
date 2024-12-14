@@ -82,7 +82,7 @@ public:
     static void getPlayerList(std::vector<Player*>& players);
 
 protected:
-    void hudColor3fv(const GLfloat*);
+    void hudColor3fv(const glm::vec3 &);
     void renderTeamScores (float y, float x, float dy);
     void renderScoreboard();
     void renderCtfFlags();
@@ -119,7 +119,7 @@ private:
     float teamScoreYVal;
     bool roaming;
 
-    GLfloat messageColor[3];
+    glm::vec3 messageColor;
     int minorFontFace;
     float minorFontSize;
     int labelsFontFace;

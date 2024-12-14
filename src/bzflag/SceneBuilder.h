@@ -18,7 +18,13 @@
 #ifndef BZF_SCENE_BUILDER_H
 #define BZF_SCENE_BUILDER_H
 
+// 1st
 #include "common.h"
+
+// System interfaces
+#include <glm/vec4.hpp>
+
+// Common headers
 #include "OpenGLMaterial.h"
 
 class SceneRenderer;
@@ -72,22 +78,22 @@ private:
     OpenGLMaterial  teleporterMaterial;
     bool        teleporterLOD;
 
-    static const GLfloat wallColors[4][4];
-    static const GLfloat wallModulateColors[4][4];
-    static const GLfloat wallLightedColors[1][4];
-    static const GLfloat wallLightedModulateColors[1][4];
-    static const GLfloat boxColors[6][4];
-    static const GLfloat boxModulateColors[6][4];
-    static const GLfloat boxLightedColors[6][4];
-    static const GLfloat boxLightedModulateColors[6][4];
-    static const GLfloat pyramidColors[5][4];
-    static const GLfloat pyramidModulateColors[5][4];
-    static const GLfloat pyramidLightedColors[5][4];
-    static const GLfloat pyramidLightedModulateColors[5][4];
-    static const GLfloat teleporterColors[3][4];
-    static const GLfloat teleporterModulateColors[3][4];
-    static const GLfloat teleporterLightedColors[3][4];
-    static const GLfloat teleporterLightedModulateColors[3][4];
+    static const glm::vec4 wallColors[4];
+    static const glm::vec4 wallModulateColors[4];
+    static const glm::vec4 wallLightedColors[1];
+    static const glm::vec4 wallLightedModulateColors[1];
+    static const glm::vec4 boxColors[6];
+    static const glm::vec4 boxModulateColors[6];
+    static const glm::vec4 boxLightedColors[6];
+    static const glm::vec4 boxLightedModulateColors[6];
+    static const glm::vec4 pyramidColors[5];
+    static const glm::vec4 pyramidModulateColors[5];
+    static const glm::vec4 pyramidLightedColors[5];
+    static const glm::vec4 pyramidLightedModulateColors[5];
+    static const glm::vec4 teleporterColors[3];
+    static const glm::vec4 teleporterModulateColors[3];
+    static const glm::vec4 teleporterLightedColors[3];
+    static const glm::vec4 teleporterLightedModulateColors[3];
 };
 
 #endif // BZF_SCENE_BUILDER_H

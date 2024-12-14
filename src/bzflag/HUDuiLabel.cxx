@@ -29,9 +29,7 @@ HUDuiLabel::HUDuiLabel() : HUDuiControl()
 {
     darker = false;
     params = NULL;
-    color[0] = textColor[0];
-    color[1] = textColor[1];
-    color[2] = textColor[2];
+    color = textColor;
 }
 
 HUDuiLabel::~HUDuiLabel()
@@ -113,9 +111,7 @@ void            HUDuiLabel::setDarker(bool d)
 
 void            HUDuiLabel::setColor(GLfloat r, GLfloat g, GLfloat b)
 {
-    color[0] = r;
-    color[1] = g;
-    color[2] = b;
+    color = glm::vec3(r, g, b);
 }
 
 void            HUDuiLabel::doRender()

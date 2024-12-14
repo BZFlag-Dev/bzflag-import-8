@@ -21,6 +21,7 @@
 #include "StateDatabase.h"
 #include "BZDBCache.h"
 #include "TextureManager.h"
+#include "OpenGLAPI.h"
 
 // local implementation headers
 #include "ViewFrustum.h"
@@ -30,7 +31,8 @@
 
 #include "TimeKeeper.h"
 
-BoltSceneNode::BoltSceneNode(const GLfloat pos[3],const GLfloat vel[3], bool super) :
+BoltSceneNode::BoltSceneNode(
+    const glm::vec3 &pos, const glm::vec3 &vel, bool super) :
     isSuper(super),
     invisible(false),
     drawFlares(false),
@@ -58,7 +60,7 @@ BoltSceneNode::BoltSceneNode(const GLfloat pos[3],const GLfloat vel[3], bool sup
     move(pos, vel);
     setSize(size);
     setColor(1.0f, 1.0f, 1.0f);
-    teamColor = fvec4(1,1,1,1);
+    teamColor = glm::vec4(1.0f);
 }
 
 BoltSceneNode::~BoltSceneNode()
@@ -78,33 +80,24 @@ void            BoltSceneNode::setSize(float radius)
 }
 void            BoltSceneNode::setTextureColor(GLfloat r, GLfloat g, GLfloat b, GLfloat a)
 {
-    color[0] = r;
-    color[1] = g;
-    color[2] = b;
-    color[3] = a;
-    light.setColor(1.5f * r, 1.5f * g, 1.5f * b);
+    color = glm::vec4(r, g, b, a);
+    light.setColor(1.5f * glm::vec3(color));
     renderNode.setTextureColor(color);
 }
 
 void            BoltSceneNode::setColor(GLfloat r, GLfloat g, GLfloat b, GLfloat a)
 {
-    color[0] = r;
-    color[1] = g;
-    color[2] = b;
-    color[3] = a;
-    light.setColor(1.5f * r, 1.5f * g, 1.5f * b);
+    color = glm::vec4(r, g, b, a);
+    light.setColor(1.5f * glm::vec3(color));
     renderNode.setColor(color);
 }
 
-void            BoltSceneNode::setTeamColor(const GLfloat *c)
+void            BoltSceneNode::setTeamColor(const glm::vec3 &c)
 {
-    teamColor.r = c[0];
-    teamColor.g = c[1];
-    teamColor.b = c[2];
-    teamColor.w = 1.0f;
+    teamColor = glm::vec4(c, 1.0f);
 }
 
-void            BoltSceneNode::setColor(const GLfloat* rgb)
+void BoltSceneNode::setColor(const glm::vec3 &rgb)
 {
     setColor(rgb[0], rgb[1], rgb[2]);
 }
@@ -132,20 +125,16 @@ void            BoltSceneNode::setTextureAnimation(int cu, int cv)
     renderNode.setAnimation(cu, cv);
 }
 
-void            BoltSceneNode::move(const GLfloat pos[3],
-                                    const GLfloat vel[3])
+void BoltSceneNode::move(const glm::vec3 &pos, const glm::vec3 &vel)
 {
+    const auto xy_vel = glm::length(glm::vec2(vel));
     setCenter(pos);
     light.setPosition(pos);
-    velocity[0] = vel[0];
-    velocity[1] = vel[1];
-    velocity[2] = vel[2];
-    length = sqrtf((vel[0] * vel[0]) +
-                   (vel[1] * vel[1]) +
-                   (vel[2] * vel[2]));
+    velocity = vel;
+    length = glm::length(vel);
 
     azimuth   = (float)(+RAD2DEG * atan2f(vel[1], vel[0]));
-    elevation = (float)(-RAD2DEG * atan2f(vel[2], sqrtf(vel[0]* vel[0] + vel[1] *vel[1])));
+    elevation = (float)(-RAD2DEG * atan2f(vel[2], xy_vel));
 }
 
 void            BoltSceneNode::addLight(
@@ -199,9 +188,8 @@ void            BoltSceneNode::addRenderNodes(
 const GLfloat       BoltSceneNode::BoltRenderNode::CoreFraction = 0.4f;
 const GLfloat       BoltSceneNode::BoltRenderNode::FlareSize = 1.0f;
 const GLfloat       BoltSceneNode::BoltRenderNode::FlareSpread = 0.08f;
-GLfloat         BoltSceneNode::BoltRenderNode::core[9][2];
-GLfloat         BoltSceneNode::BoltRenderNode::corona[8][2];
-const GLfloat       BoltSceneNode::BoltRenderNode::ring[8][2] =
+glm::vec2           BoltSceneNode::BoltRenderNode::core[9];
+const glm::vec2     BoltSceneNode::BoltRenderNode::corona[8] =
 {
     { 1.0f, 0.0f },
     { (float)M_SQRT1_2, (float)M_SQRT1_2 },
@@ -223,21 +211,12 @@ BoltSceneNode::BoltRenderNode::BoltRenderNode(
     if (!init)
     {
         init = true;
-        core[0][0] = 0.0f;
-        core[0][1] = 0.0f;
+        core[0] = glm::vec2(0.0f);
         for (int i = 0; i < 8; i++)
-        {
-            core[i+1][0] = CoreFraction * ring[i][0];
-            core[i+1][1] = CoreFraction * ring[i][1];
-            corona[i][0] = ring[i][0];
-            corona[i][1] = ring[i][1];
-        }
+            core[i+1] = CoreFraction * corona[i];
     }
 
-    textureColor[0] = 1.0f;
-    textureColor[1] = 1.0f;
-    textureColor[2] = 1.0f;
-    textureColor[3] = 1.0f;
+    textureColor = glm::vec4(1.0f);
 
     setAnimation(1, 1);
 }
@@ -247,7 +226,7 @@ BoltSceneNode::BoltRenderNode::~BoltRenderNode()
     // do nothing
 }
 
-const GLfloat* BoltSceneNode::BoltRenderNode::getPosition() const
+const glm::vec3 &BoltSceneNode::BoltRenderNode::getPosition() const
 {
     return sceneNode->getSphere();
 }
@@ -266,42 +245,27 @@ void            BoltSceneNode::BoltRenderNode::setAnimation(
     v = index / cu;
     if (v >= cv) v = 0;
 }
-void            BoltSceneNode::BoltRenderNode::setTextureColor(const GLfloat* rgba)
+void BoltSceneNode::BoltRenderNode::setTextureColor(const glm::vec4 &rgba)
 {
-    textureColor[0] = rgba[0];
-    textureColor[1] = rgba[1];
-    textureColor[2] = rgba[2];
-    textureColor[3] = rgba[3];
+    textureColor = rgba;
 }
 
 
-void            BoltSceneNode::BoltRenderNode::setColor(
-    const GLfloat* rgba)
+void BoltSceneNode::BoltRenderNode::setColor(const glm::vec4 &rgba)
 {
-    mainColor[0] = rgba[0];
-    mainColor[1] = rgba[1];
-    mainColor[2] = rgba[2];
-    mainColor[3] = rgba[3];
+    mainColor   = rgba;
+    innerColor  = rgba + 0.5f * (1.0f - rgba);
+    outerColor  = rgba;
+    coronaColor = rgba;
+    flareColor  = rgba;
 
-    innerColor[0] = mainColor[0] + 0.5f * (1.0f - mainColor[0]);
-    innerColor[1] = mainColor[1] + 0.5f * (1.0f - mainColor[1]);
-    innerColor[2] = mainColor[2] + 0.5f * (1.0f - mainColor[2]);
     innerColor[3] = rgba[3];
-
-    outerColor[0] = mainColor[0];
-    outerColor[1] = mainColor[1];
-    outerColor[2] = mainColor[2];
-    outerColor[3] = (rgba[3] == 1.0f )? 0.1f: rgba[3];
-
-    coronaColor[0] = mainColor[0];
-    coronaColor[1] = mainColor[1];
-    coronaColor[2] = mainColor[2];
-    coronaColor[3] = (rgba[3] == 1.0f )? 0.5f : rgba[3];
-
-    flareColor[0] = mainColor[0];
-    flareColor[1] = mainColor[1];
-    flareColor[2] = mainColor[2];
-    flareColor[3] = (rgba[3] == 1.0f )? 0.667f : rgba[3];
+    if (rgba.a == 1.0f)
+    {
+        outerColor[3]  = 0.1f;
+        coronaColor[3] = 0.5f;
+        flareColor[3]  = 0.667f;
+    }
 }
 
 void drawFin ( float maxRad, float finRadius, float boosterLen, float finForeDelta, float finCapSize)
@@ -358,10 +322,10 @@ void BoltSceneNode::BoltRenderNode::renderGeoGMBolt()
     glDisable(GL_TEXTURE_2D);
     //glEnable(GL_LIGHTING);
 
-    fvec4 noseColor = sceneNode->teamColor;
-    fvec4 finColor(noseColor.r*0.5f,noseColor.g*0.5f,noseColor.b*0.5f,1);
-    fvec4 coneColor(0.125f,0.125f,0.125f,1);
-    fvec4 bodyColor(1,1,1,1);
+    auto noseColor = sceneNode->teamColor;
+    auto finColor  = glm::vec4(glm::vec3(noseColor) * 0.5f, 1.0f);
+    auto coneColor = glm::vec4(0.125f, 0.125f, 0.125f, 1.0f);
+    auto bodyColor = glm::vec4(1.0f);
 
     glPushMatrix();
 
@@ -378,7 +342,7 @@ void BoltSceneNode::BoltRenderNode::renderGeoGMBolt()
     addTriangleCount(slices * 2);
 
     // body
-    myColor4fv(bodyColor);
+    myColor4f(bodyColor.r, bodyColor.g, bodyColor.b, bodyColor.a);
     glTranslatef(0, 0, -bodyLen);
     gluCylinder(q,maxRad,maxRad,bodyLen,slices,1);
     addTriangleCount(slices);
@@ -388,13 +352,13 @@ void BoltSceneNode::BoltRenderNode::renderGeoGMBolt()
     addTriangleCount(slices);
 
     // waist
-    myColor4fv(coneColor);
+    myColor4f(coneColor.r, coneColor.g, coneColor.b, coneColor.a);
     glTranslatef(0, 0, -waistLen);
     gluCylinder(q,waistRad,waistRad,waistLen,slices,1);
     addTriangleCount(slices);
 
     // booster
-    myColor3fv(bodyColor);
+    myColor4f(bodyColor.r, bodyColor.g, bodyColor.b, 1.0f);
     glTranslatef(0, 0, -bevelLen);
     gluCylinder(q,maxRad,waistRad,bevelLen,slices,1);
     addTriangleCount(slices);
@@ -408,13 +372,13 @@ void BoltSceneNode::BoltRenderNode::renderGeoGMBolt()
     addTriangleCount(slices);
 
     // engine
-    myColor3fv(coneColor);
+    myColor4f(coneColor.r, coneColor.g, coneColor.b, 1.0f);
     glTranslatef(0, 0, -engineLen);
     gluCylinder(q,engineRad,waistRad,engineLen,slices,1);
     addTriangleCount(slices);
 
     // fins
-    myColor3fv(finColor);
+    myColor4f(finColor.r, finColor.g, finColor.b, 1.0f);
     glTranslatef(0, 0, engineLen + bevelLen);
 
     for ( int i = 0; i < 4; i++)
@@ -457,46 +421,32 @@ void BoltSceneNode::BoltRenderNode::renderGeoBolt()
     float coreBleed = 4.5f;
     float minimumChannelVal = 0.45f;
 
-    fvec3 coreColor;
-    coreColor.r =  sceneNode->color[0] * coreBleed;
-    coreColor.g =  sceneNode->color[1] * coreBleed;
-    coreColor.b =  sceneNode->color[2] * coreBleed;
-    if (coreColor.r < minimumChannelVal)
-        coreColor.r = minimumChannelVal;
-    if (coreColor.g < minimumChannelVal)
-        coreColor.g = minimumChannelVal;
-    if (coreColor.b < minimumChannelVal)
-        coreColor.b = minimumChannelVal;
+    const auto c = glm::vec3(sceneNode->color);
 
-    myColor4fv(fvec4(coreColor, 0.85f * alphaMod));
+    auto coreColor = glm::max(c * coreBleed, minimumChannelVal);
+
+    myColor4f(coreColor.r, coreColor.g, coreColor.b, 0.85f * alphaMod);
     renderGeoPill(baseRadius,len,16);
 
     float radInc = 1.5f * baseRadius - baseRadius;
     glPushMatrix();
     glTranslatef(0, 0, -radInc * 0.5f);
-    fvec4 c;
-    c.x = sceneNode->color[0];
-    c.y = sceneNode->color[1];
-    c.z = sceneNode->color[2];
-    c.w = 0.5f;
 
-    myColor4fv(c);
+    myColor4f(c.r, c.g, c.b, 0.5f);
     renderGeoPill(1.5f * baseRadius, len + radInc, 25);
     glPopMatrix();
 
     radInc = 2.7f * baseRadius - baseRadius;
     glPushMatrix();
     glTranslatef(0, 0, -radInc*0.5f);
-    c.w = 0.25f;
-    myColor4fv(c);
+    myColor4f(c.r, c.g, c.b, 0.25f);
     renderGeoPill(2.7f * baseRadius, len + radInc, 32);
     glPopMatrix();
 
     radInc = 3.8f * baseRadius - baseRadius;
     glPushMatrix();
     glTranslatef(0, 0,-radInc*0.5f);
-    c.w = 0.125f;
-    myColor4fv(c);
+    myColor4f(c.r, c.g, c.b, 0.125f);
     renderGeoPill(3.8f * baseRadius, len + radInc, 48);
     glPopMatrix();
 
@@ -581,11 +531,11 @@ void            BoltSceneNode::BoltRenderNode::render()
     const bool blackFog = RENDERER.isFogActive() && BZDBCache::blend &&
                           ((shotLength > 0) || experimental);
     if (blackFog)
-        glFogfv(GL_FOG_COLOR, fvec4(0.0f, 0.0f, 0.0f, 0.0f));
+        glSetFogColor(glm::vec4(0.0f));
 
-    const float* sphere = sceneNode->getSphere();
+    const auto &sphere = getPosition();
     glPushMatrix();
-    glTranslatef(sphere[0], sphere[1], sphere[2]);
+    glTranslate(sphere);
 
     bool drawBillboardShot = false;
     if (experimental)
@@ -685,8 +635,7 @@ void            BoltSceneNode::BoltRenderNode::render()
                 if (texInfo.id >= 0)
                     texInfo.texture->execute();
 
-                fvec3 vel(sceneNode->velocity[0],sceneNode->velocity[1],sceneNode->velocity[2]);
-                const fvec3  dir = vel * (-1.0f / sceneNode->length);
+                auto dir = sceneNode->velocity / sceneNode->length;
 
                 const float invLenPlusOne = 1.0f / (float)(shotLength + 1);
                 const float shiftScale = 90.0f / (150.0f + (float)shotLength);
@@ -695,10 +644,7 @@ void            BoltSceneNode::BoltRenderNode::render()
                 const float sizeStep  = Size  * invLenPlusOne;
                 const float alphaStep = alpha * invLenPlusOne;
 
-                fvec3 pos;
-                pos.x = sphere[0];
-                pos.y = sphere[1];
-                pos.z = sphere[2];
+                auto pos = sphere;
 
                 int uvCell = rand() % 16;
 
@@ -708,7 +654,7 @@ void            BoltSceneNode::BoltRenderNode::render()
                     const float s = Size * (0.65f + (1.0f * (float)bzfrand()));
                     const float shift = s * shiftScale;
 
-                    pos += (shift * dir);
+                    pos -= (shift * dir);
                     if (pos.z < 0.0f)
                         continue;
 
@@ -857,7 +803,7 @@ void            BoltSceneNode::BoltRenderNode::render()
     glPopMatrix();
 
     if (blackFog)
-        glFogfv(GL_FOG_COLOR, RENDERER.getFogColor());
+        glSetFogColor(RENDERER.getFogColor());
 
     if (RENDERER.isLastFrame())
     {

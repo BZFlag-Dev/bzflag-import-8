@@ -28,6 +28,7 @@
 // system headers
 #include <string>
 #include <iostream>
+#include <glm/fwd.hpp>
 
 // common headers
 #include "Extents.h"
@@ -64,7 +65,7 @@ public:
         @param shoot      @c true if the obstacle is shootthrough, i.e. bullets
           can pass through it
     */
-    Obstacle(const float* pos, float rotation, float hwidth, float hbreadth,
+    Obstacle(const glm::vec3 &pos, float rotation, float hwidth, float hbreadth,
              float height, bool drive = false, bool shoot = false, bool rico = false);
 
     /** This function makes a copy using the given transform */
@@ -108,10 +109,10 @@ public:
     const Extents& getExtents() const;
 
     /** This function returns the position of this obstacle. */
-    const float* getPosition() const;
+    const glm::vec3 &getPosition() const;
 
     /** This function returns the sizes of this obstacle. */
-    const float* getSize() const;
+    const glm::vec3 &getSize() const;
 
     /** This function returns the obstacle's rotation around its own Y axis. */
     float getRotation() const;
@@ -132,27 +133,27 @@ public:
 
     /** This function computes the two-dimensional surface normal of this
         obstacle at the point @c p. The normal is stored in @c n. */
-    virtual void getNormal(const float* p, float* n) const = 0;
+    virtual void getNormal(const glm::vec3 &p, glm::vec3 &n) const = 0;
 
     /** This function computes the three-dimensional surface normal of this
         obstacle at the point @c p. The normal is stored in @c n. */
-    virtual void get3DNormal(const float* p, float* n) const;
+    virtual void get3DNormal(const glm::vec3 &p, glm::vec3 &n) const;
 
     /** This function checks if a tank, approximated as a cylinder with base
         centre in point @c p and radius @c radius, intersects this obstacle. */
-    virtual bool inCylinder(const float* p, float radius, float height) const = 0;
+    virtual bool inCylinder(const glm::vec3 &p, float radius, float height) const = 0;
 
     /** This function checks if a tank, approximated as a box rotated around its
         Z axis, intersects this obstacle. */
-    virtual bool inBox(const float* p, float angle,
-                       float halfWidth, float halfBreadth, float height) const = 0;
+    virtual bool inBox(const glm::vec3 &p, float angle,
+                       float halfWidth, float halfBreadth, float height) const;
 
     /** This function checks if a tank, approximated as a box rotated around its
         Z axis, intersects this obstacle. It also factors in the difference
         between the old Z location and the new Z location */
-    virtual bool inMovingBox(const float* oldP, float oldAngle,
-                             const float* newP, float newAngle,
-                             float halfWidth, float halfBreadth, float height) const = 0;
+    virtual bool inMovingBox(const glm::vec3 &oldP, float oldAngle,
+                             const glm::vec3 &newP, float newAngle,
+                             float halfWidth, float halfBreadth, float height) const;
 
     /** This function checks if a horizontal rectangle crosses the surface of
         this obstacle.
@@ -163,9 +164,9 @@ public:
         @param plane   The tangent plane of the obstacle where it's
            intersected by the rectangle will be stored here
     */
-    virtual bool isCrossing(const float* p, float angle,
+    virtual bool isCrossing(const glm::vec3 &p, float angle,
                             float halfWidth, float halfBreadth, float height,
-                            float* plane) const;
+                            glm::vec4 *plane) const;
 
     /** This function checks if a box moving from @c pos1 to @c pos2 will hit
         this obstacle, and if it does what the surface normal at the hitpoint is.
@@ -181,10 +182,10 @@ public:
         @returns      @c true if the box hits this obstacle, @c false
            otherwise
     */
-    virtual bool getHitNormal(const float* pos1, float azimuth1,
-                              const float* pos2, float azimuth2,
+    virtual bool getHitNormal(const glm::vec3 &pos1, float azimuth1,
+                              const glm::vec3 &pos2, float azimuth2,
                               float halfWidth, float halfBreadth,
-                              float height, float* normal) const = 0;
+                              float height, glm::vec3 &normal) const;
 
     /** This function returns @c true if tanks can pass through this object,
         @c false if they can't. */
@@ -266,12 +267,12 @@ protected:
            rectangle is at @c pos1 and 1 is the time when it's
            at @c pos2, and -1 means "no hit"
     */
-    float getHitNormal(const float* pos1, float azimuth1,
-                       const float* pos2, float azimuth2,
+    float getHitNormal(const glm::vec3 &pos1, float azimuth1,
+                       const glm::vec3 &pos2, float azimuth2,
                        float halfWidth, float halfBreadth,
-                       const float* oPos, float oAzimuth,
+                       const glm::vec3 &oPos, float oAzimuth,
                        float oWidth, float oBreadth, float oHeight,
-                       float* normal) const;
+                       glm::vec3 &normal) const;
 
 protected:
     static int getObjCounter();
@@ -279,8 +280,8 @@ protected:
 
 protected:
     Extents extents;
-    float pos[3];
-    float size[3]; // width, breadth, height
+    glm::vec3 pos;
+    glm::vec3 size; // width, breadth, height
     float angle;
     bool driveThrough;
     bool shootThrough;
@@ -305,12 +306,12 @@ inline const Extents& Obstacle::getExtents() const
     return extents;
 }
 
-inline const float* Obstacle::getPosition() const
+inline const glm::vec3 &Obstacle::getPosition() const
 {
     return pos;
 }
 
-inline const float* Obstacle::getSize() const
+inline const glm::vec3 &Obstacle::getSize() const
 {
     return size;
 }
@@ -333,11 +334,6 @@ inline float Obstacle::getBreadth() const
 inline float Obstacle::getHeight() const
 {
     return size[2];
-}
-
-inline void Obstacle::get3DNormal(const float *p, float *n) const
-{
-    getNormal(p, n);
 }
 
 inline bool Obstacle::isDriveThrough() const

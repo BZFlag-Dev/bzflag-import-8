@@ -16,6 +16,11 @@
 
 // System headers
 #include <math.h>
+#include <glm/vec3.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/geometric.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/vector_query.hpp>
 
 // Common headers
 #include "MeshObstacle.h"
@@ -130,7 +135,7 @@ static bool translucentMaterial(const BzMaterial* mat)
 
 static bool groundClippedFace(const MeshFace* face)
 {
-    const float* plane = face->getPlane();
+    const auto &plane = face->getPlane();
     if (plane[2] < -0.9f)
     {
         // plane is facing downwards
@@ -371,24 +376,24 @@ MeshPolySceneNode* MeshSceneNodeGenerator::getMeshPolySceneNode(const MeshFace* 
 
     // vertices
     const int vertexCount = face->getVertexCount();
-    GLfloat3Array vertices(vertexCount);
+    std::vector<glm::vec3> vertices(vertexCount);
     for (i = 0; i < vertexCount; i++)
-        memcpy (vertices[i], face->getVertex(i), sizeof(float[3]));
+        vertices[i] = face->getVertex(i);
 
     // normals
     int normalCount = 0;
     if (face->useNormals())
         normalCount = vertexCount;
-    GLfloat3Array normals(normalCount);
+    std::vector<glm::vec3> normals(normalCount);
     for (i = 0; i < normalCount; i++)
-        memcpy (normals[i], face->getNormal(i), sizeof(float[3]));
+        normals[i] = face->getNormal(i);
 
     // texcoords
-    GLfloat2Array texcoords(vertexCount);
+    std::vector<glm::vec2> texcoords(vertexCount);
     if (face->useTexcoords())
     {
         for (i = 0; i < vertexCount; i++)
-            memcpy (texcoords[i], face->getTexcoord(i), sizeof(float[2]));
+            texcoords[i] = face->getTexcoord(i);
     }
     else
         makeTexcoords (face->getPlane(), vertices, texcoords);
@@ -440,7 +445,7 @@ void MeshSceneNodeGenerator::setupNodeMaterial(WallSceneNode* node,
     //       could use the ambient color for non-lighted,and diffuse
     //       for lighted
     const DynamicColor* dyncol = DYNCOLORMGR.getColor(mat->getDynamicColor());
-    const GLfloat* dc = NULL;
+    const glm::vec4 *dc = NULL;
     if (dyncol != NULL)
         dc = dyncol->getColor();
     node->setDynamicColor(dc);
@@ -483,7 +488,7 @@ void MeshSceneNodeGenerator::setupNodeMaterial(WallSceneNode* node,
     // we'll just set it to the middle value.
     if (dyncol)
     {
-        const float color[4] = { 1.0f, 1.0f, 1.0f, 0.5f }; // alpha value != 1.0f
+        const auto color = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f); // alpha value != 1.0f
         if (dyncol->canHaveAlpha())
         {
             node->setColor(color); // trigger transparency check
@@ -499,51 +504,34 @@ void MeshSceneNodeGenerator::setupNodeMaterial(WallSceneNode* node,
 }
 
 
-bool MeshSceneNodeGenerator::makeTexcoords(const float* plane,
-        const GLfloat3Array& vertices,
-        GLfloat2Array& texcoords)
+void MeshSceneNodeGenerator::makeTexcoords(const glm::vec4 &plane,
+        const std::vector<glm::vec3> &vertices,
+        std::vector<glm::vec2> &texcoords)
 {
-    float x[3], y[3];
+    const auto vert0 = vertices[0];
+    const auto vert1 = vertices[1];
 
-    vec3sub (x, vertices[1], vertices[0]);
-    vec3cross (y, plane, x);
+    auto x = vert1 - vert0;
+    if (glm::isNull(x, 1.0e-6f))
+        return;
+    x = glm::normalize(x);
 
-    float len = vec3dot(x, x);
-    if (len > 0.0f)
-    {
-        len = 1.0f / sqrtf(len);
-        x[0] = x[0] * len;
-        x[1] = x[1] * len;
-        x[2] = x[2] * len;
-    }
-    else
-        return false;
-
-    len = vec3dot(y, y);
-    if (len > 0.0f)
-    {
-        len = 1.0f / sqrtf(len);
-        y[0] = y[0] * len;
-        y[1] = y[1] * len;
-        y[2] = y[2] * len;
-    }
-    else
-        return false;
+    auto y = glm::cross(glm::vec3(plane), x);
+    if (glm::isNull(y, 1.0e-6f))
+        return;
+    y = glm::normalize(y);
 
     const float uvScale = 8.0f;
 
-    texcoords[0][0] = 0.0f;
-    texcoords[0][1] = 0.0f;
-    const int count = vertices.getSize();
+    texcoords[0] = glm::vec2(0.0f);
+    const int count = vertices.size();
     for (int i = 1; i < count; i++)
     {
-        float delta[3];
-        vec3sub (delta, vertices[i], vertices[0]);
-        texcoords[i][0] = vec3dot(delta, x) / uvScale;
-        texcoords[i][1] = vec3dot(delta, y) / uvScale;
+        auto delta = vertices[i] - vert0;
+        auto deltax = glm::dot(delta, x);
+        auto deltay = glm::dot(delta, y);
+        texcoords[i] = glm::vec2(deltax, deltay) / uvScale;
     }
-
-    return true;
 }
 
 

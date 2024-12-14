@@ -705,7 +705,7 @@ void GroupDefinition::replaceBasesWithBoxes()
     for (unsigned int i = 0; i < list.size(); i++)
     {
         BaseBuilding* base = (BaseBuilding*) list[i];
-        const float* baseSize = base->getSize();
+        const auto &baseSize = base->getSize();
         BoxBuilding* box =
             new BoxBuilding(base->getPosition(), base->getRotation(),
                             baseSize[0], baseSize[1], baseSize[2],

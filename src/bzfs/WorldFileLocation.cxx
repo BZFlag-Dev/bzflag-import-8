@@ -24,7 +24,7 @@ WorldFileLocation::WorldFileLocation()
 {
     pos[0] = pos[1] = pos[2] = 0.0f;
     rotation = 0.0f;
-    size[0] = size[1] = size[2] = 1.0f;
+    size = glm::vec3(1.0f);
 }
 
 
@@ -58,7 +58,7 @@ bool WorldFileLocation::read(const char *cmd, std::istream& input)
     //
     else if (strcasecmp ("shift", cmd) == 0)
     {
-        float data[3];
+        glm::vec3 data;
         if (!(input >> data[0] >> data[1] >> data[2]))
         {
             std::cout << "parameters errors " << std::endl;
@@ -68,7 +68,7 @@ bool WorldFileLocation::read(const char *cmd, std::istream& input)
     }
     else if (strcasecmp ("scale", cmd) == 0)
     {
-        float data[3];
+        glm::vec3 data;
         if (!(input >> data[0] >> data[1] >> data[2]))
         {
             std::cout << "parameters errors " << std::endl;
@@ -88,7 +88,8 @@ bool WorldFileLocation::read(const char *cmd, std::istream& input)
     }
     else if (strcasecmp ("spin", cmd) == 0)
     {
-        float angle, normal[3];
+        float     angle;
+        glm::vec3 normal;
         if (!(input >> angle >> normal[0] >> normal[1] >> normal[2]))
         {
             std::cout << "parameters errors " << std::endl;

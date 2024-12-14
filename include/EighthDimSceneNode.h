@@ -32,7 +32,7 @@ public:
 protected:
     EighthDimSceneNode(int numPolys);
 
-    void        setPolygon(int index, const GLfloat[3][3]);
+    void        setPolygon(int index, const glm::vec3 vertex[3]);
 
 protected:
     class EighthDimRenderNode : public RenderNode
@@ -43,13 +43,13 @@ protected:
             int numPolygons);
         ~EighthDimRenderNode();
         void        render() override;
-        void        setPolygon(int index, const GLfloat[3][3]);
-        const GLfloat* getPosition() const override;
+        void  setPolygon(int index, const glm::vec3[3]);
+        const glm::vec3 &getPosition() const override;
     private:
         const EighthDimSceneNode* sceneNode;
         int     numPolygons;
-        GLfloat     (*color)[4];
-        GLfloat     (*poly)[3][3];
+        glm::vec4   *color;
+        glm::vec3   (*poly)[3];
     };
 
 private:

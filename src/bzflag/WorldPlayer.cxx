@@ -50,7 +50,7 @@ ShotPath*       WorldPlayer::getShot(int index) const
 }
 
 bool            WorldPlayer::doEndShot(
-    int ident, bool isHit, float* pos)
+    int ident, bool isHit, glm::vec3 &pos)
 {
     const int index = ident & 255;
     const int salt = (ident >> 8) & 127;
@@ -80,10 +80,8 @@ bool            WorldPlayer::doEndShot(
         return false;
 
     // end it
-    const float* shotPos = shots[index]->getPosition();
-    pos[0] = shotPos[0];
-    pos[1] = shotPos[1];
-    pos[2] = shotPos[2];
+    const auto &shotPos = shots[index]->getPosition();
+    pos = shotPos;
     shots[index]->setExpired();
     return true;
 }

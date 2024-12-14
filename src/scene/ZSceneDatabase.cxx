@@ -233,13 +233,13 @@ void ZSceneDatabase::addLights(SceneRenderer& renderer)
 }
 
 
-static void setupShadowPlanes(const Frustum* frustum, const float* sunDir,
-                              int& planeCount, float planes[4][4])
+static void setupShadowPlanes(const Frustum* frustum, const glm::vec3 &sunDir,
+                              int& planeCount, glm::vec4 planes[4])
 {
     // FIXME: As a first cut, we'll assume that
     //        the frustum top points towards Z.
 
-    const float* eye = frustum->getEye();
+    const auto &eye = frustum->getEye();
     if (frustum->getUp()[2] < 0.999f)
     {
         planeCount = 0;
@@ -299,7 +299,7 @@ static void setupShadowPlanes(const Frustum* frustum, const float* sunDir,
 void ZSceneDatabase::addShadowNodes(SceneRenderer& renderer)
 {
     int i;
-    const float* sunDir = renderer.getSunDirection();
+    const auto *sunDir = renderer.getSunDirection();
     const ViewFrustum& vf = renderer.getViewFrustum();
     const Frustum* frustum = (const Frustum*) &vf;
 
@@ -314,8 +314,8 @@ void ZSceneDatabase::addShadowNodes(SceneRenderer& renderer)
 
     // setup the shadow clipping planes
     int planeCount = 0;
-    float planes[4][4];
-    setupShadowPlanes(frustum, sunDir, planeCount, planes);
+    glm::vec4 planes[4];
+    setupShadowPlanes(frustum, *sunDir, planeCount, planes);
 
     // cull if we're supposed to
     if (octree)
@@ -378,7 +378,7 @@ void ZSceneDatabase::addRenderNodes(SceneRenderer& renderer)
 {
     int i;
     const ViewFrustum& frustum = renderer.getViewFrustum();
-    const float* eye = frustum.getEye();
+    const auto eye = glm::vec4(frustum.getEye(), 1.0f);
 
     // see if we need an octree, or if it needs to be rebuilt
     setupCullList();
@@ -397,13 +397,12 @@ void ZSceneDatabase::addRenderNodes(SceneRenderer& renderer)
     {
         SceneNode* node = culledList[i];
 
-        const float* plane = node->getPlane();
+        const auto plane = node->getPlane();
 
         if (plane != NULL)
         {
             // see if our eye is behind the plane
-            if (((eye[0] * plane[0]) + (eye[1] * plane[1]) + (eye[2] * plane[2]) +
-                    plane[3]) <= 0.0f)
+            if (glm::dot(eye, *plane) <= 0.0f)
             {
                 node->octreeState = SceneNode::OctreeCulled;
                 continue;

@@ -17,57 +17,60 @@
 #ifndef BZF_BOX_BUILDING_H
 #define BZF_BOX_BUILDING_H
 
-#include "common.h"
-#include <string>
+// Inherits from
 #include "Obstacle.h"
+
+// System headers
+#include <string>
+#include <glm/fwd.hpp>
 
 class BoxBuilding : public Obstacle
 {
 public:
     BoxBuilding();
-    BoxBuilding(const float* pos, float rotation,
+    BoxBuilding(const glm::vec3 &pos, float rotation,
                 float width, float breadth, float height,
                 bool drive = false, bool shoot = false,
                 bool ricochet = false, bool invisible = false);
     ~BoxBuilding();
 
-    Obstacle*       copyWithTransform(const MeshTransform&) const;
+    Obstacle*       copyWithTransform(const MeshTransform&) const override;
 
-    const char*     getType() const;
+    const char*     getType() const override;
     static const char*  getClassName(); // const
 
-    bool        isFlatTop() const;
+    bool        isFlatTop() const override;
 
-    float       intersect(const Ray&) const;
-    void        getNormal(const float* p, float* n) const;
-    void        get3DNormal(const float* p, float* n) const;
+    float       intersect(const Ray&) const override;
+    void        getNormal(const glm::vec3 &p, glm::vec3 &n) const override;
+    void        get3DNormal(const glm::vec3 &p, glm::vec3 &n) const override;
     inline bool  isInvisible() const;
 
-    bool        inCylinder(const float* p, float radius, float height) const;
-    bool        inBox(const float* p, float angle,
-                      float halfWidth, float halfBreadth, float height) const;
-    bool        inMovingBox(const float* oldP, float oldAngle,
-                            const float *newP, float newAngle,
-                            float halfWidth, float halfBreadth, float height) const;
-    bool        isCrossing(const float* p, float angle,
+    bool        inCylinder(const glm::vec3 &p, float radius, float height) const override;
+    bool        inBox(const glm::vec3 &p, float angle,
+                      float halfWidth, float halfBreadth, float height) const override;
+    bool        inMovingBox(const glm::vec3 &oldP, float oldAngle,
+                            const glm::vec3 &newP, float newAngle,
+                            float halfWidth, float halfBreadth, float height) const override;
+    bool        isCrossing(const glm::vec3 &p, float angle,
                            float halfWidth, float halfBreadth, float height,
-                           float* plane) const;
+                           glm::vec4 *plane) const override;
 
     bool        getHitNormal(
-        const float* pos1, float azimuth1,
-        const float* pos2, float azimuth2,
+        const glm::vec3 &pos1, float azimuth1,
+        const glm::vec3 &pos2, float azimuth2,
         float halfWidth, float halfBreadth,
         float height,
-        float* normal) const;
+        glm::vec3 &normal) const override;
 
-    void        getCorner(int index, float* pos) const;
+    void        getCorner(int index, glm::vec3 &pos) const;
 
-    int packSize() const;
-    void *pack(void*) const;
-    const void *unpack(const void*);
+    int packSize() const override;
+    void *pack(void*) const override;
+    const void *unpack(const void*) override;
 
-    void print(std::ostream& out, const std::string& indent) const;
-    void printOBJ(std::ostream& out, const std::string& indent) const;
+    void print(std::ostream& out, const std::string& indent) const override;
+    void printOBJ(std::ostream& out, const std::string& indent) const override;
 
     std::string userTextures[2];
 

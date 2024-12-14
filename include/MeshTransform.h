@@ -20,6 +20,9 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <glm/fwd.hpp>
+#include <glm/mat3x3.hpp>
+#include <glm/mat4x4.hpp>
 
 enum TransformType
 {
@@ -50,10 +53,10 @@ public:
     void prepend(const MeshTransform& transform);
 
     bool setName(const std::string& name);
-    void addShift(const float shift[3]);
-    void addScale(const float scale[3]);
+    void addShift(const glm::vec3 &shift);
+    void addScale(const glm::vec3 &scale);
     void addShear(const float shear[3]);
-    void addSpin(const float degrees, const float normal[3]);
+    void addSpin(const float degrees, const glm::vec3 &normal);
     void addReference(int transform);
 
     bool isEmpty() const
@@ -87,11 +90,11 @@ public:
 
         bool isInverted() const;
         bool isSkewed() const; // scaled or sheared
-        void modifyVertex(float vertex[3]) const;
-        void modifyNormal(float normal[3]) const;
-        void modifyOldStyle(float pos[3], float size[3],
+        void modifyVertex(glm::vec3 &vertex) const;
+        void modifyNormal(glm::vec3 &normal) const;
+        void modifyOldStyle(glm::vec3 &pos, glm::vec3 &size,
                             float& angle, bool& flipz) const;
-        const float* getMatrix() const;
+        const glm::mat4 &getMatrix() const;
 
     private:
         void processTransforms(const std::vector<TransformData>& tforms);
@@ -99,8 +102,8 @@ public:
         bool empty;
         bool inverted;
         bool skewed;
-        float vertexMatrix[4][4];
-        float normalMatrix[3][3];
+        glm::mat4 vertexMatrix;
+        glm::mat3 normalMatrix;
     };
 
     friend class MeshTransform::Tool;
@@ -116,9 +119,9 @@ inline bool MeshTransform::Tool::isSkewed() const
     return skewed;
 }
 
-inline const float* MeshTransform::Tool::getMatrix() const
+inline const glm::mat4 &MeshTransform::Tool::getMatrix() const
 {
-    return (const float*)vertexMatrix;
+    return vertexMatrix;
 }
 
 

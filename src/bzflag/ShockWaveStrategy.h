@@ -32,7 +32,7 @@ public:
     ~ShockWaveStrategy();
 
     void        update(float dt);
-    float       checkHit(const BaseLocalPlayer*, float[3]) const;
+    float       checkHit(const BaseLocalPlayer*, glm::vec3 &) const;
     bool        isStoppedByHit() const;
     void        addShot(SceneDatabase*, bool colorblind);
     void        radarRender() const;

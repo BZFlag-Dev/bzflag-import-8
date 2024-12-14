@@ -35,7 +35,7 @@ public:
 private:
     int vertexCount;
 
-    float vertices[4][3];
+    glm::vec3 vertices[4];
     float normals[4][3][3];
     float texcoords[4][3][2];
     bool useNormals[4];

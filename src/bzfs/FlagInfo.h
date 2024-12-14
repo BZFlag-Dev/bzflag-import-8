@@ -34,8 +34,8 @@ public:
     void setRequiredFlag(FlagType *desc);
     void addFlag();
     void *pack(void *buf, bool hide = false);
-    void dropFlag(float pos[3], float landingPos[3], bool vanish);
-    void resetFlag(float position[3], bool teamIsEmpty);
+    void dropFlag(const glm::vec3 &pos, glm::vec3 &landingPos, bool vanish);
+    void resetFlag(const glm::vec3 &position, bool teamIsEmpty);
     void grab(int playerIndex);
     TeamColor teamIndex() const;
     int  getIndex() const;

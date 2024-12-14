@@ -12,8 +12,14 @@
 
 // interface header
 #include "ShotManager.h"
+
+// System headers
+#include <glm/trigonometric.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/rotate_vector.hpp>
+
+// Common headers
 #include "TimeKeeper.h"
-#include "vectors.h"
 
 
 namespace Shots
@@ -299,12 +305,9 @@ bool FlightLogic::Update ( Shot& shot)
     return shot.GetLastUpdateTime() - shot.GetStartTime() >= shot.GetLifeTime();
 }
 
-fvec3 FlightLogic::ProjectShotLocation( Shot& shot, double deltaT )
+glm::vec3 FlightLogic::ProjectShotLocation(Shot& shot, double deltaT)
 {
-    fvec3 vec;
-    vec.x = shot.LastUpdatePosition.x + (shot.Info.shot.vel[0] * (float)deltaT);
-    vec.y = shot.LastUpdatePosition.y + (shot.Info.shot.vel[1] * (float)deltaT);
-    vec.z = shot.LastUpdatePosition.z + (shot.Info.shot.vel[2] * (float)deltaT);
+    const auto vec = shot.LastUpdatePosition + shot.Info.shot.vel * float(deltaT);
 
     return vec;
 }
@@ -339,21 +342,22 @@ bool ShockwaveLogic::Update ( Shot& shot )
     return FlightLogic::Update(shot);
 }
 
-bool ShockwaveLogic::CollideBox ( Shot& shot, fvec3& center, fvec3& size, float rotation )
+bool ShockwaveLogic::CollideBox (
+    Shot& shot, glm::vec3& center, glm::vec3& size, float rotation)
 {
     // check the top locations
-    fvec3 xyPlus = size;
-    fvec3 xyNeg(-size.x,-size.y,size.z);
-    fvec3 xPlusYNeg(size.x,-size.y,size.z);
-    fvec3 xNegYPlus(-size.x,size.y,size.z);
+    glm::vec3 xyPlus = size;
+    glm::vec3 xyNeg(-size.x,-size.y,size.z);
+    glm::vec3 xPlusYNeg(size.x,-size.y,size.z);
+    glm::vec3 xNegYPlus(-size.x,size.y,size.z);
 
-    float rotRads = fvec3::toRadians(rotation);
+    float rotRads = glm::radians(rotation);
 
     // rotate them all into orientation
-    xyPlus.rotateZ(rotRads);
-    xyNeg.rotateZ(rotRads);
-    xPlusYNeg.rotateZ(rotRads);
-    xNegYPlus.rotateZ(rotRads);
+    xyPlus    = glm::rotateZ(xyPlus,    rotRads);
+    xyNeg     = glm::rotateZ(xyNeg,     rotRads);
+    xPlusYNeg = glm::rotateZ(xPlusYNeg, rotRads);
+    xNegYPlus = glm::rotateZ(xNegYPlus, rotRads);
 
     // attach them to the center
     xyPlus += center;
@@ -379,13 +383,15 @@ bool ShockwaveLogic::CollideBox ( Shot& shot, fvec3& center, fvec3& size, float 
     return false;
 }
 
-bool ShockwaveLogic::CollideSphere ( Shot& shot, fvec3& center, float radius )
+bool ShockwaveLogic::CollideSphere (
+    Shot& shot, glm::vec3 &center, float radius)
 {
-    fvec3 vecToPoint = center - shot.StartPosition;
+    glm::vec3 vecToPoint = center - shot.StartPosition;
     return vecToPoint.length() <= shot.LastUpdatePosition.x - radius;
 }
 
-bool ShockwaveLogic::CollideCylinder ( Shot& shot, fvec3&center, float height, float radius )
+bool ShockwaveLogic::CollideCylinder (
+    Shot& shot, glm::vec3 &center, float height, float radius)
 {
     if (center.z > shot.StartPosition.z + shot.LastUpdatePosition.x)
         return false; // too high
@@ -393,15 +399,15 @@ bool ShockwaveLogic::CollideCylinder ( Shot& shot, fvec3&center, float height, f
     if (center.z + height < shot.StartPosition.z - shot.LastUpdatePosition.x)
         return false; // too low
 
-    fvec3 vecToPoint = center - shot.StartPosition;
+    glm::vec3 vecToPoint = center - shot.StartPosition;
     vecToPoint.z = 0;
 
     return vecToPoint.length() <= shot.LastUpdatePosition.x - radius;
 }
 
-bool ShockwaveLogic::PointInSphere ( fvec3& point, Shot& shot )
+bool ShockwaveLogic::PointInSphere (glm::vec3 &point, Shot& shot)
 {
-    fvec3 vecToPoint = point - shot.StartPosition;
+    glm::vec3 vecToPoint = point - shot.StartPosition;
     return vecToPoint.length() <= shot.LastUpdatePosition.x;
 }
 }

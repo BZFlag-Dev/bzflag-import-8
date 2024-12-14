@@ -33,7 +33,7 @@ public:
 
     void update(float inputDT = -1.0f);
     Ray getLastMotion() const;
-    const float (*getLastMotionBBox() const)[3];
+    const glm::vec3 *getLastMotionBBox() const;
 
     virtual void explodeTank() = 0;
     virtual bool checkHit(const Player* source,
@@ -45,9 +45,9 @@ protected:
 
 protected:
     TimeKeeper lastTime;
-    float lastPosition[3];
+    glm::vec3 lastPosition;
     // bbox of last motion
-    float bbox[2][3];
+    glm::vec3 bbox[2];
 
 private:
     int salt;

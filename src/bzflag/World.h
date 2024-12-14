@@ -79,39 +79,40 @@ public:
     RemotePlayer*   getCurrentRabbit() const;
     WorldPlayer*    getWorldWeapons() const;
     Flag&       getFlag(int index) const;
-    const float*    getBase(int, int=0) const;
+    bool isBase(int, int=0) const;
+    bool getBase(int _team, int base, glm::vec3 &pos,
+                 float &rotation, float &w, float &b, float &h) const;
     const Teleporter*   getTeleporter(int source, int& face) const;
     int         getTeleporter(const Teleporter*, int face) const;
     int         getTeleportTarget(int source) const;
     int         getTeleportTarget(int source, unsigned int seed) const;
 
-    TeamColor       whoseBase(const float* pos) const;
-    const Obstacle* inBuilding(const float* pos, float radius,
+    TeamColor       whoseBase(const glm::vec3 &pos) const;
+    const Obstacle* inBuilding(const glm::vec3 &pos, float radius,
                                float tankHeight) const;
-    const Obstacle* inBuilding(const float* pos, float angle,
-                               float tankWidth, float tankBreadth,
-                               float tankHeight) const;
-    const Obstacle* hitBuilding(const float* pos, float angle,
+    bool inBuilding(const glm::vec3 &pos, float angle,
+                    float tankWidth, float tankBreadth) const;
+    const Obstacle* hitBuilding(const glm::vec3 &pos, float angle,
                                 float tankWidth, float tankBreadth,
                                 float tankHeight) const;
-    const Obstacle* hitBuilding(const float* oldPos, float oldAngle,
-                                const float* pos, float angle,
+    const Obstacle* hitBuilding(const glm::vec3 &oldPos, float oldAngle,
+                                const glm::vec3 &pos, float angle,
                                 float tankWidth, float tankBreadth,
                                 float tankHeight, bool directional) const;
-    bool        crossingTeleporter(const float* oldPos, float angle,
+    bool        crossingTeleporter(const glm::vec3 &oldPos, float angle,
                                    float tankWidth, float tankBreadth,
-                                   float tankHeight, float* plane) const;
-    const Teleporter*   crossesTeleporter(const float* oldPos,
-                                          const float* newPos, int& face) const;
+                                   float tankHeight, glm::vec4 &plane) const;
+    const Teleporter*   crossesTeleporter(const glm::vec3 &oldPos,
+                                          const glm::vec3 &newPos, int& face) const;
     const Teleporter*   crossesTeleporter(const Ray& r, int& face) const;
-    float       getProximity(const float* pos, float radius) const;
+    float       getProximity(const glm::vec3 &pos, float radius) const;
 
     void        initFlag(int index);
     void        updateFlag(int index, float dt);
     void        updateAnimations(float dt);
     void        addFlags(SceneDatabase*, bool seerView);
     void        updateWind(float dt);
-    void        getWind(float wind[3], const float pos[3]) const;
+    void        getWind(float wind[3], const glm::vec3 &pos) const;
 
     void        makeMeshDrawMgrs();
 
@@ -165,7 +166,11 @@ private:
 
     typedef struct
     {
-        float p[7];
+        glm::vec3 pos;
+        float rotation;
+        float w;
+        float b;
+        float h;
     } BaseParms;
     typedef std::vector<BaseParms> TeamBases;
     TeamBases       bases[NumTeams];
@@ -367,13 +372,31 @@ inline Flag&        World::getFlag(int index) const
     return flags[index];
 }
 
-inline const float* World::getBase(int _team, int base) const
+inline bool World::isBase(int _team, int base) const
 {
-    const TeamBases &b = bases[_team];
-    if ((base < 0) || (base >= (int)b.size()))
-        return NULL;
+    if (base < 0)
+        return false;
 
-    return b[base].p;
+    const TeamBases &b = bases[_team];
+    return base < (int)b.size();
+}
+
+inline bool World::getBase(
+    int _team, int base,
+    glm::vec3 &pos,
+    float &rotation,
+    float &w, float &b, float &h) const
+{
+    const TeamBases &base_ = bases[_team];
+    if ((base < 0) || (base >= (int)base_.size()))
+        return false;
+
+    pos      = base_[base].pos;
+    rotation = base_[base].rotation;
+    w        = base_[base].w;
+    b        = base_[base].b;
+    h        = base_[base].h;
+    return true;
 }
 
 inline World*       World::getWorld()
@@ -401,7 +424,7 @@ inline void     World::setLocale(const std::string& _locale)
     locale = _locale;
 }
 
-inline void     World::getWind(float w[3], const float[3]) const
+inline void     World::getWind(float w[3], const glm::vec3 &) const
 {
     // homogeneous, for now
     w[0] = wind[0];

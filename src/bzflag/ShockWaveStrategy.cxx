@@ -13,6 +13,10 @@
 /* interface header */
 #include "ShockWaveStrategy.h"
 
+// System headers
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
+
 /* common implementation headers */
 #include "SceneRenderer.h"
 
@@ -32,7 +36,7 @@ ShockWaveStrategy::ShockWaveStrategy(ShotPath *_path) :
     f.lifetime *= BZDB.eval(StateDatabase::BZDB_SHOCKADLIFE);
 
     // make scene node
-    const float* pos = _path->getPosition();
+    const auto &pos = _path->getPosition();
     if (RENDERER.useQuality() >= 2)
     {
         shockNode = new SphereLodSceneNode(pos, radius);
@@ -54,7 +58,7 @@ ShockWaveStrategy::ShockWaveStrategy(ShotPath *_path) :
         team = p ? p->getTeam() : RogueTeam;
     }
 
-    const float* c = Team::getShotColor(team);
+    const auto &c = Team::getShotColor(team);
     if (RENDERER.useQuality() >= 2)
         shockNode->setColor(c[0], c[1], c[2], 0.5f);
     else
@@ -86,7 +90,7 @@ void ShockWaveStrategy::update(float dt)
     else
         currentTeam = team;
 
-    const float* c = Team::getShotColor(currentTeam);
+    const auto &c = Team::getShotColor(currentTeam);
 
     // fade old-style shockwaves
     if (RENDERER.useQuality() >= 2)
@@ -104,21 +108,18 @@ void ShockWaveStrategy::update(float dt)
 }
 
 
-float ShockWaveStrategy::checkHit(const BaseLocalPlayer* tank, float position[3]) const
+float ShockWaveStrategy::checkHit(
+    const BaseLocalPlayer* tank, glm::vec3 &position) const
 {
     // return if player is inside radius of destruction -- note that a
     // shock wave can kill anything inside the radius, be it behind or
     // in a building or even zoned.
-    const float* playerPos = tank->getPosition();
-    const float* shotPos = getPath().getPosition();
-    const float dx = playerPos[0] - shotPos[0];
-    const float dy = playerPos[1] - shotPos[1];
-    const float dz = playerPos[2] - shotPos[2];
-    if (dx * dx + dy * dy + dz * dz <= radius2)
+    const auto &playerPos = tank->getPosition();
+    const auto &shotPos = getPath().getPosition();
+    const float distance2 = glm::distance2(playerPos, shotPos);
+    if (distance2 <= radius2)
     {
-        position[0] = playerPos[0];
-        position[1] = playerPos[1];
-        position[2] = playerPos[2];
+        position = playerPos;
         return 0.5f;
     }
     else
@@ -139,7 +140,7 @@ void ShockWaveStrategy::radarRender() const
 {
     // draw circle of current radius
     static const int sides = 20;
-    const float* shotPos = getPath().getPosition();
+    const auto &shotPos = getPath().getPosition();
     glBegin(GL_LINE_LOOP);
     for (int i = 0; i < sides; i++)
     {

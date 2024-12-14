@@ -18,6 +18,7 @@
 
 // System headers
 #include <string>
+#include <glm/vec3.hpp>
 
 // Common headers
 #include "TextUtils.h"
@@ -105,7 +106,7 @@ static const std::string ColorStrings[17] =
     ANSI_STR_NO_UNDERLINE // 16 No Underlining
 };
 
-inline std::string rgbToAnsi(const float* color)
+inline std::string rgbToAnsi(const glm::vec3 &color)
 {
     return TextUtils::format("%s;%u;%u;%um",
                              ANSI_STR_FG_RGB,

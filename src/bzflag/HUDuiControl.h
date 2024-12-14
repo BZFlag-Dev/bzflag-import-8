@@ -23,6 +23,7 @@
 
 /* system headers */
 #include <string>
+#include <glm/vec3.hpp>
 
 // common interface headers
 #include "BzfEvent.h"
@@ -85,9 +86,8 @@ protected:
 
     void        doCallback();
 
-    static const GLfloat    dimTextColor[3];
-    static const GLfloat    moreDimTextColor[3];
-    static const GLfloat    textColor[3];
+    static const glm::vec3  dimTextColor;
+    static const glm::vec3  textColor;
 
 private:
     bool        showingFocus;

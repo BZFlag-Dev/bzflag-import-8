@@ -16,6 +16,8 @@
 /* system implementation headers */
 #include <math.h>
 #include <vector>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
 
 
 RegionPoint::RegionPoint(float x, float y)
@@ -24,10 +26,9 @@ RegionPoint::RegionPoint(float x, float y)
     p[1] = y;
 }
 
-RegionPoint::RegionPoint(const float v[2])
+RegionPoint::RegionPoint(const glm::vec2 &v)
 {
-    p[0] = v[0];
-    p[1] = v[1];
+    p = v;
 }
 
 RegionPoint::~RegionPoint()
@@ -35,7 +36,7 @@ RegionPoint::~RegionPoint()
     // do nothing
 }
 
-const float* RegionPoint::get() const
+const glm::vec2 &RegionPoint::get() const
 {
     return p;
 }
@@ -52,7 +53,7 @@ BzfRegion::BzfRegion() : mailbox(0), target(0), distance(0.0), A(0.0, 0.0)
 {
 }
 
-BzfRegion::BzfRegion(int sides, const float p[][2]) :
+BzfRegion::BzfRegion(int sides, const glm::vec2 p[]) :
     mailbox(0), target(0), distance(), A(0.0, 0.0)
 {
     for (int i = 0; i < sides; i++)
@@ -71,14 +72,14 @@ BzfRegion::~BzfRegion()
             neighbors[i]->setNeighbor(this, 0);
 }
 
-bool BzfRegion::isInside(const float p[2]) const
+bool BzfRegion::isInside(const glm::vec2 &p) const
 {
     // see if testPoint is inside my edges
     const int count = corners.size();
     if (count < 3) return false;
     bool inside = false;
-    const float* p1 = corners[count - 1].get();
-    const float* p2 = NULL;
+    auto p1 = corners[count - 1].get();
+    glm::vec2 p2;
     for (int i = 0; i < count; p1 = p2, i++)
     {
         p2 = corners[i].get();
@@ -98,52 +99,45 @@ bool BzfRegion::isInside(const float p[2]) const
     return inside;
 }
 
-float BzfRegion::getDistance(const float p[2], float nearest[2]) const
+float BzfRegion::getDistance(const glm::vec2 &p, glm::vec2 &nearest) const
 {
     const int count = corners.size();
     float currentDistance = maxDistance;
     float pointDistance;
 
     //compute distance from any edge
-    const float* p1 = corners[count - 1].get();
-    const float* p2 = NULL;
-    float d[2];
-    float m[2];
+    auto p1 = corners[count - 1].get();
+    glm::vec2 d;
+    glm::vec2 m;
     float t;
     float edgeSquareDist;
-    float x, y;
+    glm::vec2 temp;
     for (int c = 0; c < count; c++)
     {
-        p2   = corners[c].get();
-        d[0] = p2[0] - p1[0];
-        d[1] = p2[1] - p1[1];
-        m[0] = p[0]  - p1[0];
-        m[1] = p[1]  - p1[1];
-        edgeSquareDist = d[0] * d[0] + d[1] * d[1];
-        t = (m[0] * d[0] + m[1] * d[1]) / edgeSquareDist;
+        const auto p2 = corners[c].get();
+        d = p2 - p1;
+        m = p  - p1;
+        edgeSquareDist = glm::length2(d);
+        t = glm::dot(m, d) / edgeSquareDist;
         if (t <= 0)
         {
-            pointDistance = hypotf(m[0], m[1]);
-            x = p1[0];
-            y = p1[1];
+            pointDistance = glm::length(m);
+            temp = p1;
         }
         else if (t >= 1)
         {
-            pointDistance = hypotf(m[0] - d[0], m[1] - d[1]);
-            x = p2[0];
-            y = p2[1];
+            pointDistance = glm::distance(m, d);
+            temp = p2;
         }
         else
         {
-            pointDistance = hypotf(m[0] - t * d[0], m[1] - t * d[1]);
-            x = p1[0] + t * d[0];
-            y = p1[1] + t * d[1];
+            pointDistance = glm::distance(m, t * d);
+            temp = p1 + t * d;
         }
         if (pointDistance < currentDistance)
         {
             currentDistance = pointDistance;
-            nearest[0] = x;
-            nearest[1] = y;
+            nearest = temp;
         }
         p1 = p2;
     }
@@ -160,7 +154,7 @@ int BzfRegion::classify(const float e1[2], const float e2[2]) const
     const int count = corners.size();
     for (int i = 0; i < count; i++)
     {
-        const float* p = corners[i].get();
+        const auto &p = corners[i].get();
         const float e = -dy * p[0] + dx * p[1] + d;
         if (e < -0.00001) toRight++;
         else if (e <= 0.00001) onEdge++;
@@ -198,7 +192,7 @@ BzfRegion* BzfRegion::orphanSplitRegion(const float e1[2], const float e2[2])
     const float dx = e2[0] - e1[0];
     const float dy = e2[1] - e1[1];
     const float d = dy * e1[0] - dx * e1[1];
-    const float* p1 = corners[0].get();
+    auto p1 = corners[0].get();
 
     // Vector Product between splitter and corner : to know if right or left
     float lastPVect = d - dy * p1[0] + dx * p1[1];
@@ -208,7 +202,7 @@ BzfRegion* BzfRegion::orphanSplitRegion(const float e1[2], const float e2[2])
     bool fistCornerRight = lastSign;
     for (i = 0; split < 2 && i < count; i++)
     {
-        const float* p2 = corners[(i + 1) % count].get();
+        const auto &p2 = corners[(i + 1) % count].get();
         const float pVect = d - dy * p2[0] + dx * p2[1];
         const bool newSign = (pVect >= 0);
 
@@ -248,13 +242,11 @@ BzfRegion* BzfRegion::orphanSplitRegion(const float e1[2], const float e2[2])
 
     // make new corners and region
     p1 = corners[edge[1]].get();
-    const float* p2 = corners[(edge[1]+1) % count].get();
-    RegionPoint n2(p1[0] + tsplit[1] * (p2[0] - p1[0]),
-                   p1[1] + tsplit[1] * (p2[1] - p1[1]));
+    auto p2 = corners[(edge[1]+1) % count].get();
+    RegionPoint n2(p1 + tsplit[1] * (p2 - p1));
     p1 = corners[edge[0]].get();
     p2 = corners[(edge[0]+1) % count].get();
-    RegionPoint n1(p1[0] + tsplit[0] * (p2[0] - p1[0]),
-                   p1[1] + tsplit[0] * (p2[1] - p1[1]));
+    RegionPoint n1(p1 + tsplit[0] * (p2 - p1));
     BzfRegion* newRegion = new BzfRegion;
 
     // add sides to new region and remove them from me.  the new region
@@ -371,8 +363,8 @@ void BzfRegion::tidy()
     int count = corners.size();
     for (int i = 0; i < count; i++)
     {
-        const float* p1 = corners[i].get();
-        const float* p2 = corners[(i+1)%count].get();
+        const auto &p1 = corners[i].get();
+        const auto &p2 = corners[(i+1)%count].get();
         if (fabs(p1[0] - p2[0]) < ZERO_TOLERANCE && fabs(p1[1] - p2[1]) < ZERO_TOLERANCE)
         {
             std::vector<RegionPoint>::iterator it1 = corners.begin();
@@ -394,7 +386,7 @@ bool BzfRegion::test(int mailboxIndex) const
 
 void BzfRegion::setPathStuff(float _distance,
                              BzfRegion* _target,
-                             const float _a[2], int mailboxIndex)
+                             const glm::vec2 &_a, int mailboxIndex)
 {
     distance = _distance;
     target = _target;
@@ -412,7 +404,7 @@ BzfRegion* BzfRegion::getTarget() const
     return target;
 }
 
-const float* BzfRegion::getA() const
+const glm::vec2 &BzfRegion::getA() const
 {
     return A.get();
 }

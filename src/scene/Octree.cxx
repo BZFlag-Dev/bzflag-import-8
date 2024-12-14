@@ -10,22 +10,21 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "common.h"
+// implementation header
+#include "Octree.h"
 
 // system headers
 #include <math.h>
 
-// implementation header
-#include "Octree.h"
+// common headers
+#include "Extents.h"
+#include "Intersect.h"
+#include "StateDatabase.h"
+#include "OpenGLAPI.h"
 
 // local headers
 #include "Occluder.h"
 
-// common headers
-#include "Extents.h"
-#include "Intersect.h"
-
-#include "StateDatabase.h"
 static bool F2BSORT = true;//FIXME
 
 
@@ -48,7 +47,7 @@ static int CullListCount = 0;
 static SceneNode** CullList = NULL;
 static const Frustum* CullFrustum = NULL;
 static int ShadowCount = 0;
-static const float(*ShadowPlanes)[4];
+static const glm::vec4 *ShadowPlanes;
 
 static OccluderManager OcclMgrs[2];
 static OccluderManager* OcclMgr = &OcclMgrs[0];
@@ -233,7 +232,7 @@ int Octree::getRadarList(SceneNode** list, int listSize,
 
 
 int Octree::getShadowList(SceneNode** list, int listSize,
-                          int planeCount, const float(*planes)[4]) const
+                          int planeCount, const glm::vec4 *planes) const
 {
     if (!root)
         return 0;
@@ -414,14 +413,12 @@ void OctreeNode::makeChildren()
 {
     int side[3];    // the axis sides  (0 or 1)
     Extents exts;
-    float center[3];
 
     // setup the center point
-    for (int i = 0; i < 3; i++)
-        center[i] = 0.5f * (extents.maxs[i] + extents.mins[i]);
+    auto center = 0.5f * (extents.maxs + extents.mins);
 
     childCount = 0;
-    const float* extentSet[3] = { extents.mins, center, extents.maxs };
+    const glm::vec3 extentSet[3] = { extents.mins, center, extents.maxs };
 
     for (side[0] = 0; side[0] < 2; side[0]++)
     {
@@ -531,7 +528,7 @@ void OctreeNode::getFrustumList() const
     {
         if (F2BSORT)
         {
-            const float* dir = CullFrustum->getDirection();
+            const auto &dir = CullFrustum->getDirection();
             unsigned char dirbits = 0;
             if (dir[0] < 0.0f) dirbits |= (1 << 0);
             if (dir[1] < 0.0f) dirbits |= (1 << 1);
@@ -825,14 +822,14 @@ void OctreeNode::tallyStats()
 
 void OctreeNode::draw()
 {
-    GLfloat red[4] = { 1.0f, 0.0f, 0.0f, 0.75f };    // red
-    GLfloat blue[4] = { 0.0f, 0.0f, 1.0f, 0.75f };   // blue
-    GLfloat green[4] = { 0.0f, 1.0f, 0.0f, 0.75f };  // green
-    GLfloat yellow[4] = { 1.0f, 1.0f, 0.0f, 0.75f }; // yellow
-    GLfloat purple[4] = { 1.0f, 0.0f, 1.0f, 0.75f }; // purple
-    GLfloat *color = purple;
+    glm::vec4 red = { 1.0f, 0.0f, 0.0f, 0.75f };    // red
+    glm::vec4 blue = { 0.0f, 0.0f, 1.0f, 0.75f };   // blue
+    glm::vec4 green = { 0.0f, 1.0f, 0.0f, 0.75f };  // green
+    glm::vec4 yellow = { 1.0f, 1.0f, 0.0f, 0.75f }; // yellow
+    glm::vec4 purple = { 1.0f, 0.0f, 1.0f, 0.75f }; // purple
+    glm::vec4 *color = &purple;
     int x, y, z, c;
-    float points[5][3];
+    glm::vec3 points[5];
     IntersectLevel frustumCull = Contained;
     bool occludeCull = false;
 
@@ -846,24 +843,24 @@ void OctreeNode::draw()
     switch (frustumCull)
     {
     case Outside:
-        color = purple;
+        color = &purple;
         break;
     case Partial:
         if (!occludeCull)
-            color = blue;
+            color = &blue;
         else
-            color = green;
+            color = &green;
         break;
     case Contained:
         if (!occludeCull)
-            color = red;
+            color = &red;
         else
-            color = yellow;
+            color = &yellow;
         break;
     }
-    glColor4fv(color);
+    glColor(*color);
 
-    const float* exts[2] = { extents.mins, extents.maxs };
+    const glm::vec3 exts[2] = { extents.mins, extents.maxs };
 
     // draw Z-normal squares
     for (z = 0; z < 2; z++)
@@ -876,11 +873,11 @@ void OctreeNode::draw()
             points[c][1] = exts[y][1];
             points[c][2] = exts[z][2];
         }
-        memcpy(points[4], points[0], sizeof(points[4]));
+        points[4] = points[0];
         glBegin(GL_LINE_STRIP);
 
         for (int i = 0; i < 5; i++)
-            glVertex3fv(points[i]);
+            glVertex(points[i]);
 
         glEnd();
     }
@@ -897,8 +894,8 @@ void OctreeNode::draw()
             points[z][2] = exts[z][2];
         }
         glBegin(GL_LINE_STRIP);
-        glVertex3fv(points[0]);
-        glVertex3fv(points[1]);
+        glVertex(points[0]);
+        glVertex(points[1]);
         glEnd();
     }
 

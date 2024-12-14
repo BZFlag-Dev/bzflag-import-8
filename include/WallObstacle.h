@@ -17,43 +17,46 @@
 #ifndef BZF_WALL_OBSTACLE_H
 #define BZF_WALL_OBSTACLE_H
 
-#include "common.h"
-#include <string>
+// Inherits from
 #include "Obstacle.h"
+
+// System interfaces
+#include <string>
+#include <glm/vec4.hpp>
 
 class WallObstacle : public Obstacle
 {
 public:
     WallObstacle();
-    WallObstacle(const float* pos, float rotation,
+    WallObstacle(const glm::vec3 &pos, float rotation,
                  float breadth, float height, bool ricochet);
     ~WallObstacle();
 
-    const char*     getType() const;
+    const char*     getType() const override;
     static const char*  getClassName(); // const
 
-    float       intersect(const Ray&) const;
-    void        getNormal(const float* p, float* n) const;
+    float       intersect(const Ray&) const override;
+    void        getNormal(const glm::vec3 &p, glm::vec3 &n) const override;
 
-    bool        inCylinder(const float* p, float radius, float height) const;
-    bool        inBox(const float* p, float angle,
-                      float halfWidth, float halfBreadth, float height) const;
-    bool        inMovingBox(const float* oldP, float oldAngle,
-                            const float *newP, float newAngle,
-                            float halfWidth, float halfBreadth, float height) const;
+    bool        inCylinder(const glm::vec3 &p, float radius, float height) const override;
+    bool        inBox(const glm::vec3 &p, float angle,
+                      float halfWidth, float halfBreadth, float height) const override;
+    bool        inMovingBox(const glm::vec3 &oldP, float oldAngle,
+                            const glm::vec3 &newP, float newAngle,
+                            float halfWidth, float halfBreadth, float height) const override;
 
     bool        getHitNormal(
-        const float* pos1, float azimuth1,
-        const float* pos2, float azimuth2,
+        const glm::vec3 &pos1, float azimuth1,
+        const glm::vec3 &pos2, float azimuth2,
         float halfWidth, float halfBreadth,
         float height,
-        float* normal) const;
+        glm::vec3 &normal) const override;
 
-    int packSize() const;
-    void *pack(void*) const;
-    const void *unpack(const void*);
+    int packSize() const override;
+    void *pack(void*) const override;
+    const void *unpack(const void*) override;
 
-    void print(std::ostream& out, const std::string& indent) const;
+    void print(std::ostream& out, const std::string& indent) const override;
 
     std::string     userTextures[1];
 
@@ -61,7 +64,7 @@ private:
     void finalize();
 
 private:
-    float       plane[4];
+    glm::vec4 plane;
     static const char*  typeName;
 };
 

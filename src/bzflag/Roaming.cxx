@@ -332,7 +332,7 @@ void Roaming::updatePosition(RoamingCamera* dc, float dt)
 
     // are we tracking?
     bool tracking = false;
-    const float* trackPos;
+    glm::vec3 trackPos;
     if (view == roamViewTrack)
     {
         Player *target;

@@ -51,16 +51,16 @@ public:
 
     // virtual functions from SceneNode
 
-    void notifyStyleChange();
+    void notifyStyleChange() override;
 
-    bool cull(const ViewFrustum&) const;
-    bool inAxisBox(const Extents& exts) const;
+    bool cull(const ViewFrustum&) const override;
+    bool inAxisBox(const Extents& exts) const override;
 
-    void addShadowNodes(SceneRenderer&);
-    void addRenderNodes(SceneRenderer&);
-    void renderRadar();
+    void addShadowNodes(SceneRenderer&) override;
+    void addRenderNodes(SceneRenderer&) override;
+    void renderRadar() override;
 
-    void getRenderNodes(std::vector<RenderSet>& rnodes);
+    void getRenderNodes(std::vector<RenderSet>& rnodes) override;
 
     void makeXFormList();
     static void initContext(void* data);
@@ -85,8 +85,8 @@ private:
     {
         const BzMaterial* bzmat;
         OpenGLGState gstate;
-        GLfloat color[4];
-        const GLfloat* colorPtr;
+        glm::vec4 color;
+        const glm::vec4 *colorPtr;
         bool drawRadar;
         bool drawShadow;
         bool needsSorting;

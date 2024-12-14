@@ -17,7 +17,13 @@
 #ifndef BZF_INTERSECT_H
 #define BZF_INTERSECT_H
 
+// 1st
 #include "common.h"
+
+// System headers
+#include <glm/fwd.hpp>
+
+// Common headers
 #include "Ray.h"
 #include "Frustum.h"
 
@@ -31,14 +37,14 @@ enum IntersectLevel
 };
 
 // returns normal to 2d rect (size 2dx x 2dy) by point p
-void getNormalRect(const float* p, const float* boxPos,
+void getNormalRect(const glm::vec2 p, const glm::vec2 boxPos,
                    float boxAngle, float dx,
-                   float dy, float* n);
+                   float dy, glm::vec3 &n);
 
 // true iff 2d rect (size 2dx x 2dy) intersects circle (in z = const plane)
-bool testRectCircle(const float* boxPos, float boxAngle,
+bool testRectCircle(const glm::vec2 boxPos, float boxAngle,
                     float dx, float dy,
-                    const float* circPos, float circRadius);
+                    const glm::vec2 circPos, float circRadius);
 
 // ray r1 started at time t1 minus ray r2 started at time t2
 Ray rayMinusRay(const Ray& r1, float t1,
@@ -49,14 +55,14 @@ float rayAtDistanceFromOrigin(const Ray& r, float radius);
 
 // return t at which ray intersects box (size 2dx x 2dy x dz)
 // (-1 if never, 0 if starts inside).
-float timeRayHitsBlock(const Ray& r, const float* boxPos,
+float timeRayHitsBlock(const Ray& r, const glm::vec3 &boxPos,
                        float boxAngle, float dx,
                        float dy, float dz);
 
 // return t at which ray intersects pyramid (size 2dx x 2dy x dz)
 // (-1 if never, 0 if starts inside).
 float timeRayHitsPyramids(const Ray& r,
-                          const float* pyrPos,
+                          const glm::vec3 &pyrPos,
                           float pyrAngle,
                           float dx, float dy, float dz,
                           bool flipZ);
@@ -69,15 +75,15 @@ float timeRayHitsTetra(const Ray& r,
                        const float* mins, const float *maxs);
 
 // true if rectangles intersect (in z = const plane)
-bool testRectRect(const float* p1, float angle1,
+bool testRectRect(const glm::vec2 p1, float angle1,
                   float dx1, float dy1,
-                  const float* p2, float angle2,
+                  const glm::vec2 p2, float angle2,
                   float dx2, float dy2);
 
 // true if first rectangle contains second intersect (in z = const plane)
-bool testRectInRect(const float* bigPos, float angle1,
+bool testRectInRect(const glm::vec2 bigPos, float angle1,
                     float dx1, float dy1,
-                    const float* smallPos, float angle2,
+                    const glm::vec2 smallPos, float angle2,
                     float dx2, float dy2);
 
 // return t at which ray intersects 2d rect (size 2dx x 2dy) and side
@@ -88,12 +94,12 @@ float timeAndSideRayHitsOrigRect(
     const float* rayDir,
     float dx, float dy, int& side);
 float timeAndSideRayHitsRect(const Ray& r,
-                             const float* boxPos, float boxAngle,
+                             const glm::vec3 &boxPos, float boxAngle,
                              float dx, float dy, int& side);
 
 // return true if polygon touches the axis aligned box
-bool testPolygonInAxisBox(int pointCount, const float (*points)[3],
-                          const float* plane, const Extents& extents);
+bool testPolygonInAxisBox(int pointCount, const glm::vec3 *points,
+                          const glm::vec4 &plane, const Extents& extents);
 
 // return level of axis box intersection with Frumstum
 // possible values are Outside, Partial, and Contained.
@@ -105,7 +111,7 @@ IntersectLevel testAxisBoxInFrustum(const Extents& extents,
 // is contained within all of the planes.
 // the occluder plane normals point inwards
 IntersectLevel testAxisBoxOcclusion(const Extents& extents,
-                                    const float (*planes)[4],
+                                    const glm::vec4 *planes,
                                     int planeCount);
 
 // return true if the ray will intersect with the

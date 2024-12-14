@@ -18,6 +18,7 @@
 // system headers
 #include <math.h>
 #include <stdlib.h>
+#include <glm/gtc/type_ptr.hpp>
 
 // common headers
 #include "global.h"
@@ -44,7 +45,8 @@ MeshObstacle::MeshObstacle()
     checkTypes = NULL;
     checkPoints = NULL;
     vertexCount = normalCount = 0;
-    vertices = normals = NULL;
+    vertices = NULL;
+    normals = NULL;
     texcoordCount = 0;
     texcoords = NULL;
     noclusters = false;
@@ -58,18 +60,18 @@ MeshObstacle::MeshObstacle()
 }
 
 
-static void cfvec3ListToArray(const std::vector<cfvec3>& list,
-                              int& count, afvec3* &array)
+static void cfvec3ListToArray(const std::vector<glm::vec3>& list,
+                              int& count, glm::vec3 *&array)
 {
     count = list.size();
-    array = new afvec3[count];
+    array = new glm::vec3[count];
     for (int i = 0; i < count; i++)
-        memcpy (array[i], list[i].data, sizeof(afvec3));
+        array[i] = list[i];
     return;
 }
 
-static void arrayToCafvec3List(const afvec3* array, int count,
-                               std::vector<cfvec3>& list)
+static void arrayToCafvec3List(const glm::vec3 *array, int count,
+                               std::vector<glm::vec3>& list)
 {
     list.clear();
     for (int i = 0; i < count; i++)
@@ -80,10 +82,10 @@ static void arrayToCafvec3List(const afvec3* array, int count,
 
 MeshObstacle::MeshObstacle(const MeshTransform& transform,
                            const std::vector<char>& checkTypesL,
-                           const std::vector<cfvec3>& checkList,
-                           const std::vector<cfvec3>& verticeList,
-                           const std::vector<cfvec3>& normalList,
-                           const std::vector<cfvec2>& texcoordList,
+                           const std::vector<glm::vec3>& checkList,
+                           const std::vector<glm::vec3>& verticeList,
+                           const std::vector<glm::vec3>& normalList,
+                           const std::vector<glm::vec2>& texcoordList,
                            int _faceCount, bool _noclusters,
                            bool bounce, bool drive, bool shoot, bool rico)
 {
@@ -111,9 +113,9 @@ MeshObstacle::MeshObstacle(const MeshTransform& transform,
         xformtool.modifyNormal(normals[j]);
 
     texcoordCount = texcoordList.size();
-    texcoords = new afvec2[texcoordCount];
+    texcoords = new glm::vec2[texcoordCount];
     for (i = 0; i < (unsigned int)texcoordCount; i++)
-        memcpy (texcoords[i], texcoordList[i].data, sizeof(afvec2));
+        texcoords[i] = texcoordList[i];
 
     faceSize = _faceCount;
     faceCount = 0;
@@ -169,7 +171,14 @@ bool MeshObstacle::addFace(const std::vector<int>& _vertices,
     }
 
     // use the indices to makes lists of pointers
-    float **v, **n, **t;
+    auto v = new glm::vec3*[count];
+    glm::vec3 **n = nullptr;
+    if (!_normals.empty())
+        n = new glm::vec3*[count];
+    glm::vec2 **t = nullptr;
+    if (!_texcoords.empty())
+        t = new glm::vec2*[count];
+
     makeFacePointers(_vertices, _normals, _texcoords, v, n, t);
 
     // override the flags if they are set for the whole mesh
@@ -183,21 +192,17 @@ bool MeshObstacle::addFace(const std::vector<int>& _vertices,
     triangulate = triangulate && (count > 3);
 
     // make the face
-    MeshFace* face;
+    int tmpDebugLevel;
     if (triangulate)
     {
         // avoid warnings that may not apply
-        int tmpDebugLevel = debugLevel;
+        tmpDebugLevel = debugLevel;
         debugLevel = 0;
-        face = new MeshFace(this, count, v, n, t, _material, phydrv,
-                            _noclusters, bounce, drive, shoot, rico);
+    }
+    auto face = new MeshFace(this, count, v, n, t, _material, phydrv,
+                             _noclusters, bounce, drive, shoot, rico);
+    if (triangulate)
         debugLevel = tmpDebugLevel;
-    }
-    else
-    {
-        face = new MeshFace(this, count, v, n, t, _material, phydrv,
-                            _noclusters, bounce, drive, shoot, rico);
-    }
 
     // check its validity
     if (face->isValid())
@@ -210,6 +215,7 @@ bool MeshObstacle::addFace(const std::vector<int>& _vertices,
         // triangulate
         std::vector<TriIndices> triIndices;
         triangulateFace(count, v, triIndices);
+        v = nullptr;
         delete face; // delete the old face
         const unsigned int triSize = triIndices.size();
         if (triSize == 0)
@@ -236,9 +242,19 @@ bool MeshObstacle::addFace(const std::vector<int>& _vertices,
                     if (_texcoords.size() > 0)
                         triT.push_back(_texcoords[index]);
                 }
+                v = new glm::vec3*[3];
+                if (triN.empty())
+                    n = nullptr;
+                else
+                    n = new glm::vec3*[3];
+                if (triT.empty())
+                    t = nullptr;
+                else
+                    t = new glm::vec2*[3];
                 makeFacePointers(triV, triN, triT, v, n, t);
                 face = new MeshFace(this, 3, v, n, t, _material, phydrv,
                                     _noclusters, bounce, drive, shoot, rico);
+                v = nullptr;
                 if (face->isValid())
                 {
                     faces[faceCount] = face;
@@ -263,29 +279,20 @@ bool MeshObstacle::addFace(const std::vector<int>& _vertices,
 void MeshObstacle::makeFacePointers(const std::vector<int>& _vertices,
                                     const std::vector<int>& _normals,
                                     const std::vector<int>& _texcoords,
-                                    float**& v, float**& n, float**& t)
+                                    glm::vec3 *v[], glm::vec3 **n, glm::vec2 **t)
 {
     const int count = _vertices.size();
 
     // use the indices to makes lists of pointers
-    v = new float*[count];
-    n = NULL;
-    t = NULL;
-
-    if (_normals.size() > 0)
-        n = new float*[count];
-    if (_texcoords.size() > 0)
-        t = new float*[count];
-
     for (int i = 0; i < count; i++)
     {
         // invert the vertices if required
         int index = (inverted ? ((count - 1) - i) : i);
-        v[index] = (float*)vertices[_vertices[i]];
+        v[index] = &vertices[_vertices[i]];
         if (n != NULL)
-            n[index] = (float*)normals[_normals[i]];
+            n[index] = &normals[_normals[i]];
         if (t != NULL)
-            t[index] = (float*)texcoords[_texcoords[i]];
+            t[index] = &texcoords[_texcoords[i]];
     }
     return;
 }
@@ -310,10 +317,10 @@ Obstacle* MeshObstacle::copyWithTransform(const MeshTransform& xform) const
 {
     MeshObstacle* copy;
     std::vector<char> ctlist;
-    std::vector<cfvec3> clist;
-    std::vector<cfvec3> vlist;
-    std::vector<cfvec3> nlist;
-    std::vector<cfvec2> tlist;
+    std::vector<glm::vec3> clist;
+    std::vector<glm::vec3> vlist;
+    std::vector<glm::vec3> nlist;
+    std::vector<glm::vec2> tlist;
 
     // empty arrays for copies of pure visual meshes
     if ((drawInfo != NULL) &&
@@ -360,17 +367,17 @@ void MeshObstacle::copyFace(int f, MeshObstacle* mesh) const
     for (int i = 0; i < vcount; i++)
     {
         int index;
-        index = ((const afvec3*) face->getVertex(i)) - vertices;
+        index = &face->getVertex(i) - vertices;
         vlist.push_back(index);
 
         if (face->useNormals())
         {
-            index = ((const afvec3*) face->getNormal(i)) - normals;
+            index = &face->getNormal(i) - normals;
             nlist.push_back(index);
         }
         if (face->useTexcoords())
         {
-            index = ((const afvec2*) face->getTexcoord(i)) - texcoords;
+            index = &face->getTexcoord(i) - texcoords;
             tlist.push_back(index);
         }
     }
@@ -463,7 +470,7 @@ bool MeshObstacle::isValid() const
 }
 
 
-bool MeshObstacle::containsPoint(const float point[3]) const
+bool MeshObstacle::containsPoint(const glm::vec3 &point) const
 {
     // this should use the CollisionManager's rayTest function
 //  const ObsList* olist = COLLISIONMGR.rayTest (&ray, t);
@@ -471,21 +478,22 @@ bool MeshObstacle::containsPoint(const float point[3]) const
 }
 
 
-bool MeshObstacle::containsPointNoOctree(const float point[3]) const
+bool MeshObstacle::containsPointNoOctree(const glm::vec3 &point) const
 {
     if (checkCount <= 0)
         return false;
 
     int c, f;
-    float dir[3];
     bool hasOutsides = false;
 
+    const auto glmPoint = point;
     for (c = 0; c < checkCount; c++)
     {
+        const auto checkPoint = checkPoints[c];
         if (checkTypes[c] == CheckInside)
         {
-            vec3sub (dir, checkPoints[c], point);
-            Ray ray(point, dir);
+            auto dir = checkPoint - glmPoint;
+            Ray ray(glmPoint, dir);
             bool hitFace = false;
             for (f = 0; f < faceCount; f++)
             {
@@ -503,8 +511,8 @@ bool MeshObstacle::containsPointNoOctree(const float point[3]) const
         else if (checkTypes[c] == CheckOutside)
         {
             hasOutsides = true;
-            vec3sub (dir, point, checkPoints[c]);
-            Ray ray(checkPoints[c], dir);
+            auto dir = glmPoint - checkPoint;
+            Ray ray(checkPoint, dir);
             bool hitFace = false;
             for (f = 0; f < faceCount; f++)
             {
@@ -536,79 +544,62 @@ float MeshObstacle::intersect(const Ray& UNUSED(ray)) const
 }
 
 
-void MeshObstacle::get3DNormal(const float* UNUSED(p), float* UNUSED(n)) const
+void MeshObstacle::get3DNormal(const glm::vec3 &, glm::vec3 &) const
 {
     return; // this should never be called if intersect() is always < 0.0f
 }
 
 
-void MeshObstacle::getNormal(const float* p, float* n) const
+void MeshObstacle::getNormal(const glm::vec3 &p, glm::vec3 &n) const
 {
-    const afvec3 center = { pos[0], pos[1], pos[2] + (0.5f * size[2]) };
-    afvec3 out;
-    vec3sub (out, p, center);
+    const auto center = glm::vec3(pos[0], pos[1], pos[2] + (0.5f * size[2]));
+    auto out = p - center;
     if (out[2] < 0.0f)
         out[2] = 0.0f;
-    float len = vec3dot(out, out);
-    if (len > 0.0f)
-    {
-        len = 1 / sqrtf(len);
-        n[0] = out[0] * len;
-        n[1] = out[1] * len;
-        n[2] = out[2] * len;
-    }
+    if (out.x || out.y || out.z)
+        n = glm::normalize(out);
     else
-    {
-        n[0] = 0.0f;
-        n[1] = 0.0f;
-        n[2] = 1.0f;
-    }
+        n = glm::vec3(0.0f, 0.0f, 1.0f);
 
     return;
 }
 
 
-bool MeshObstacle::getHitNormal(const float* UNUSED(oldPos), float UNUSED(oldAngle),
-                                const float* p, float UNUSED(_angle),
+bool MeshObstacle::getHitNormal(const glm::vec3 &UNUSED(oldPos), float UNUSED(oldAngle),
+                                const glm::vec3 &p, float UNUSED(_angle),
                                 float, float, float UNUSED(height),
-                                float* n) const
+                                glm::vec3 &n) const
 {
-    if (n != NULL)
-        getNormal(p, n);
+    getNormal(p, n);
     return true;
 }
 
 
-bool MeshObstacle::inCylinder(const float* p,
+bool MeshObstacle::inCylinder(const glm::vec3 &p,
                               float UNUSED(radius), float height) const
 {
-    const float mid[3] = { p[0], p[1], p[2] + (0.5f * height) };
+    auto mid = p;
+    mid.z += 0.5f * height;
     return containsPoint(mid);
 }
 
 
-bool MeshObstacle::inBox(const float* p, float UNUSED(_angle),
+bool MeshObstacle::inBox(const glm::vec3 &p, float UNUSED(_angle),
                          float UNUSED(dx), float UNUSED(dy), float height) const
 {
-    const float mid[3] = { p[0], p[1], p[2] + (0.5f * height) };
+    auto mid = p;
+    mid.z += 0.5f * height;
     return containsPoint(mid);
 }
 
 
-bool MeshObstacle::inMovingBox(const float*, float,
-                               const float* p, float UNUSED(_angle),
+bool MeshObstacle::inMovingBox(const glm::vec3 &, float,
+                               const glm::vec3 &p, float UNUSED(_angle),
                                float UNUSED(dx), float UNUSED(dy), float height) const
 {
-    const float mid[3] = { p[0], p[1], p[2] + (0.5f * height) };
+    auto mid = p;
+    mid.z += 0.5f * height;
     return containsPoint(mid);
-}
-
-
-bool MeshObstacle::isCrossing(const float* UNUSED(p), float UNUSED(_angle),
-                              float UNUSED(dx), float UNUSED(dy), float UNUSED(height),
-                              float* UNUSED(plane)) const
-{
-    return false; // the MeshFaces should handle this case
 }
 
 
@@ -616,25 +607,25 @@ int MeshObstacle::packSize() const
 {
     int fullSize = 5 * sizeof(int32_t);
     fullSize += sizeof(char) * checkCount;
-    fullSize += sizeof(afvec3) * checkCount;
-    fullSize += sizeof(afvec3) * vertexCount;
-    fullSize += sizeof(afvec3) * normalCount;
-    fullSize += sizeof(afvec2) * texcoordCount;
+    fullSize += sizeof(float[3]) * checkCount;
+    fullSize += sizeof(float[3]) * vertexCount;
+    fullSize += sizeof(float[3]) * normalCount;
+    fullSize += sizeof(float[2]) * texcoordCount;
     if ((drawInfo != NULL) && !drawInfo->isCopy())
     {
         const int drawInfoPackSize = drawInfo->packSize();
         // align the packing
-        const int align = sizeof(afvec2);
+        const int align = sizeof(float[2]);
         fullSize += align * ((drawInfoPackSize + (align - 1)) / align);
         // drawInfo fake txcd count
-        fullSize += sizeof(afvec2);
+        fullSize += sizeof(float[2]);
 
         if (debugLevel >= 4)
         {
             logDebugMessage(0,"DrawInfo packSize = %i, align = %i, full = %i\n",
                             drawInfoPackSize,
                             align * ((drawInfoPackSize + (align - 1)) / align),
-                            align * ((drawInfoPackSize + (align - 1)) / align) + (int)sizeof(afvec2));
+                            align * ((drawInfoPackSize + (align - 1)) / align) + (int)sizeof(float[2]));
         }
     }
     for (int f = 0; f < faceCount; f++)
@@ -678,23 +669,23 @@ void *MeshObstacle::pack(void *buf) const
         void* drawInfoStart = buf;
         buf = drawInfo->pack(buf);
         // align the packing
-        const int align = sizeof(afvec2);
+        const int align = sizeof(float[2]);
         const int length = (char*)buf - (char*)drawInfoStart;
         const int missing = (align - (length % align)) % align;
         for (i = 0; i < missing; i++)
             buf = nboPackUByte(buf, 0);
         // bump up the texture coordinate count
         const int fullLength = ((char*)buf - (char*)drawInfoStart);
-        const int extraTxcds = fullLength / sizeof(afvec2);
+        const int extraTxcds = fullLength / sizeof(float[2]);
         const int fakeTxcdCount = texcoordCount + extraTxcds + 1;
         nboPackInt(txcdStart, fakeTxcdCount); // NOTE: 'buf' is not being set
         // add the drawInfo length at the end
-        buf = nboPackInt(buf, fullLength + sizeof(afvec2));
-        buf = nboPackInt(buf, 0); // for alignment to afvec2
+        buf = nboPackInt(buf, fullLength + sizeof(float[2]));
+        buf = nboPackInt(buf, 0); // for alignment to 2 floats
 
         logDebugMessage(4,"DrawInfo packing: length = %i, missing = %i\n", length, missing);
         logDebugMessage(4,"  texcoordCount = %i, fakeTxcdCount = %i, rewindLen = %i\n",
-                        texcoordCount, fakeTxcdCount, fullLength + (int)sizeof(afvec2));
+                        texcoordCount, fakeTxcdCount, fullLength + (int)sizeof(float[2]));
     }
 
     buf = nboPackInt(buf, faceCount);
@@ -723,7 +714,7 @@ const void *MeshObstacle::unpack(const void *buf)
     buf = nboUnpackInt(buf, inTmp);
     checkCount = int(inTmp);
     checkTypes = new char[checkCount];
-    checkPoints = new afvec3[checkCount];
+    checkPoints = new glm::vec3[checkCount];
     for (i = 0; i < checkCount; i++)
     {
         unsigned char tmp;
@@ -734,19 +725,19 @@ const void *MeshObstacle::unpack(const void *buf)
 
     buf = nboUnpackInt(buf, inTmp);
     vertexCount = int(inTmp);
-    vertices = new afvec3[vertexCount];
+    vertices = new glm::vec3[vertexCount];
     for (i = 0; i < vertexCount; i++)
         buf = nboUnpackVector(buf, vertices[i]);
 
     buf = nboUnpackInt(buf, inTmp);
     normalCount = int(inTmp);
-    normals = new afvec3[normalCount];
+    normals = new glm::vec3[normalCount];
     for (i = 0; i < normalCount; i++)
         buf = nboUnpackVector(buf, normals[i]);
 
     buf = nboUnpackInt(buf, inTmp);
     texcoordCount = int(inTmp);
-    texcoords = new afvec2[texcoordCount];
+    texcoords = new glm::vec2[texcoordCount];
     // note where the texture coordinates begin; skip past them
     const void* texCoordPtr = buf;
     buf = (const char*)buf + sizeof(float) * 2 * texcoordCount;
@@ -788,13 +779,13 @@ const void *MeshObstacle::unpack(const void *buf)
     {
         nboUseErrorChecking(false);
         {
-            const void* drawInfoSize = texcoordEnd - sizeof(afvec2);
+            const void* drawInfoSize = texcoordEnd - sizeof(float[2]);
             int32_t rewindLen;
             nboUnpackInt(drawInfoSize, rewindLen);
 
             const bool useDrawInfo = BZDB.isTrue("useDrawInfo");
 
-            if (rewindLen <= (int)(texcoordCount * sizeof(afvec2)))
+            if (rewindLen <= (int)(texcoordCount * sizeof(float[2])))
             {
                 // unpack the drawInfo
                 if (useDrawInfo)
@@ -807,11 +798,11 @@ const void *MeshObstacle::unpack(const void *buf)
 
                 // free the bogus texcoords
                 // FIXME - don't allocate storage we won't use
-                const int fakeTxcds = rewindLen / sizeof(afvec2);
+                const int fakeTxcds = rewindLen / sizeof(float[2]);
                 texcoordCount = texcoordCount - fakeTxcds;
-                afvec2* tmpTxcds = new afvec2[texcoordCount];
+                auto tmpTxcds = new glm::vec2[texcoordCount];
                 delete[] texcoords;
-                int ptrDiff = (char*)tmpTxcds - (char*)texcoords;
+                int ptrDiff = tmpTxcds - texcoords;
                 texcoords = tmpTxcds;
                 // unpack actual texcoords
                 for (i = 0; i < texcoordCount; i++)
@@ -836,13 +827,8 @@ const void *MeshObstacle::unpack(const void *buf)
                 {
                     MeshFace* face = faces[i];
                     if (face->useTexcoords())
-                    {
                         for (int v = 0; v < face->getVertexCount(); v++)
-                        {
-                            face->texcoords[v] =
-                                (float*)((char*)face->texcoords[v] + ptrDiff);
-                        }
-                    }
+                            face->texcoords[v] += ptrDiff;
                 }
 
                 logDebugMessage(4,"DrawInfo unpacking: fakeTxcds = %i, realTxcds = %i\n",
@@ -976,8 +962,7 @@ void MeshObstacle::printOBJ(std::ostream& out, const std::string& UNUSED(indent)
     out << "# normals = " << normalCount << std::endl;
     out << "# texcoords = " << texcoordCount << std::endl;
 
-    const float* tmp;
-    tmp = extents.mins;
+    auto tmp = extents.mins;
     out << "# mins = " << tmp[0] << " " << tmp[1] << " " << tmp[2] << std::endl;
     tmp = extents.maxs;
     out << "# maxs = " << tmp[0] << " " << tmp[1] << " " << tmp[2] << std::endl;
@@ -1024,12 +1009,12 @@ void MeshObstacle::printOBJ(std::ostream& out, const std::string& UNUSED(indent)
         out << "f";
         for (i = 0; i < vCount; i++)
         {
-            int vIndex = (const afvec3*)face->getVertex(i) - vertices;
+            int vIndex = &face->getVertex(i) - vertices;
             vIndex = vIndex - vertexCount;
             out << " " << vIndex;
             if (useTexcoords)
             {
-                int tIndex = (const afvec2*)face->getTexcoord(i) - texcoords;
+                int tIndex = &face->getTexcoord(i) - texcoords;
                 tIndex = tIndex - texcoordCount;
                 out << "/" << tIndex;
             }
@@ -1037,7 +1022,7 @@ void MeshObstacle::printOBJ(std::ostream& out, const std::string& UNUSED(indent)
             {
                 if (!useTexcoords)
                     out << "/";
-                int nIndex = (const afvec3*)face->getNormal(i) - normals;
+                int nIndex = &face->getNormal(i) - normals;
                 nIndex = nIndex - normalCount;
                 out << "/" << nIndex;
             }

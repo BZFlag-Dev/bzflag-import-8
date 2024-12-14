@@ -246,13 +246,13 @@ void BzMaterial::reset()
 {
     dynamicColor = -1;
     const float defAmbient[4] = { 0.2f, 0.2f, 0.2f, 1.0f };
-    const float defDiffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    const float defSpecular[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-    const float defEmission[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    const auto defDiffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    const auto defSpecular = glm::vec3(0.0f, 0.0f, 0.0f);
+    const auto defEmission = glm::vec3(0.0f, 0.0f, 0.0f);
     memcpy (ambient, defAmbient, sizeof(ambient));
-    memcpy (diffuse, defDiffuse, sizeof(diffuse));
-    memcpy (specular, defSpecular, sizeof(specular));
-    memcpy (emission, defEmission, sizeof(emission));
+    diffuse = defDiffuse;
+    specular = defSpecular;
+    emission = defEmission;
     shininess = 0.0f;
     alphaThreshold = 0.0f;
     occluder = false;
@@ -314,9 +314,9 @@ BzMaterial& BzMaterial::operator=(const BzMaterial& m)
 
     dynamicColor = m.dynamicColor;
     memcpy (ambient, m.ambient, sizeof(ambient));
-    memcpy (diffuse, m.diffuse, sizeof(diffuse));
-    memcpy (specular, m.specular, sizeof(specular));
-    memcpy (emission, m.emission, sizeof(emission));
+    diffuse = m.diffuse;
+    specular = m.specular;
+    emission = m.emission;
     shininess = m.shininess;
     alphaThreshold = m.alphaThreshold;
     occluder = m.occluder;
@@ -355,9 +355,9 @@ bool BzMaterial::operator==(const BzMaterial& m) const
 
     if ((dynamicColor != m.dynamicColor) ||
             (memcmp (ambient, m.ambient, sizeof(float[4])) != 0) ||
-            (memcmp (diffuse, m.diffuse, sizeof(float[4])) != 0) ||
-            (memcmp (specular, m.specular, sizeof(float[3])) != 0) ||
-            (memcmp (emission, m.emission, sizeof(float[3])) != 0) ||
+            (diffuse != m.diffuse) ||
+            (specular != m.specular) ||
+            (emission != m.emission) ||
             (shininess != m.shininess) || (alphaThreshold != m.alphaThreshold) ||
             (occluder != m.occluder) || (groupAlpha != m.groupAlpha) ||
             (noRadar != m.noRadar) || (noShadow != m.noShadow) ||
@@ -398,6 +398,23 @@ static void* pack4Float(void *buf, const float values[4])
     return buf;
 }
 
+static void* pack4Float(void *buf, const glm::vec4 &values)
+{
+    int i;
+    for (i = 0; i < 4; i++)
+        buf = nboPackFloat(buf, values[i]);
+    return buf;
+}
+
+static void* pack4Float(void *buf, const glm::vec3 &values)
+{
+    int i;
+    float temp = 1.0f;
+    for (i = 0; i < 3; i++)
+        buf = nboPackFloat(buf, values[i]);
+    buf = nboPackFloat(buf, temp);
+    return buf;
+}
 
 static const void* unpack4Float(const void *buf, float values[4])
 {
@@ -407,6 +424,23 @@ static const void* unpack4Float(const void *buf, float values[4])
     return buf;
 }
 
+static const void* unpack4Float(const void *buf, glm::vec4 &values)
+{
+    int i;
+    for (i = 0; i < 4; i++)
+        buf = nboUnpackFloat(buf, values[i]);
+    return buf;
+}
+
+static const void* unpack4Float(const void *buf, glm::vec3 &values)
+{
+    int i;
+    float temp = 1.0f;
+    for (i = 0; i < 3; i++)
+        buf = nboUnpackFloat(buf, values[i]);
+    buf = nboUnpackFloat(buf, temp);
+    return buf;
+}
 
 void* BzMaterial::pack(void* buf) const
 {
@@ -558,6 +592,28 @@ static void printColor(std::ostream& out, const char *name,
     return;
 }
 
+static void printColor(std::ostream& out, const char *name,
+                       const glm::vec4 &color, const glm::vec4 &reference)
+{
+    if (color != reference)
+    {
+        out << name << color[0] << " " << color[1] << " "
+            << color[2] << " " << color[3] << std::endl;
+    }
+    return;
+}
+
+static void printColor(std::ostream& out, const char *name,
+                       const glm::vec3 &color, const glm::vec3 &reference)
+{
+    if (color != reference)
+    {
+        out << name << color[0] << " " << color[1] << " "
+            << color[2] << " " << 1.0f << std::endl;
+    }
+    return;
+}
+
 
 void BzMaterial::print(std::ostream& out, const std::string& indent) const
 {
@@ -651,12 +707,12 @@ void BzMaterial::printMTL(std::ostream& out, const std::string& UNUSED(indent)) 
     const float* c;
     c = ambient; // not really used
     out << "#Ka " << c[0] << " " << c[1] << " " << c[2] << std::endl;
-    c = diffuse;
-    out << "Kd " << c[0] << " " << c[1] << " " << c[2] << std::endl;
-    c = emission;
-    out << "Ke " << c[0] << " " << c[1] << " " << c[2] << std::endl;
-    c = specular;
-    out << "Ks " << c[0] << " " << c[1] << " " << c[2] << std::endl;
+    auto c1 = diffuse;
+    out << "Kd " << c1[0] << " " << c1[1] << " " << c1[2] << std::endl;
+    auto c3 = emission;
+    out << "Ke " << c3[0] << " " << c3[1] << " " << c3[2] << std::endl;
+    auto c2 = specular;
+    out << "Ks " << c2[0] << " " << c2[1] << " " << c2[2] << std::endl;
     out << "Ns " << (1000.0f * (shininess / 128.0f)) << std::endl;
     if (textureCount > 0)
     {
@@ -734,23 +790,21 @@ void BzMaterial::setAmbient(const float color[4])
     return;
 }
 
-void BzMaterial::setDiffuse(const float color[4])
+void BzMaterial::setDiffuse(const glm::vec4 &color)
 {
-    memcpy (diffuse, color, sizeof(float[4]));
+    diffuse = color;
     return;
 }
 
-void BzMaterial::setSpecular(const float color[3])
+void BzMaterial::setSpecular(const glm::vec3 &color)
 {
-    memcpy (specular, color, sizeof(float[3]));
-    specular[3] = 1.0f;
+    specular = color;
     return;
 }
 
-void BzMaterial::setEmission(const float color[3])
+void BzMaterial::setEmission(const glm::vec3 &color)
 {
-    memcpy (emission, color, sizeof(float[3]));
-    emission[3] = 1.0f;
+    emission = color;
     return;
 }
 
@@ -949,17 +1003,17 @@ const float* BzMaterial::getAmbient() const
     return ambient;
 }
 
-const float* BzMaterial::getDiffuse() const
+const glm::vec4 &BzMaterial::getDiffuse() const
 {
     return diffuse;
 }
 
-const float* BzMaterial::getSpecular() const
+const glm::vec3 &BzMaterial::getSpecular() const
 {
     return specular;
 }
 
-const float* BzMaterial::getEmission() const
+const glm::vec3 &BzMaterial::getEmission() const
 {
     return emission;
 }

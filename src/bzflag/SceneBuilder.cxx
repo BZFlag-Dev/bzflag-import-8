@@ -50,32 +50,32 @@
 // SceneDatabaseBuilder
 //
 
-static const GLfloat    black[3] = { 0.0f, 0.0f, 0.0f };
+static const auto black = glm::vec3(0.0f);
 
-const GLfloat       SceneDatabaseBuilder::wallColors[4][4] =
+const glm::vec4 SceneDatabaseBuilder::wallColors[4] =
 {
     { 0.5f, 0.5f, 0.5f, 1.0f },
     { 0.4f, 0.4f, 0.4f, 1.0f },
     { 0.5f, 0.5f, 0.5f, 1.0f },
     { 0.6f, 0.6f, 0.6f, 1.0f }
 };
-const GLfloat       SceneDatabaseBuilder::wallModulateColors[4][4] =
+const glm::vec4 SceneDatabaseBuilder::wallModulateColors[4] =
 {
     { 0.5f, 0.5f, 0.5f, 1.0f },
     { 0.4f, 0.4f, 0.4f, 1.0f },
     { 0.5f, 0.5f, 0.5f, 1.0f },
     { 0.6f, 0.6f, 0.6f, 1.0f }
 };
-const GLfloat       SceneDatabaseBuilder::wallLightedColors[1][4] =
+const glm::vec4 SceneDatabaseBuilder::wallLightedColors[1] =
 {
     { 0.5f, 0.5f, 0.5f, 1.0f }
 };
-const GLfloat       SceneDatabaseBuilder::wallLightedModulateColors[1][4] =
+const glm::vec4 SceneDatabaseBuilder::wallLightedModulateColors[1] =
 {
     { 0.5f, 0.5f, 0.5f, 1.0f }
 };
 
-const GLfloat       SceneDatabaseBuilder::boxColors[6][4] =
+const glm::vec4 SceneDatabaseBuilder::boxColors[6] =
 {
     { 0.75f, 0.25f, 0.25f, 1.0f },
     { 0.63f, 0.25f, 0.25f, 1.0f },
@@ -84,7 +84,7 @@ const GLfloat       SceneDatabaseBuilder::boxColors[6][4] =
     { 0.875f, 0.5f, 0.5f, 1.0f },
     { 0.275f, 0.2f, 0.2f, 1.0f }
 };
-const GLfloat       SceneDatabaseBuilder::boxModulateColors[6][4] =
+const glm::vec4 SceneDatabaseBuilder::boxModulateColors[6] =
 {
     { 0.75f, 0.75f, 0.75f, 1.0f },
     { 0.63f, 0.63f, 0.63f, 1.0f },
@@ -93,7 +93,7 @@ const GLfloat       SceneDatabaseBuilder::boxModulateColors[6][4] =
     { 0.875f, 0.875f, 0.875f, 1.0f },
     { 0.375f, 0.375f, 0.375f, 1.0f }
 };
-const GLfloat       SceneDatabaseBuilder::boxLightedColors[6][4] =
+const glm::vec4 SceneDatabaseBuilder::boxLightedColors[6] =
 {
     { 0.75f, 0.25f, 0.25f, 1.0f },
     { 0.75f, 0.25f, 0.25f, 1.0f },
@@ -102,7 +102,7 @@ const GLfloat       SceneDatabaseBuilder::boxLightedColors[6][4] =
     { 0.875f, 0.5f, 0.5f, 1.0f },
     { 0.875f, 0.5f, 0.5f, 1.0f }
 };
-const GLfloat       SceneDatabaseBuilder::boxLightedModulateColors[6][4] =
+const glm::vec4 SceneDatabaseBuilder::boxLightedModulateColors[6] =
 {
     { 0.75f, 0.75f, 0.75f, 1.0f },
     { 0.75f, 0.75f, 0.75f, 1.0f },
@@ -112,7 +112,7 @@ const GLfloat       SceneDatabaseBuilder::boxLightedModulateColors[6][4] =
     { 0.875f, 0.875f, 0.875f, 1.0f }
 };
 
-const GLfloat       SceneDatabaseBuilder::pyramidColors[5][4] =
+const glm::vec4 SceneDatabaseBuilder::pyramidColors[5] =
 {
     { 0.25f, 0.25f, 0.63f, 1.0f },
     { 0.13f, 0.13f, 0.51f, 1.0f },
@@ -121,7 +121,7 @@ const GLfloat       SceneDatabaseBuilder::pyramidColors[5][4] =
     { 0.175f, 0.175f, 0.35f, 1.0f }
 };
 
-const GLfloat       SceneDatabaseBuilder::pyramidModulateColors[5][4] =
+const glm::vec4 SceneDatabaseBuilder::pyramidModulateColors[5] =
 {
     { 0.25f, 0.25f, 0.63f, 1.0f },
     { 0.13f, 0.13f, 0.51f, 1.0f },
@@ -129,7 +129,7 @@ const GLfloat       SceneDatabaseBuilder::pyramidModulateColors[5][4] =
     { 0.375f, 0.375f, 0.75f, 1.0f },
     { 0.175f, 0.175f, 0.35f, 1.0f }
 };
-const GLfloat       SceneDatabaseBuilder::pyramidLightedColors[5][4] =
+const glm::vec4 SceneDatabaseBuilder::pyramidLightedColors[5] =
 {
     { 0.25f, 0.25f, 0.63f, 1.0f },
     { 0.25f, 0.25f, 0.63f, 1.0f },
@@ -137,7 +137,7 @@ const GLfloat       SceneDatabaseBuilder::pyramidLightedColors[5][4] =
     { 0.25f, 0.25f, 0.63f, 1.0f },
     { 0.25f, 0.25f, 0.63f, 1.0f }
 };
-const GLfloat       SceneDatabaseBuilder::pyramidLightedModulateColors[5][4] =
+const glm::vec4 SceneDatabaseBuilder::pyramidLightedModulateColors[5] =
 {
     { 0.25f, 0.25f, 0.63f, 1.0f },
     { 0.25f, 0.25f, 0.63f, 1.0f },
@@ -146,25 +146,25 @@ const GLfloat       SceneDatabaseBuilder::pyramidLightedModulateColors[5][4] =
     { 0.25f, 0.25f, 0.63f, 1.0f }
 };
 
-const GLfloat       SceneDatabaseBuilder::teleporterColors[3][4] =
+const glm::vec4 SceneDatabaseBuilder::teleporterColors[3] =
 {
     { 1.0f, 0.875f, 0.0f, 1.0f },
     { 0.9f, 0.8f, 0.0f, 1.0f },
     { 0.0f, 0.0f, 0.0f, 0.5f }
 };
-const GLfloat       SceneDatabaseBuilder::teleporterModulateColors[3][4] =
+const glm::vec4 SceneDatabaseBuilder::teleporterModulateColors[3] =
 {
     { 1.0f, 1.0f, 1.0f, 1.0f },
     { 0.9f, 0.9f, 0.9f, 1.0f },
     { 0.0f, 0.0f, 0.0f, 0.5f }
 };
-const GLfloat       SceneDatabaseBuilder::teleporterLightedColors[3][4] =
+const glm::vec4 SceneDatabaseBuilder::teleporterLightedColors[3] =
 {
     { 1.0f, 0.875f, 0.0f, 1.0f },
     { 1.0f, 0.875f, 0.0f, 1.0f },
     { 0.0f, 0.0f, 0.0f, 0.5f }
 };
-const GLfloat       SceneDatabaseBuilder::teleporterLightedModulateColors[3][4] =
+const glm::vec4 SceneDatabaseBuilder::teleporterLightedModulateColors[3] =
 {
     { 1.0f, 1.0f, 1.0f, 1.0f },
     { 1.0f, 1.0f, 1.0f, 1.0f },
@@ -272,24 +272,27 @@ SceneDatabase* SceneDatabaseBuilder::make(const World* world)
 void SceneDatabaseBuilder::addWaterLevel(SceneDatabase* db,
         const World* world)
 {
-    float plane[4] = { 0.0f, 0.0f, 1.0f, 0.0f };
     const float level = world->getWaterLevel();
-    plane[3] = -level;
 
     // don't draw it if it isn't active
     if (level < 0.0f)
         return;
 
+    auto plane = glm::vec4(0.0f, 0.0f, 1.0f, -level);
+
     // setup the vertex and texture coordinates
     float size = BZDBCache::worldSize;
-    GLfloat3Array v(4);
-    GLfloat3Array n(0);
-    GLfloat2Array t(4);
-    v[0][0] = v[0][1] = v[1][1] = v[3][0] = -size/2.0f;
-    v[1][0] = v[2][0] = v[2][1] = v[3][1] = +size/2.0f;
-    v[0][2] = v[1][2] = v[2][2] = v[3][2] = level;
-    t[0][0] = t[0][1] = t[1][1] = t[3][0] = 0.0f;
-    t[1][0] = t[2][0] = t[2][1] = t[3][1] = 2.0f;
+    std::vector<glm::vec3> v(4);
+    std::vector<glm::vec3> n(0);
+    std::vector<glm::vec2> t(4);
+    v[0] = glm::vec3(-size/2.0f, -size/2.0f, level);
+    v[1] = glm::vec3(+size/2.0f, -size/2.0f, level);
+    v[2] = glm::vec3(+size/2.0f, +size/2.0f, level);
+    v[3] = glm::vec3(-size/2.0f, +size/2.0f, level);
+    t[0] = glm::vec2(0.0f, 0.0f);
+    t[1] = glm::vec2(2.0f, 0.0f);
+    t[2] = glm::vec2(2.0f, 2.0f);
+    t[3] = glm::vec2(0.0f, 2.0f);
 
     // get the material
     const BzMaterial* mat = world->getWaterMaterial();
@@ -437,7 +440,7 @@ void SceneDatabaseBuilder::addBox(SceneDatabase* db, BoxBuilding& o)
 
 #ifndef SHELL_INSIDE_NODES
     // add the inside node
-    GLfloat obstacleSize[3];
+    glm::vec3 obstacleSize;
     obstacleSize[0] = o.getWidth();
     obstacleSize[1] = o.getBreadth();
     obstacleSize[2] = o.getHeight();
@@ -499,7 +502,7 @@ void SceneDatabaseBuilder::addPyramid(SceneDatabase* db, PyramidBuilding& o)
 
 #ifndef SHELL_INSIDE_NODES
     // add the inside node
-    GLfloat obstacleSize[3];
+    glm::vec3 obstacleSize;
     obstacleSize[0] = o.getWidth();
     obstacleSize[1] = o.getBreadth();
     obstacleSize[2] = o.getHeight();
@@ -595,7 +598,7 @@ void SceneDatabaseBuilder::addBase(SceneDatabase *db, BaseBuilding &o)
 
 #ifndef SHELL_INSIDE_NODES
     // add the inside node
-    GLfloat obstacleSize[3];
+    glm::vec3 obstacleSize;
     obstacleSize[0] = o.getWidth();
     obstacleSize[1] = o.getBreadth();
     obstacleSize[2] = o.getHeight();

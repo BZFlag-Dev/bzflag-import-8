@@ -13,10 +13,12 @@
 #ifndef __REGION_H__
 #define __REGION_H__
 
+// 1st
 #include "common.h"
 
 /* system interface headers */
 #include <vector>
+#include <glm/vec2.hpp>
 
 
 const float      maxDistance = 1.0e6;
@@ -25,25 +27,25 @@ class RegionPoint
 {
 public:
     RegionPoint(float x, float y);
-    RegionPoint(const float v[2]);
+    RegionPoint(const glm::vec2 &v);
     ~RegionPoint();
 
-    const float*    get() const;
+    const glm::vec2 &get() const;
 
 private:
-    float       p[2];
+    glm::vec2 p;
 };
 
 
 class BzfRegion
 {
 public:
-    BzfRegion(int sides, const float p[][2]);
+    BzfRegion(int sides, const glm::vec2 p[2]);
     ~BzfRegion();
 
-    bool        isInside(const float p[2]) const;
+    bool        isInside(const glm::vec2 &p) const;
     // get point distance from Region. Point should be outside Region!
-    float       getDistance(const float p[2], float nearest[2]) const;
+    float       getDistance(const glm::vec2 &p, glm::vec2 &nearest) const;
     int         classify(const float p1[2], const float p2[2]) const;
     BzfRegion*      orphanSplitRegion(const float p1[2], const float p2[2]);
 
@@ -53,10 +55,10 @@ public:
 
     bool        test(int mailboxIndex) const;
     void        setPathStuff(float distance, BzfRegion* target,
-                             const float p[2], int mailboxIndex);
+                             const glm::vec2 &p, int mailboxIndex);
     float       getDistance() const;
     BzfRegion*      getTarget() const;
-    const float*    getA() const;
+    const glm::vec2 &getA() const;
 
 protected:
     BzfRegion();

@@ -16,15 +16,18 @@
 // 1st
 #include "common.h"
 
+// System headers
+#include <glm/fwd.hpp>
+
 class WorldInfo;
 
 
 namespace DropGeometry
 {
 
-bool dropFlag (float pos[3], float minZ, float maxZ);
-bool dropPlayer (float pos[3], float minZ, float maxZ);
-bool dropTeamFlag (float pos[3], float minZ, float maxZ, int team);
+bool dropFlag (glm::vec3 &pos, float minZ, float maxZ);
+bool dropPlayer (glm::vec3 &pos, float minZ, float maxZ);
+bool dropTeamFlag (glm::vec3 &pos, float minZ, float maxZ, int team);
 }
 
 

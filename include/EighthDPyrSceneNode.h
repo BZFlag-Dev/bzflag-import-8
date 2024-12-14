@@ -24,8 +24,9 @@
 class EighthDPyrSceneNode : public EighthDimSceneNode
 {
 public:
-    EighthDPyrSceneNode(const float pos[3],
-                        const float size[3], float rotation);
+    EighthDPyrSceneNode(const glm::vec3 &pos,
+                        const glm::vec3 &size,
+                        float rotation);
     ~EighthDPyrSceneNode();
 
     void        notifyStyleChange() override;
@@ -36,14 +37,15 @@ protected:
     {
     public:
         EighthDPyrRenderNode(const EighthDPyrSceneNode*,
-                             const float pos[3],
-                             const float size[3], float rotation);
+                             const glm::vec3 &pos,
+                             const glm::vec3 &size,
+                             float rotation);
         ~EighthDPyrRenderNode();
         void        render() override;
-        const GLfloat* getPosition() const override;
+        const glm::vec3 &getPosition() const override;
     private:
         const EighthDPyrSceneNode* sceneNode;
-        GLfloat     corner[5][3];
+        glm::vec3 corner[5];
     };
 
 private:

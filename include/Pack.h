@@ -21,9 +21,12 @@
 
 #ifndef BZF_PACK_H
 #define BZF_PACK_H
-
+// 1st
 #include "common.h"
+
+// System headers
 #include <string>
+#include <glm/fwd.hpp>
 
 
 extern void* nboPackUByte(void*, uint8_t);
@@ -33,6 +36,7 @@ extern void* nboPackUShort(void*, uint16_t);
 extern void* nboPackUInt(void*, uint32_t);
 extern void* nboPackFloat(void*, float);
 extern void* nboPackVector(void*, const float*);
+extern void* nboPackVector(void*, const glm::vec3 &);
 extern void* nboPackString(void*, const void*, int len);
 extern void* nboPackStdString(void*, const std::string& str);
 
@@ -43,6 +47,7 @@ extern const void* nboUnpackUShort(const void*, uint16_t&);
 extern const void* nboUnpackUInt(const void*, uint32_t&);
 extern const void* nboUnpackFloat(const void*, float&);
 extern const void* nboUnpackVector(const void*, float*);
+extern const void* nboUnpackVector(const void*, glm::vec3 &);
 extern const void* nboUnpackString(const void*, void*, int len);
 extern const void* nboUnpackStdString(const void*, std::string& str);
 extern const void* nboUnpackStdStringRaw(const void*, std::string& str);

@@ -50,10 +50,7 @@ public:
 
     void drawString(float x, float y, float z, int faceID, float size,
                     const std::string &text,
-                    const float* resetColor = NULL);
-    void drawString(float x, float y, float z, const std::string &face,
-                    float size, const std::string &text,
-                    const float* resetColor = NULL);
+                    const glm::vec3 resetColor = glm::vec3(-1.0f));
 
     float getStrLength(int faceID, float size, const std::string &text,
                        bool alreadyStripped = false);
@@ -73,7 +70,7 @@ protected:
     friend class Singleton<FontManager>;
 
 private:
-    void      getPulseColor(const GLfloat* color, GLfloat* pulseColor) const;
+    float         getPulseFactor() const;
     ImageFont*    getClosestSize(int faceID, float size, bool bigger);
     ImageFont*    getClosestRealSize(int faceID, float desiredSize, float &actualSize);
     FontFaceMap   faceNames;
@@ -88,7 +85,7 @@ private:
     static void   callback(const std::string& name, void *);
     static void   freeContext(void *data);
     static void   initContext(void *data);
-    static GLfloat underlineColor[4];
+    static glm::vec3 underlineColor;
 };
 
 inline void FontManager::setDimFactor(float newDimFactor)
@@ -99,7 +96,6 @@ inline void FontManager::setDimFactor(float newDimFactor)
 inline void FontManager::setOpacity(float newOpacity)
 {
     opacity = newOpacity;
-    underlineColor[3] = opacity;
 }
 
 inline void FontManager::setDarkness(float newDarkness)

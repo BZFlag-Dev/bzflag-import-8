@@ -47,7 +47,7 @@ static int partTriangles[LastTankShadow][LastTankLOD]
 [LastTankSize][LastTankPart];
 
 // the scaling factors
-static GLfloat scaleFactors[LastTankSize][3] =
+static glm::vec3 scaleFactors[LastTankSize] =
 {
     {1.0f, 1.0f, 1.0f},   // Normal
     {1.0f, 1.0f, 1.0f},   // Obese
@@ -56,7 +56,7 @@ static GLfloat scaleFactors[LastTankSize][3] =
     {1.0f, 1.0f, 1.0f}    // Thief
 };
 // the current scaling factors
-static const float* currentScaleFactor = scaleFactors[Normal];
+static auto currentScaleFactor = scaleFactors[Normal];
 
 // the current shadow mode (used to remove glNormal3f and glTexcoord2f calls)
 static TankShadow shadowMode = ShadowOn;
@@ -301,7 +301,7 @@ int TankGeometryMgr::getPartTriangleCount(TankGeometryEnums::TankShadow sh,
 }
 
 
-const float* TankGeometryMgr::getScaleFactor(TankSize size)
+const glm::vec3 &TankGeometryMgr::getScaleFactor(TankSize size)
 {
     return scaleFactors[size];
 }
@@ -383,11 +383,9 @@ static void setupScales()
 
 void TankGeometryUtils::doVertex3f(GLfloat x, GLfloat y, GLfloat z)
 {
-    const float* scale = currentScaleFactor;
-    x = x * scale[0];
-    y = y * scale[1];
-    z = z * scale[2];
-    glVertex3f(x, y, z);
+    const auto &scale = currentScaleFactor;
+    const auto xyz = glm::vec3(x, y, z) * scale;
+    glVertex3f(xyz.x, xyz.y, xyz.z);
     return;
 }
 
@@ -396,18 +394,11 @@ void TankGeometryUtils::doNormal3f(GLfloat x, GLfloat y, GLfloat z)
 {
     if (shadowMode == ShadowOn)
         return;
-    const float* scale = currentScaleFactor;
-    GLfloat sx = x * scale[0];
-    GLfloat sy = y * scale[1];
-    GLfloat sz = z * scale[2];
-    const GLfloat d = sqrtf ((sx * sx) + (sy * sy) + (sz * sz));
-    if (d > 1.0e-5f)
-    {
-        x *= scale[0] / d;
-        y *= scale[1] / d;
-        z *= scale[2] / d;
-    }
-    glNormal3f(x, y, z);
+    const auto &scale = currentScaleFactor;
+    auto sxyz = glm::vec3(x, y, z) * scale;
+    if (sxyz.x || sxyz.y || sxyz.z)
+        sxyz = glm::normalize(sxyz);
+    glNormal3f(sxyz.x, sxyz.y, sxyz.z);
     return;
 }
 

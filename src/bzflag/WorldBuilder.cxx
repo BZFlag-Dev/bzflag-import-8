@@ -323,19 +323,17 @@ void WorldBuilder::setShakeWins(int wins) const
 }
 
 void WorldBuilder::setBase(TeamColor team,
-                           const float* pos, float rotation,
+                           const glm::vec3 &pos, float rotation,
                            float w, float b, float h)
 {
     int teamIndex = int(team);
 
     World::BaseParms bp;
-    bp.p[0] = pos[0];
-    bp.p[1] = pos[1];
-    bp.p[2] = pos[2];
-    bp.p[3] = rotation;
-    bp.p[4] = w;
-    bp.p[5] = b;
-    bp.p[6] = h;
+    bp.pos      = pos;
+    bp.rotation = rotation;
+    bp.w        = w;
+    bp.b        = b;
+    bp.h        = h;
     world->bases[teamIndex].push_back( bp );
 }
 

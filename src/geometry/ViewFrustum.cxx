@@ -15,6 +15,7 @@
 
 // common implementation headers
 #include "bzfgl.h"
+#include "OpenGLAPI.h"
 
 ViewFrustum::ViewFrustum()
 {
@@ -28,31 +29,31 @@ ViewFrustum::~ViewFrustum()
 void            ViewFrustum::executeProjection() const
 {
     glMatrixMode(GL_PROJECTION);
-    glLoadMatrixf(projectionMatrix);
+    glLoadMatrix(projectionMatrix);
     glMatrixMode(GL_MODELVIEW);
 }
 
 void            ViewFrustum::executeDeepProjection() const
 {
     glMatrixMode(GL_PROJECTION);
-    glLoadMatrixf(deepProjectionMatrix);
+    glLoadMatrix(deepProjectionMatrix);
     glMatrixMode(GL_MODELVIEW);
 }
 
 void            ViewFrustum::executeView() const
 {
-    glMultMatrixf(viewMatrix);
+    glMultMatrix(viewMatrix);
 }
 
 void            ViewFrustum::executeOrientation() const
 {
-    glMultMatrixf(viewMatrix);
+    glMultMatrix(viewMatrix);
     glTranslatef(eye[0], eye[1], eye[2]);
 }
 
 void            ViewFrustum::executeBillboard() const
 {
-    glMultMatrixf(billboardMatrix);
+    glMultMatrix(billboardMatrix);
 }
 
 // Local Variables: ***

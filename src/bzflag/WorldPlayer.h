@@ -25,13 +25,13 @@ public:
     ~WorldPlayer();
 
     void        addShot(const FiringInfo&);
-    ShotPath*       getShot(int index) const;
+    ShotPath*   getShot(int index) const override;
     void        updateShots(float dt);
-    int         getMaxShots() const;
-    void        addShots(SceneDatabase* scene, bool colorblind) const;
+    int         getMaxShots() const override;
+    void        addShots(SceneDatabase* scene, bool colorblind) const override;
 
 private:
-    bool        doEndShot(int index, bool isHit, float* pos);
+    bool        doEndShot(int index, bool isHit, glm::vec3 &pos) override;
 
 private:
     std::vector<RemoteShotPath*> shots;

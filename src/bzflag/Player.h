@@ -17,6 +17,9 @@
 
 /* system headers */
 #include <string>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 
 /* common interface headers */
 #include "global.h"
@@ -75,16 +78,16 @@ public:
     FlagType* getFlag() const;
     long      getOrder() const;
     short     getStatus() const;
-    const float*  getPosition() const;
+    const glm::vec3 &getPosition() const;
     float     getAngle() const;
-    const float*  getForward() const;
-    const float*  getVelocity() const;
+    const glm::vec3 &getForward() const;
+    const glm::vec3 &getVelocity() const;
 
     float     getAngularVelocity() const;
     int       getPhysicsDriver() const;
     int       getDeathPhysicsDriver() const;
     float     getRadius() const;
-    void      getMuzzle(float*) const;
+    glm::vec3 getMuzzle() const;
     float     getMuzzleHeight() const;
     short     getWins() const;
     short     getLosses() const;
@@ -95,10 +98,10 @@ public:
     short     getScore() const;
     const float*  getDimensions() const;
 
-    const float*  getApparentVelocity() const;
+    const glm::vec3 &getApparentVelocity() const;
 
 #ifndef BUILDING_BZADMIN
-    inline const float*   getColor() const
+    inline const glm::vec4 &getColor() const
     {
         return color;
     }
@@ -169,8 +172,8 @@ public:
     void      doDeadReckoning();
 
     // called to update state according to incoming packets
-    void      move(const float* pos, float azimuth);
-    void      setVelocity(const float* velocity);
+    void      move(const glm::vec3 &pos, float azimuth);
+    void      setVelocity(const glm::vec3 &velocity);
     void      setAngularVelocity(float);
     void      setPhysicsDriver(int);
     void      setRelativeMotion();
@@ -202,7 +205,7 @@ public:
 
     void      renderRadar() const;
 
-    void      setExplodePos( const float * p);
+    void      setExplodePos(const glm::vec3 &p);
 
     void setZpos (float z);
 
@@ -237,9 +240,9 @@ private:
     // was already terminated.  position must be set to the shot's
     // position if you return true (it's okay to return false if
     // there's no meaningful shot position).
-    virtual bool  doEndShot(int index, bool isHit, float* position) = 0;
-    void getDeadReckoning(float* predictedPos, float* predictedAzimuth,
-                          float* predictedVel, float time) const;
+    virtual bool doEndShot(int index, bool isHit, glm::vec3 &position) = 0;
+    void getDeadReckoning(glm::vec3 &predictedPos, float* predictedAzimuth,
+                          glm::vec3 &predictedVel, float time) const;
     void calcRelativeMotion(float vel[2], float& speed, float& angvel);
     void setVisualTeam (TeamColor team );
     void updateFlagEffect(FlagType* flag);
@@ -269,7 +272,7 @@ private:
     TankIDLSceneNode* tankIDLNode;
     SphereSceneNode*  pausedSphere;
 #ifndef BUILDING_BZADMIN
-    GLfloat       color[4];
+    glm::vec4     color;
     GLfloat       teleAlpha;
 #endif
     std::string       userTexture;
@@ -288,9 +291,9 @@ private:
     // relatively stable data
     FlagType*     flagType;       // flag type I'm holding
     float         dimensions[3];      // current tank dimensions
-    float         dimensionsScale[3]; // use to scale the dimensions
+    glm::vec3     dimensionsScale; // use to scale the dimensions
     float         dimensionsRate[3];   // relative to scale
-    float         dimensionsTarget[3];    // relative to scale
+    glm::vec3     dimensionsTarget;    // relative to scale
     bool          useDimensions;      // use the varying dimensions for gfx
     float         alpha;          // current tank translucency
     float         alphaRate;      // current tank translucency
@@ -318,20 +321,20 @@ private:
     bool          autoPilot;
 
     // computable highly dynamic data
-    float         forward[3];     // forward unit vector
+    glm::vec3     forward;     // forward unit vector
 
     // relative motion information
     float         relativeSpeed;      // relative speed
     float         relativeAngVel;     // relative angular velocity
 
-    float         apparentVelocity[3];    // velocity of tank as derived from it's last positional update
+    glm::vec3     apparentVelocity;    // velocity of tank as derived from it's last positional update
 
     // dead reckoning stuff
     TimeKeeper inputTime;     // time of input
     float inputTimestamp;  // input timestamp of sender
     int   inputStatus;        // tank status
-    float inputPos[3];        // tank position
-    float inputVel[3];        // tank velocity
+    glm::vec3 inputPos;        // tank position
+    glm::vec3 inputVel;        // tank velocity
     float inputAzimuth;       // direction tank is pointing
     float inputAngVel;        // tank turn rate
     bool  inputTurning;       // tank is turning
@@ -408,7 +411,7 @@ inline short        Player::getStatus() const
     return state.status;
 }
 
-inline const float* Player::getPosition() const
+inline const glm::vec3 &Player::getPosition() const
 {
     return state.pos;
 }
@@ -423,17 +426,17 @@ inline const float* Player::getDimensions() const
     return dimensions;
 }
 
-inline const float* Player::getForward() const
+inline const glm::vec3 &Player::getForward() const
 {
     return forward;
 }
 
-inline const float* Player::getVelocity() const
+inline const glm::vec3 &Player::getVelocity() const
 {
     return state.velocity;
 }
 
-inline const float* Player::getApparentVelocity() const
+inline const glm::vec3 &Player::getApparentVelocity() const
 {
     return apparentVelocity;
 }

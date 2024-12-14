@@ -19,10 +19,10 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <glm/fwd.hpp>
 
 // common headers
 #include "bzfgl.h"
-#include "vectors.h"
 
 
 class BzMaterial;
@@ -33,7 +33,7 @@ class OpenGLGState;
 
 
 extern void bzMat2gstate(const BzMaterial* bzmat, OpenGLGState& gstate,
-                         fvec4& color, const fvec4*& colorPtr);
+                         glm::vec4 &color, const glm::vec4 *&colorPtr);
 
 extern bool parseBlendFactors(const std::string& s, GLenum& src, GLenum& dst);
 

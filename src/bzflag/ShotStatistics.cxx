@@ -13,6 +13,10 @@
 // Interface header
 #include "ShotStatistics.h"
 
+// System headers
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/norm.hpp>
+
 // Common headers
 #include "TimeKeeper.h"
 #include "playing.h"
@@ -37,7 +41,8 @@ int ShotStatistics::getTotalPerc() const
     return (int)(100 * ((float)getTotalHit() / (float)getTotalFired()));
 }
 
-void ShotStatistics::recordFire(FlagType* flag, const float *pVec, const float *shotVec )
+void ShotStatistics::recordFire(
+    FlagType* flag, const glm::vec3 &pVec, const glm::vec3 &shotVec)
 {
     fired[flag]++;
     totalFired++;
@@ -47,23 +52,10 @@ void ShotStatistics::recordFire(FlagType* flag, const float *pVec, const float *
         lastShotTimeDelta = currentTime-lastShotTime;
     lastShotTime = currentTime;
 
-    float playerNorm[3];
-    float shotNorm[3];
-    float playerMag,shotMag;
+    const auto playerNorm = glm::normalize(pVec);
+    const auto shotNorm = shotVec * bzInverseSqrt(glm::length2(shotVec));
 
-    playerMag = sqrt((pVec[0]*pVec[0])+(pVec[1]*pVec[1])+pVec[2]*pVec[2]);
-    shotMag = bzInverseSqrt(shotVec[0] * shotVec[0] +
-                            shotVec[1] * shotVec[1] +
-                            shotVec[2] * shotVec[2]);
-
-    playerNorm[0] = pVec[0]/playerMag;
-    playerNorm[1] = pVec[1]/playerMag;
-    playerNorm[2] = pVec[2]/playerMag;
-    shotNorm[0]   = shotVec[0] * shotMag;
-    shotNorm[1]   = shotVec[1] * shotMag;
-    shotNorm[2]   = shotVec[2] * shotMag;
-
-    float dot = (shotNorm[0] * playerNorm[0]) + (shotNorm[1] * playerNorm[1]) + shotNorm[2] * playerNorm[2];
+    float dot = glm::dot(shotNorm, playerNorm);
 
     lastShotDeviation = acosf(dot) * RAD2DEGf;
 

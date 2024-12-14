@@ -17,13 +17,17 @@
 #ifndef BZ_MATERIAL_H
 #define BZ_MATERIAL_H
 
+// 1st
 #include "common.h"
+
+// System interfaces
 #include <string>
 #include <vector>
 #include <set>
 #include <map>
 #include <iostream>
-
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 
 
 class BzMaterial;
@@ -57,9 +61,9 @@ public:
 
     void setDynamicColor(int);
     void setAmbient(const float[4]);
-    void setDiffuse(const float[4]);
-    void setSpecular(const float[3]);
-    void setEmission(const float[3]);
+    void setDiffuse(const glm::vec4 &);
+    void setSpecular(const glm::vec3 &);
+    void setEmission(const glm::vec3 &);
     void setShininess(const float);
 
     void setOccluder(bool);
@@ -95,9 +99,9 @@ public:
 
     int getDynamicColor() const;
     const float* getAmbient() const;
-    const float* getDiffuse() const;
-    const float* getSpecular() const;
-    const float* getEmission() const;
+    const glm::vec4 &getDiffuse() const;
+    const glm::vec3 &getSpecular() const;
+    const glm::vec3 &getEmission() const;
     float getShininess() const;
 
     bool getOccluder() const;
@@ -145,9 +149,9 @@ private:
 
     int dynamicColor;
     float ambient[4];
-    float diffuse[4];
-    float specular[4];
-    float emission[4];
+    glm::vec4 diffuse;
+    glm::vec3 specular;
+    glm::vec3 emission;
     float shininess;
 
     bool occluder;

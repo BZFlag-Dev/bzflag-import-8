@@ -57,12 +57,8 @@ ShotPathSegment::ShotPathSegment(const ShotPathSegment& segment) :
     reason(segment.reason)
 {
     // copy bounding box
-    bbox[0][0] = segment.bbox[0][0];
-    bbox[0][1] = segment.bbox[0][1];
-    bbox[0][2] = segment.bbox[0][2];
-    bbox[1][0] = segment.bbox[1][0];
-    bbox[1][1] = segment.bbox[1][1];
-    bbox[1][2] = segment.bbox[1][2];
+    bbox[0] = segment.bbox[0];
+    bbox[1] = segment.bbox[1];
 }
 
 ShotPathSegment::~ShotPathSegment()
@@ -79,12 +75,8 @@ ShotPathSegment&    ShotPathSegment::operator=(const
         end = segment.end;
         ray = segment.ray;
         reason = segment.reason;
-        bbox[0][0] = segment.bbox[0][0];
-        bbox[0][1] = segment.bbox[0][1];
-        bbox[0][2] = segment.bbox[0][2];
-        bbox[1][0] = segment.bbox[1][0];
-        bbox[1][1] = segment.bbox[1][1];
-        bbox[1][2] = segment.bbox[1][2];
+        bbox[0] = segment.bbox[0];
+        bbox[1] = segment.bbox[1];
     }
     return *this;
 }

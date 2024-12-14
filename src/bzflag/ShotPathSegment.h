@@ -37,7 +37,7 @@ public:
     TimeKeeper      end;
     Ray         ray;
     Reason      reason;
-    float       bbox[2][3];
+    glm::vec3   bbox[2];
 };
 
 

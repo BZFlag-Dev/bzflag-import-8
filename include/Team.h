@@ -18,9 +18,15 @@
 #ifndef BZF_TEAM_H
 #define BZF_TEAM_H
 
+// 1st
 #include "common.h"
-#include "global.h"
+
+// System headers
 #include <string>
+#include <glm/fwd.hpp>
+
+// Common headers
+#include "global.h"
 
 const int       TeamPLen = 10;
 
@@ -35,15 +41,15 @@ public:
     static const std::string    getImagePrefix(TeamColor); // const
     static const char*      getName(TeamColor); // const
     static TeamColor        getTeam(const std::string &name); // const
-    static const float*     getTankColor(TeamColor); // const
-    static const float*     getRadarColor(TeamColor team); // const
-    static const float*     getShotColor(TeamColor team); // const
+    static const glm::vec3 &getTankColor(TeamColor); // const
+    static const glm::vec3 &getRadarColor(TeamColor team); // const
+    static const glm::vec3 &getShotColor(TeamColor team); // const
     static const std::string    getAnsiCode(TeamColor team); // const
     static bool         isColorTeam(TeamColor); // const
 
     static void     setColors(TeamColor,
-                              const float* tank,
-                              const float* radar);
+                              const glm::vec3 &tank,
+                              const glm::vec3 &radar);
     static void     updateShotColors();
 
 public:
@@ -66,9 +72,9 @@ public:
         lost = v;
     }
 
-    static float    tankColor[NumTeams][3];
-    static float    radarColor[NumTeams][3];
-    static float    shotColor[NumTeams][3];
+    static glm::vec3 tankColor[NumTeams];
+    static glm::vec3 radarColor[NumTeams];
+    static glm::vec3 shotColor[NumTeams];
 
 private:
     unsigned short  won;            // wins by team members

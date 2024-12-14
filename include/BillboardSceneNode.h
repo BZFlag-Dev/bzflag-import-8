@@ -26,7 +26,7 @@
 class BillboardSceneNode : public SceneNode
 {
 public:
-    BillboardSceneNode(const GLfloat pos[3]);
+    BillboardSceneNode(const glm::vec3 &pos);
     ~BillboardSceneNode();
 
     virtual BillboardSceneNode* copy() const;
@@ -53,7 +53,7 @@ public:
     void        setTexture(const int);
     void        setTextureAnimation(int cu, int cv);
 
-    void        move(const GLfloat pos[3]);
+    void        move(const glm::vec3 &pos);
     void        setAngle(GLfloat);
     void        addLight(SceneRenderer&);
 
@@ -68,7 +68,7 @@ protected:
         ~BillboardRenderNode();
         void        setColor(const GLfloat* rgba);
         void        render() override;
-        const GLfloat* getPosition() const override;
+        const glm::vec3 &getPosition() const override;
         void        setFrame(float u, float v);
         void        setFrameSize(float du, float dv);
     private:
@@ -90,9 +90,9 @@ private:
     bool        lightSource;
     bool        groundLight;
     float       width, height;
-    GLfloat     color[4];
+    glm::vec4   color;
     GLfloat     angle;
-    GLfloat     lightColor[3];
+    glm::vec3   lightColor;
     GLfloat     lightScale;
     float       lightCutoffTime;
     int         cu, cv;

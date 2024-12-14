@@ -1112,8 +1112,6 @@
 		0305D5F0166C9DAE00557FC4 /* TextUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextUtils.h; sourceTree = "<group>"; };
 		0305D5F2166C9DAE00557FC4 /* TimeKeeper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TimeKeeper.h; sourceTree = "<group>"; };
 		0305D5F4166C9DAE00557FC4 /* TriWallSceneNode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TriWallSceneNode.h; sourceTree = "<group>"; };
-		0305D5F5166C9DAE00557FC4 /* vectors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vectors.h; sourceTree = "<group>"; };
-		0305D5F6166C9DAE00557FC4 /* vectors_old.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vectors_old.h; sourceTree = "<group>"; };
 		0305D5F7166C9DAE00557FC4 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = version.h; sourceTree = "<group>"; };
 		0305D5F8166C9DAE00557FC4 /* ViewFrustum.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ViewFrustum.h; sourceTree = "<group>"; };
 		0305D5FA166C9DAE00557FC4 /* VotingBooth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VotingBooth.h; sourceTree = "<group>"; };
@@ -2372,8 +2370,6 @@
 				0305D5F0166C9DAE00557FC4 /* TextUtils.h */,
 				0305D5F2166C9DAE00557FC4 /* TimeKeeper.h */,
 				0305D5F4166C9DAE00557FC4 /* TriWallSceneNode.h */,
-				0305D5F5166C9DAE00557FC4 /* vectors.h */,
-				0305D5F6166C9DAE00557FC4 /* vectors_old.h */,
 				0305D5F7166C9DAE00557FC4 /* version.h */,
 				0305D5F8166C9DAE00557FC4 /* ViewFrustum.h */,
 				0305D5FA166C9DAE00557FC4 /* VotingBooth.h */,

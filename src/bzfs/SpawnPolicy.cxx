@@ -33,7 +33,7 @@ SpawnPolicy::~SpawnPolicy()
 {
 }
 
-void SpawnPolicy::getPosition(float pos[3], int playerId, bool onGroundOnly, bool notNearEdges)
+void SpawnPolicy::getPosition(glm::vec3 &pos, int playerId, bool onGroundOnly, bool notNearEdges)
 {
     /* the player is coming to life, depending on who they are an what
      * style map/configuration is being played determines how they will
@@ -181,7 +181,7 @@ void SpawnPolicy::getAzimuth(float &azimuth)
 }
 
 
-bool SpawnPolicy::isFacing(const float *enemyPos, const float enemyAzimuth,
+bool SpawnPolicy::isFacing(const glm::vec3 &enemyPos, const float enemyAzimuth,
                            const float deviation) const
 {
     // vector points from test to enemy
@@ -219,7 +219,7 @@ bool SpawnPolicy::isImminentlyDangerous() const
             continue;
         if (playerData->player.isAlive())
         {
-            float *enemyPos   = playerData->lastState.pos;
+            const auto &enemyPos = playerData->lastState.pos;
             float  enemyAngle = playerData->lastState.azimuth;
             if (playerData->player.getFlag() >= 0)
             {
@@ -278,7 +278,7 @@ float SpawnPolicy::enemyProximityCheck(float &enemyAngle) const
         if (playerData->player.isAlive()
                 && areFoes(playerData->player.getTeam(), team))
         {
-            float *enemyPos = playerData->lastState.pos;
+            const auto &enemyPos = playerData->lastState.pos;
             if (fabs(enemyPos[2] - testPos[2]) < 1.0f)
             {
                 float x = enemyPos[0] - testPos[0];
@@ -299,7 +299,7 @@ float SpawnPolicy::enemyProximityCheck(float &enemyAngle) const
 }
 
 
-float SpawnPolicy::distanceFrom(const float* farPos) const
+float SpawnPolicy::distanceFrom(const glm::vec3 &farPos) const
 {
     float dx = farPos[0] - testPos[0];
     float dy = farPos[1] - testPos[1];

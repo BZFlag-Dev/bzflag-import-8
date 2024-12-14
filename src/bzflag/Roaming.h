@@ -68,7 +68,7 @@ public:
 
     struct RoamingCamera
     {
-        float pos[3];
+        glm::vec3 pos;
         float theta;
         float phi;
         float zoom;

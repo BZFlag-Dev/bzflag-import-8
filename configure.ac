@@ -171,6 +171,8 @@ if test x$enable_robots != xno; then
     AC_DEFINE(ROBOT, 1, [Enabling Robots])
 fi
 
+AC_ARG_ENABLE(avx2,     [  --enable-avx2          turn on simd])
+
 # debugging and profiling
 AC_ARG_ENABLE(debug,     [  --enable-debug          turn on debugging])
 AC_ARG_ENABLE(profiling, [  --enable-profiling      turn on profiling])
@@ -416,6 +418,10 @@ AC_CHECK_HEADERS( \
 	cstdio \
 	cstring
 )
+AC_CHECK_HEADERS(
+	[glm/glm.hpp],
+	,
+	[AC_MSG_ERROR([glm (from https://glm.g-truc.net) is needed])])
 AC_LANG(C)
 AC_CHECK_HEADERS( \
 	SDL2/SDL.h \
@@ -435,6 +441,8 @@ AC_CHECK_HEADERS( \
 	unistd.h \
 	values.h \
 )
+
+AC_DEFINE(GLM_FORCE_AVX2, 1, [ Enable avx2 if available])
 
 if test "x$enable_UPnP" = "xyes"; then
     AC_CHECK_HEADERS(
@@ -691,6 +699,9 @@ case $host_os in
 	     pc)
                FLAGS=-mtune=native
 	       CONF_CFLAGS="$CONF_CFLAGS $FLAGS";
+               if test x$enable_avx2 = xyes ; then
+	          CONF_CXXFLAGS="$CONF_CXXFLAGS -mavx2";
+               fi
 	       CONF_CXXFLAGS="$CONF_CXXFLAGS $FLAGS";
 	       CONF_CXXFLAGS="$CONF_CXXFLAGS -fsigned-char";;
 	     ppc)

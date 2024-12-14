@@ -13,6 +13,9 @@
 /* interface header */
 #include "ScoreboardRenderer.h"
 
+// System headers
+#include <glm/geometric.hpp>
+
 /* common implementation headers */
 #include "Bundle.h"
 #include "Team.h"
@@ -21,6 +24,7 @@
 #include "OpenGLGState.h"
 #include "TextUtils.h"
 #include "TimeKeeper.h"
+#include "OpenGLAPI.h"
 
 /* local implementation headers */
 #include "LocalPlayer.h"
@@ -87,9 +91,7 @@ ScoreboardRenderer::ScoreboardRenderer() :
     numHunted(0)
 {
     // initialize message color (white)
-    messageColor[0] = 1.0f;
-    messageColor[1] = 1.0f;
-    messageColor[2] = 1.0f;
+    messageColor = glm::vec3(1.0f);
     sortMode = BZDB.getIntClamped("scoreboardSort", 0, SORT_MAXNUM);
     alwaysShowTeamScore = (BZDB.getIntClamped("alwaysShowTeamScore", 0, 1) != 0);
 }
@@ -201,12 +203,12 @@ void ScoreboardRenderer::setDim(bool _dim)
 
 static const float dimFactor = 0.2f;
 
-void ScoreboardRenderer::hudColor3fv(const GLfloat* c)
+void ScoreboardRenderer::hudColor3fv(const glm::vec3 &c)
 {
     if (dim)
-        glColor3f(dimFactor * c[0], dimFactor * c[1], dimFactor * c[2]);
+        glColor(dimFactor * c);
     else
-        glColor3fv(c);
+        glColor(c);
 }
 
 
@@ -615,22 +617,10 @@ void ScoreboardRenderer::drawRoamTarget(float _x0, float _y0,
     const float x1 = floorf(_x1) + 0.5f;
     const float y1 = y0 + 1.0f;
 
-    const float black[4] =
-    {
-        0.0f * (dim ? dimFactor : 1.0f),
-        0.0f * (dim ? dimFactor : 1.0f),
-        0.0f * (dim ? dimFactor : 1.0f),
-        1.0f
-    };
-    const float white[4] =
-    {
-        1.0f * (dim ? dimFactor : 1.0f),
-        1.0f * (dim ? dimFactor : 1.0f),
-        1.0f * (dim ? dimFactor : 1.0f),
-        1.0f
-    };
-    const float* c0 = black;
-    const float* c1 = white;
+    const auto black = glm::vec3(0.0f);
+    const auto white = glm::vec3(dim ? dimFactor : 1.0f);
+    glm::vec3 c0;
+    glm::vec3 c1;
 
     const double diff = (TimeKeeper::getCurrent() - startTime);
     if (fmod(diff, 0.5) > 0.25)
@@ -638,16 +628,21 @@ void ScoreboardRenderer::drawRoamTarget(float _x0, float _y0,
         c0 = white;
         c1 = black;
     }
+    else
+    {
+        c0 = black;
+        c1 = white;
+    }
 
     glPushAttrib(GL_ALL_ATTRIB_BITS);
     glDisable(GL_BLEND);
     glDisable(GL_LIGHTING);
     glDisable(GL_TEXTURE_2D);
     glBegin(GL_LINES);
-    glColor4fv(c0);
+    glColor(c0);
     glVertex2f(x0, y1);
     glVertex2f(x1, y1);
-    glColor4fv(c1);
+    glColor(c1);
     glVertex2f(x0, y0);
     glVertex2f(x1, y0);
     glEnd();
@@ -741,10 +736,9 @@ void ScoreboardRenderer::drawPlayerScore(const Player* player,
 
     if (roaming && BZDB.isTrue("showVelocities"))
     {
-        float vel[3] = {0};
-        memcpy(vel,player->getVelocity(),sizeof(float)*3);
+        const auto vel = glm::vec2(player->getVelocity());
 
-        float linSpeed = sqrt(vel[0]*vel[0]+vel[1]*vel[1]);
+        float linSpeed = glm::length(vel);
 
         float badFactor = 1.5f;
         if (linSpeed > player->getMaxSpeed()*badFactor)

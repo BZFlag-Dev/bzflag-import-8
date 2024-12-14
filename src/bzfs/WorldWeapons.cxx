@@ -29,7 +29,8 @@
 #include "bzfs.h"
 #include "ShotManager.h"
 
-uint32_t WorldWeapons::fireShot(FlagType* type, const float origin[3], const float vector[3], int *shotID,
+uint32_t WorldWeapons::fireShot(FlagType* type, const glm::vec3 &origin,
+                                const float vector[3], int *shotID,
                                 TeamColor teamColor, PlayerId targetPlayerID)
 {
     if (!BZDB.isTrue(StateDatabase::BZDB_WEAPONS))
@@ -42,7 +43,7 @@ uint32_t WorldWeapons::fireShot(FlagType* type, const float origin[3], const flo
     firingInfo.flagType = type;
     firingInfo.lifetime = BZDB.eval(StateDatabase::BZDB_RELOADTIME);
     firingInfo.shot.player = ServerPlayer;
-    memmove(firingInfo.shot.pos, origin, 3 * sizeof(float));
+    firingInfo.shot.pos = origin;
 
     const float shotSpeed = BZDB.eval(StateDatabase::BZDB_SHOTSPEED);
 
@@ -190,7 +191,7 @@ void WorldWeapons::fire()
 }
 
 
-void WorldWeapons::add(const FlagType *type, const float *origin,
+void WorldWeapons::add(const FlagType *type, const glm::vec3 &origin,
                        float direction, float tilt, TeamColor teamColor,
                        float initdelay, const std::vector<float> &delay,
                        TimeKeeper &sync)
@@ -198,7 +199,7 @@ void WorldWeapons::add(const FlagType *type, const float *origin,
     Weapon *w = new Weapon();
     w->type = type;
     w->teamColor = teamColor;
-    memmove(&w->origin, origin, 3*sizeof(float));
+    w->origin = origin;
     w->direction = direction;
     w->tilt = tilt;
     w->nextTime = sync;
@@ -279,17 +280,13 @@ bool shotUsedInList(int shotID, Shots::ShotList& list)
 // where we do the world weapon handling for event based shots since they are not really done by the "world"
 
 WorldWeaponGlobalEventHandler::WorldWeaponGlobalEventHandler(FlagType *_type,
-        const float *_origin,
+        const glm::vec3 &_origin,
         float _direction,
         float _tilt,
         TeamColor teamColor )
 {
     type = _type;
-    if (_origin)
-        memcpy(origin,_origin,sizeof(float)*3);
-    else
-        origin[0] = origin[1] = origin[2] = 0.0f;
-
+    origin = _origin;
     direction = _direction;
     tilt = _tilt;
     team = convertTeam(teamColor);

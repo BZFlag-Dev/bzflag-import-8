@@ -172,7 +172,7 @@ WorldInfo *defineTeamWorld()
     if (haveRed)
     {
         // around red base
-        const float *pos = bases[RedTeam].getBasePosition(0);
+        const auto &pos = bases[RedTeam].getBasePosition(0);
         myWorld->addPyramid(
             pos[0] + 0.5f * baseSize - pyrBase,
             pos[1] - 0.5f * baseSize - pyrBase, 0.0f, 0.0f,
@@ -194,7 +194,7 @@ WorldInfo *defineTeamWorld()
     if (haveGreen)
     {
         // around green base
-        const float *pos = bases[GreenTeam].getBasePosition(0);
+        const auto &pos = bases[GreenTeam].getBasePosition(0);
         myWorld->addPyramid(
             pos[0] - 0.5f * baseSize + pyrBase,
             pos[1] - 0.5f * baseSize - pyrBase, 0.0f, 0.0f,
@@ -216,7 +216,7 @@ WorldInfo *defineTeamWorld()
     if (haveBlue)
     {
         // around blue base
-        const float *pos = bases[BlueTeam].getBasePosition(0);
+        const auto &pos = bases[BlueTeam].getBasePosition(0);
         myWorld->addPyramid(
             pos[0] - 0.5f * baseSize - pyrBase,
             pos[1] + 0.5f * baseSize - pyrBase, 0.0f, 0.0f,
@@ -238,7 +238,7 @@ WorldInfo *defineTeamWorld()
     if (havePurple)
     {
         // around purple base
-        const float *pos = bases[PurpleTeam].getBasePosition(0);
+        const auto &pos = bases[PurpleTeam].getBasePosition(0);
         myWorld->addPyramid(
             pos[0] - 0.5f * baseSize - pyrBase,
             pos[1] - 0.5f * baseSize + pyrBase, 0.0f, 0.0f,
@@ -269,10 +269,10 @@ WorldInfo *defineTeamWorld()
             std::cerr << "need some teams, use -mp\n";
             exit(20);
         }
-        const float *redPosition = bases[RedTeam].getBasePosition(0);
-        const float *greenPosition = bases[GreenTeam].getBasePosition(0);
-        const float *bluePosition = bases[BlueTeam].getBasePosition(0);
-        const float *purplePosition = bases[PurpleTeam].getBasePosition(0);
+        const auto &redPosition = bases[RedTeam].getBasePosition(0);
+        const auto &greenPosition = bases[GreenTeam].getBasePosition(0);
+        const auto &bluePosition = bases[BlueTeam].getBasePosition(0);
+        const auto &purplePosition = bases[PurpleTeam].getBasePosition(0);
 
         int numBoxes = int((0.5 + 0.4 * bzfrand()) * actCitySize * actCitySize);
         float boxHeight = BZDB.eval(StateDatabase::BZDB_BOXHEIGHT);
@@ -621,8 +621,8 @@ WorldInfo *defineTeamWorld()
         else
         {
             CustomZone zone;
-            float p[3] = {0.0f, 0.0f, 0.0f};
-            const float size[3] = {baseSize * 0.5f, baseSize * 0.5f, 0.0f};
+            auto p = glm::vec3(0.0f);
+            const glm::vec3 size = glm::vec3(baseSize * 0.5f, baseSize * 0.5f, 0.0f);
             const float safeOff = 0.5f * (baseSize + pyrBase);
             switch (t)
             {

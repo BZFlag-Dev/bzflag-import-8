@@ -225,7 +225,7 @@ void CustomZone::writeToWorld(WorldInfo* worldInfo) const
     worldInfo->addZone( this );
 }
 
-void CustomZone::getRandomPoint(float *pt) const
+void CustomZone::getRandomPoint(glm::vec3 &pt) const
 {
     float x = (float)((bzfrand() * (2.0f * size[0])) - size[0]);
     float y = (float)((bzfrand() * (2.0f * size[1])) - size[1]);
@@ -240,14 +240,11 @@ void CustomZone::getRandomPoint(float *pt) const
     pt[2] = pos[2];
 }
 
-float CustomZone::getDistToPoint (const float *_pos) const
+float CustomZone::getDistToPoint (const glm::vec3 &_pos) const
 {
     // FIXME - should use proper minimum distance from
     // the zone edge, and maybe -1.0f if its inside the zone
-    const float dx = _pos[0] - pos[0];
-    const float dy = _pos[1] - pos[1];
-    const float dz = _pos[2] - pos[2];
-    const float dist = sqrtf (dx*dx + dy*dy + dz*dz);
+    const float dist = glm::distance(_pos, pos);
 
     return dist;
 }

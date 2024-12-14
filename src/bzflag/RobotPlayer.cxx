@@ -41,41 +41,32 @@ RobotPlayer::RobotPlayer(const PlayerId& _id, const char* _name,
 }
 
 // estimate a player's position at now+t, similar to dead reckoning
-void RobotPlayer::projectPosition(const Player *targ,const float t,float &x,float &y,float &z) const
+void RobotPlayer::projectPosition(const Player *targ, const float t, glm::vec3 &tPos) const
 {
-    double hisx=targ->getPosition()[0];
-    double hisy=targ->getPosition()[1];
-    double hisz=targ->getPosition()[2];
-    double hisvx=targ->getVelocity()[0];
-    double hisvy=targ->getVelocity()[1];
-    double hisvz=targ->getVelocity()[2];
+    auto his  = targ->getPosition();
+    auto hisv = targ->getVelocity();
     double omega=fabs(targ->getAngularVelocity());
-    double sx,sy;
 
-    if ((targ->getStatus() & PlayerState::Falling) || fabs(omega) < 2*M_PI / 360 * 0.5)
-    {
-        sx=t*hisvx;
-        sy=t*hisvy;
-    }
+    tPos = his;
+    if ((targ->getStatus() & PlayerState::Falling) || omega < 2*M_PI / 360 * 0.5)
+        tPos += hisv * t;
     else
     {
-        double hisspeed = hypotf(hisvx, hisvy);
+        double hisspeed = glm::length(glm::vec2(hisv));
         double alfa = omega * t;
         double r = hisspeed / fabs(omega);
         double dx = r * sin(alfa);
         double dy2 = r * (1 - cos(alfa));
         double beta = atan2(dy2, dx) * (targ->getAngularVelocity() > 0 ? 1 : -1);
-        double gamma = atan2(hisvy, hisvx);
+        double gamma = atan2(hisv.y, hisv.x);
         double rho = gamma+beta;
-        sx = hisspeed * t * cos(rho);
-        sy = hisspeed * t * sin(rho);
+        tPos.x += hisspeed * t * cos(rho);
+        tPos.y += hisspeed * t * sin(rho);
+        tPos.z += hisv.z * t;
     }
-    x=(float)hisx+(float)sx;
-    y=(float)hisy+(float)sy;
-    z=(float)hisz+(float)hisvz*t;
     if (targ->getStatus() & PlayerState::Falling)
-        z += 0.5f * BZDBCache::gravity * t * t;
-    if (z < 0) z = 0;
+        tPos.z += 0.5f * BZDBCache::gravity * t * t;
+    if (tPos.z < 0) tPos.z = 0;
 }
 
 
@@ -83,43 +74,34 @@ void RobotPlayer::projectPosition(const Player *targ,const float t,float &x,floa
 // 1. estimate how long it will take shot to hit target
 // 2. calc position of target at that point of time
 // 3. jump to 1., using projected position, loop until result is stable
-void RobotPlayer::getProjectedPosition(const Player *targ, float *projpos) const
+void RobotPlayer::getProjectedPosition(const Player *targ, glm::vec3 &projpos) const
 {
-    double myx = getPosition()[0];
-    double myy = getPosition()[1];
-    double hisx = targ->getPosition()[0];
-    double hisy = targ->getPosition()[1];
-    double deltax = hisx - myx;
-    double deltay = hisy - myy;
-    double distance = hypotf(deltax,deltay) - BZDB.eval(StateDatabase::BZDB_MUZZLEFRONT) - BZDBCache::tankRadius;
+    const auto my  = glm::vec2(getPosition());
+    const auto his = glm::vec2(targ->getPosition());
+    double distance = glm::distance(his, my) - BZDB.eval(StateDatabase::BZDB_MUZZLEFRONT) - BZDBCache::tankRadius;
     if (distance <= 0) distance = 0;
+    const auto myVel = glm::vec2(getVelocity());
     double shotspeed = BZDB.eval(StateDatabase::BZDB_SHOTSPEED)*
                        (getFlag() == Flags::Laser ? BZDB.eval(StateDatabase::BZDB_LASERADVEL) :
                         getFlag() == Flags::RapidFire ? BZDB.eval(StateDatabase::BZDB_RFIREADVEL) :
                         getFlag() == Flags::MachineGun ? BZDB.eval(StateDatabase::BZDB_MGUNADVEL) : 1) +
-                       hypotf(getVelocity()[0], getVelocity()[1]);
+                       glm::length(myVel);
 
     double errdistance = 1.0;
-    float tx, ty, tz;
+    glm::vec3 tPos;
     for (int tries=0 ; errdistance > 0.05 && tries < 4 ; tries++)
     {
         float t = (float)distance / (float)shotspeed;
-        projectPosition(targ, t + 0.05f, tx, ty, tz); // add 50ms for lag
-        double distance2 = hypotf(tx - myx, ty - myy);
+        projectPosition(targ, t + 0.05f, tPos); // add 50ms for lag
+        double distance2 = glm::distance(glm::vec2(tPos), my);
         errdistance = fabs(distance2-distance) / (distance + ZERO_TOLERANCE);
         distance = distance2;
     }
-    projpos[0] = tx;
-    projpos[1] = ty;
-    projpos[2] = tz;
+    projpos = tPos;
 
     // projected pos in building -> use current pos
-    if (World::getWorld()->inBuilding(projpos, 0.0f, BZDBCache::tankHeight))
-    {
-        projpos[0] = targ->getPosition()[0];
-        projpos[1] = targ->getPosition()[1];
-        projpos[2] = targ->getPosition()[2];
-    }
+    if (World::getWorld()->inBuilding(projpos, 0.0f, BZDBCache::tankHeight, 0.0f))
+        projpos = targ->getPosition();
 }
 
 
@@ -144,9 +126,9 @@ void            RobotPlayer::doUpdate(float dt)
     // Allow shooting only if angle is near and timer has elapsed
     if ((!path.empty()) && timerForShot <= 0.0f)
     {
-        float p1[3];
+        glm::vec3 p1;
         getProjectedPosition(target, p1);
-        const float* p2     = getPosition();
+        const auto &p2     = getPosition();
         float shootingAngle = atan2f(p1[1] - p2[1], p1[0] - p2[0]);
         if (shootingAngle < 0.0f)
             shootingAngle += (float)(2.0 * M_PI);
@@ -165,10 +147,10 @@ void            RobotPlayer::doUpdate(float dt)
         if (missby < 0.5f * BZDBCache::tankLength &&
                 p1[2] < shotRadius)
         {
-            float pos[3] = {getPosition()[0], getPosition()[1],
-                            getPosition()[2] +  BZDB.eval(StateDatabase::BZDB_MUZZLEHEIGHT)
-                           };
-            float dir[3] = {cosf(azimuth), sinf(azimuth), 0.0f};
+            auto pos = glm::vec3(getPosition()[0], getPosition()[1],
+                                 getPosition()[2] +  BZDB.eval(StateDatabase::BZDB_MUZZLEHEIGHT)
+                                );
+            auto dir = glm::vec3(cosf(azimuth), sinf(azimuth), 0.0f);
             Ray tankRay(pos, dir);
             float maxdistance = targetdistance;
             if (!ShotStrategy::getFirstBuilding(tankRay, -0.5f, maxdistance))
@@ -184,10 +166,7 @@ void            RobotPlayer::doUpdate(float dt)
                         p = LocalPlayer::getMyTank();
                     if (!p || p->getId() == getId() || validTeamTarget(p) ||
                             !p->isAlive()) continue;
-                    float relpos[3] = {getPosition()[0] - p->getPosition()[0],
-                                       getPosition()[1] - p->getPosition()[1],
-                                       getPosition()[2] - p->getPosition()[2]
-                                      };
+                    auto relpos = getPosition() - p->getPosition();
                     Ray ray(relpos, dir);
                     float impact = rayAtDistanceFromOrigin(ray, 5 * BZDBCache::tankRadius);
                     if (impact > 0 && impact < shotRange)
@@ -214,11 +193,8 @@ void            RobotPlayer::doUpdateMotion(float dt)
         bool evading = false;
         // record previous position
         const float oldAzimuth = getAngle();
-        const float* oldPosition = getPosition();
-        float position[3];
-        position[0] = oldPosition[0];
-        position[1] = oldPosition[1];
-        position[2] = oldPosition[2];
+        const auto &oldPosition = getPosition();
+        auto position = oldPosition;
         float azimuth = oldAzimuth;
         float tankAngVel = BZDB.eval(StateDatabase::BZDB_TANKANGVEL);
         float tankSpeed = BZDBCache::tankSpeed;
@@ -244,13 +220,13 @@ void            RobotPlayer::doUpdateMotion(float dt)
                 if (shot->getFlag() == Flags::InvisibleBullet)
                     continue;
 
-                const float* shotPos = shot->getPosition();
+                const auto shotPos = shot->getPosition();
                 if ((fabs(shotPos[2] - position[2]) > BZDBCache::tankHeight) && (shot->getFlag() != Flags::GuidedMissile))
                     continue;
                 const float dist = TargetingUtils::getTargetDistance(position, shotPos);
                 if (dist < 150.0f)
                 {
-                    const float *shotVel = shot->getVelocity();
+                    const auto shotVel = shot->getVelocity();
                     float shotAngle = atan2f(shotVel[1], shotVel[0]);
                     float shotUnitVec[2] = {cosf(shotAngle), sinf(shotAngle)};
 
@@ -284,12 +260,10 @@ void            RobotPlayer::doUpdateMotion(float dt)
         if (!evading && dt > 0.0 && pathIndex < (int)path.size())
         {
             float distance;
-            float v[2];
-            const float* endPoint = path[pathIndex].get();
+            const auto &endPoint = path[pathIndex].get();
             // find how long it will take to get to next path segment
-            v[0] = endPoint[0] - position[0];
-            v[1] = endPoint[1] - position[1];
-            distance = hypotf(v[0], v[1]);
+            auto v = endPoint - glm::vec2(position);
+            distance = glm::length(v);
             float tankRadius = BZDBCache::tankRadius;
             // smooth path a little by turning early at corners, might get us stuck, though
             if (distance <= 2.5f * tankRadius)
@@ -342,7 +316,7 @@ void            RobotPlayer::explodeTank()
     path.clear();
 }
 
-void            RobotPlayer::restart(const float* pos, float _azimuth)
+void RobotPlayer::restart(const glm::vec3 &pos, float _azimuth)
 {
     LocalPlayer::restart(pos, _azimuth);
     // no target
@@ -362,8 +336,8 @@ float           RobotPlayer::getTargetPriority(const
     // go after closest player
     // FIXME -- this is a pretty stupid heuristic
     const float worldSize = BZDBCache::worldSize;
-    const float* p1 = getPosition();
-    const float* p2 = _target->getPosition();
+    const auto &p1 = getPosition();
+    const auto &p2 = _target->getPosition();
 
     float basePriority = 1.0f;
     // give bonus to non-paused player
@@ -372,7 +346,7 @@ float           RobotPlayer::getTargetPriority(const
     // give bonus to non-deadzone targets
     if (obstacleList)
     {
-        float nearest[2];
+        glm::vec2 nearest;
         const BzfRegion* targetRegion = findRegion (p2, nearest);
         if (targetRegion && targetRegion->isInside(p2))
             basePriority += 1.0f;
@@ -401,11 +375,11 @@ void            RobotPlayer::setTarget(const Player* _target)
     if (!target) return;
 
     // work backwards (from target to me)
-    float proj[3];
+    glm::vec3 proj;
     getProjectedPosition(target, proj);
-    const float *p1 = proj;
-    const float* p2 = getPosition();
-    float q1[2], q2[2];
+    auto p1 = glm::vec2(proj);
+    const auto &p2 = getPosition();
+    glm::vec2 q1, q2;
     BzfRegion* headRegion = findRegion(p1, q1);
     BzfRegion* tailRegion = findRegion(p2, q2);
     if (!headRegion || !tailRegion)
@@ -438,11 +412,10 @@ void            RobotPlayer::setTarget(const Player* _target)
     pathIndex = 0;
 }
 
-BzfRegion*      RobotPlayer::findRegion(const float p[2],
-                                        float nearest[2]) const
+BzfRegion*      RobotPlayer::findRegion(const glm::vec2 &p,
+                                        glm::vec2 &nearest) const
 {
-    nearest[0] = p[0];
-    nearest[1] = p[1];
+    nearest = p;
     const int count = obstacleList->size();
     for (int o = 0; o < count; o++)
         if ((*obstacleList)[o]->isInside(p))
@@ -453,30 +426,25 @@ BzfRegion*      RobotPlayer::findRegion(const float p[2],
     BzfRegion* nearestRegion = NULL;
     for (int i = 0; i < count; i++)
     {
-        float currNearest[2];
+        glm::vec2 currNearest;
         float currDistance = (*obstacleList)[i]->getDistance(p, currNearest);
         if (currDistance < distance)
         {
             nearestRegion = (*obstacleList)[i];
             distance = currDistance;
-            nearest[0] = currNearest[0];
-            nearest[1] = currNearest[1];
+            nearest = currNearest;
         }
     }
     return nearestRegion;
 }
 
 float           RobotPlayer::getRegionExitPoint(
-    const float p1[2], const float p2[2],
-    const float a[2], const float targetPoint[2],
-    float mid[2], float& priority)
+    const glm::vec2 &p1, const glm::vec2 &p2,
+    const glm::vec2 &a, const glm::vec2 &targetPoint,
+    glm::vec2 &mid, float& priority)
 {
-    float b[2];
-    b[0] = targetPoint[0] - a[0];
-    b[1] = targetPoint[1] - a[1];
-    float d[2];
-    d[0] = p2[0] - p1[0];
-    d[1] = p2[1] - p1[1];
+    auto b = targetPoint - a;
+    auto d = p2 - p1;
 
     float vect = d[0] * b[1] - d[1] * b[0];
     float t    = 0.0f;  // safe value
@@ -490,12 +458,11 @@ float           RobotPlayer::getRegionExitPoint(
             t = 0.0f;
     }
 
-    mid[0] = p1[0] + t * d[0];
-    mid[1] = p1[1] + t * d[1];
+    mid = p1 + t * d;
 
-    const float distance = hypotf(a[0] - mid[0], a[1] - mid[1]);
+    const float distance = glm::distance(a, mid);
     // priority is to minimize distance traveled and distance left to go
-    priority = distance + hypotf(targetPoint[0] - mid[0], targetPoint[1] - mid[1]);
+    priority = distance + glm::distance(targetPoint, mid);
     // return distance traveled
     return distance;
 }
@@ -503,7 +470,7 @@ float           RobotPlayer::getRegionExitPoint(
 void            RobotPlayer::findPath(RegionPriorityQueue& queue,
                                       BzfRegion* region,
                                       BzfRegion* targetRegion,
-                                      const float targetPoint[2],
+                                      const glm::vec2 &targetPoint,
                                       int mailbox)
 {
     const int numEdges = region->getNumSides();
@@ -512,14 +479,15 @@ void            RobotPlayer::findPath(RegionPriorityQueue& queue,
         BzfRegion* neighbor = region->getNeighbor(i);
         if (!neighbor) continue;
 
-        const float* p1 = region->getCorner(i).get();
-        const float* p2 = region->getCorner((i+1)%numEdges).get();
-        float mid[2], priority;
+        const auto &p1 = region->getCorner(i).get();
+        const auto &p2 = region->getCorner((i+1)%numEdges).get();
+        glm::vec2 mid;
+        float priority;
         float total = getRegionExitPoint(p1, p2, region->getA(),
                                          targetPoint, mid, priority);
         priority += region->getDistance();
         if (neighbor == targetRegion)
-            total += hypotf(targetPoint[0] - mid[0], targetPoint[1] - mid[1]);
+            total += glm::distance(targetPoint, mid);
         total += region->getDistance();
         if (neighbor->test(mailbox) || total < neighbor->getDistance())
         {

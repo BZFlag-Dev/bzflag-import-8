@@ -17,6 +17,9 @@
 
 #include "common.h"
 
+// System headers
+#include <glm/vec3.hpp>
+
 /* local interface headers */
 #include "SpawnPolicy.h"
 
@@ -44,7 +47,7 @@ public:
 
 private:
     float       azimuth;
-    float       pos[3];
+    glm::vec3   pos;
 
     /* class data - determines how the pos and azimuth are determined */
     static SpawnPolicy *policy;

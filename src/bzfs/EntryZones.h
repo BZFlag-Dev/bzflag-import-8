@@ -38,13 +38,13 @@ public:
 
     void calculateQualifierLists();
 
-    bool getZonePoint(const std::string &qualifier, float *pt) const;
+    bool getZonePoint(const std::string &qualifier, glm::vec3 &pt) const;
     bool getSafetyPoint(const std::string &qualifier,
-                        const float *pos, float *pt) const;
+                        const glm::vec3 &pos, glm::vec3 &pt) const;
 
-    bool getRandomPoint(const std::string &qual, float *pt) const;
-    bool getClosePoint(const std::string &qual, const float pos[3],
-                       float *pt) const;
+    bool getRandomPoint(const std::string &qual, glm::vec3 &pt) const;
+    bool getClosePoint(const std::string &qual, const glm::vec3 &pos,
+                       glm::vec3 &pt) const;
 
     const ZoneList& getZoneList() const;
 

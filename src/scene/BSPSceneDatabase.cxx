@@ -14,11 +14,15 @@
  *
  */
 
-#include "common.h"
-#include "SceneNode.h"
+// Interface header
+#include "BSPSceneDatabase.h"
+
+// System headers
 #include <assert.h>
 #include <string.h>
-#include "BSPSceneDatabase.h"
+
+// Common headers
+#include "SceneNode.h"
 #include "ViewFrustum.h"
 #include "SphereSceneNode.h"
 #include "WallSceneNode.h"
@@ -52,10 +56,10 @@ BSPSceneDatabase::Node::Node(bool _dynamic, SceneNode* _node):
 
 BSPSceneDatabase::BSPSceneDatabase() :
     root(NULL),
-    depth(0)
+    depth(0),
+    eye(0.0f)
 {
     needNoPlaneNodes = true;
-    memset(eye, 0, sizeof(GLfloat) * 3);
 }
 
 
@@ -184,7 +188,7 @@ bool BSPSceneDatabase::insertStatic(int level, Node* _root,
 
     // split against root's plane
     SceneNode* front = NULL, *back = NULL;
-    switch (node->split(_root->node->getPlane(), front, back))
+    switch (node->split(*_root->node->getPlane(), front, back))
     {
     case 0:
         // copy style to new nodes
@@ -244,9 +248,9 @@ void BSPSceneDatabase::insertDynamic(int level, Node* _root,
     GLfloat d;
     if (!_root->dynamic && _root->node->getPlane())
     {
-        const GLfloat* plane = _root->node->getPlane();
-        const GLfloat* pos = node->getSphere();
-        d = pos[0] * plane[0] + pos[1] * plane[1] + pos[2] * plane[2] + plane[3];
+        const auto plane = _root->node->getPlane();
+        const auto pos = glm::vec4(node->getSphere(), 1.0f);
+        d = glm::dot(pos, *plane);
     }
     else
         d = _root->node->getDistance(eye) - node->getDistance(eye);
@@ -283,14 +287,14 @@ void BSPSceneDatabase::insertNoPlane(int level, Node* _root,
     GLfloat d;
     if (_root->node->getPlane())
     {
-        const GLfloat* plane = _root->node->getPlane();
-        const GLfloat* pos = node->getSphere();
-        d = pos[0] * plane[0] + pos[1] * plane[1] + pos[2] * plane[2] + plane[3];
+        const auto plane = _root->node->getPlane();
+        const auto pos = glm::vec4(node->getSphere(), 1.0f);
+        d = glm::dot(pos, *plane);
     }
     else
     {
         // it's a crap shoot  (draw smaller items first)
-        d = node->getSphere()[3] - _root->node->getSphere()[3];
+        d = node->getRadius2() - _root->node->getRadius2();
     }
 
     if (d >= 0.0f)
@@ -412,8 +416,7 @@ void BSPSceneDatabase::addRenderNodes(SceneRenderer& _renderer)
     {
         renderer = &_renderer;
         frustum = &renderer->getViewFrustum();
-        const GLfloat* _eye = frustum->getEye();
-        memcpy (eye, _eye, sizeof(GLfloat[3]));
+        eye = frustum->getEye();
         nodeAddRenderNodes(root);
     }
     return;
@@ -473,11 +476,11 @@ void BSPSceneDatabase::nodeAddRenderNodes(Node* node)
     Node* front = node->front;
     SceneNode* snode = node->node;
 
-    const GLfloat* plane = snode->getPlane();
+    const auto plane = snode->getPlane();
     if (plane)
     {
-        if (((plane[0] * eye[0]) + (plane[1] * eye[1]) +
-                (plane[2] * eye[2]) + plane[3]) >= 0.0f)
+        const auto eye4 = glm::vec4(eye, 1.0f);
+        if (glm::dot(*plane, eye4) >= 0.0f)
         {
             // eye is in front so render:  back, node, front
             if (back)

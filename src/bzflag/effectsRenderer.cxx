@@ -13,14 +13,16 @@
 // interface header
 #include "effectsRenderer.h"
 
+// System headers
+#include <glm/gtc/random.hpp>
+
 // common impl headers
 #include "TextureManager.h"
 #include "StateDatabase.h"
 #include "TimeKeeper.h"
 #include "Flag.h"
 #include "playing.h"
-
-
+#include "OpenGLAPI.h"
 
 class StdSpawnEffect : public BasicEffect
 {
@@ -112,7 +114,7 @@ public:
     virtual bool update ( float time );
     virtual void draw ( const SceneRenderer& sr );
     virtual bool SetDeathRenderParams ( TankDeathOverride::DeathParams &params);
-    virtual bool GetDeathVector( fvec3 & v );
+    virtual bool GetDeathVector(glm::vec3 &v);
     virtual bool ShowExplosion ( void )
     {
         return false;
@@ -128,7 +130,7 @@ public:
     virtual bool update ( float time );
     virtual void draw ( const SceneRenderer& sr );
     virtual bool SetDeathRenderParams ( TankDeathOverride::DeathParams &params);
-    virtual bool GetDeathVector( fvec3 & v );
+    virtual bool GetDeathVector(glm::vec3 &v);
     virtual bool ShowExplosion ( void )
     {
         return false;
@@ -157,11 +159,11 @@ protected:
     {
     public:
         float size;
-        fvec2 rots;
+        glm::vec2 rots;
         float alphaMod;
     };
     std::vector<Spike> Spikes;
-    std::vector<fvec3> Puffs;
+    std::vector<glm::vec3> Puffs;
 
     float explodeFraction;
 };
@@ -212,7 +214,7 @@ protected:
     OpenGLGState ringState;
 
     float radius;
-    fvec3 jitter;
+    glm::vec3 jitter;
 
     float u,v,du,dv;
 };
@@ -254,7 +256,7 @@ static void drawRingYZ(float rad, float z, float topsideOffset = 0,
 static void drawRingXY(float rad, float z, float topsideOffset = 0,
                        float bottomUV = 0, float topUV = 1.0f,
                        int segments = 32);
-static void RadialToCartesian(float angle, float rad, float *pos);
+static glm::vec2 RadialToCartesian(float angle);
 
 #define deg2Rad 0.017453292519943295769236907684886f
 
@@ -317,7 +319,7 @@ void EffectsRenderer::rebuildContext(void)
         effectsList[i]->rebuildContext();
 }
 
-void EffectsRenderer::addSpawnEffect ( const float* rgb, const float* pos )
+void EffectsRenderer::addSpawnEffect (const glm::vec3 &rgb, const glm::vec3 &pos)
 {
     if (!BZDB.isTrue("useFancyEffects"))
         return;
@@ -363,7 +365,12 @@ std::vector<std::string> EffectsRenderer::getSpawnEffectTypes ( void )
     return ret;
 }
 
-void EffectsRenderer::addShotEffect (  const float* rgb, const float* pos, float rot, const float *vel, int _type)
+void EffectsRenderer::addShotEffect (
+    const glm::vec3 &rgb,
+    const glm::vec3 &pos,
+    float rot,
+    const glm::vec3 &vel,
+    int _type)
 {
     if (!BZDB.isTrue("useFancyEffects"))
         return;
@@ -417,14 +424,17 @@ std::vector<std::string> EffectsRenderer::getShotEffectTypes ( void )
     return ret;
 }
 
-void EffectsRenderer::addGMPuffEffect ( const float* pos, float rot[2], const float* vel)
+void EffectsRenderer::addGMPuffEffect(const glm::vec3 &pos, float rot[2])
 {
     if (!BZDB.isTrue("useFancyEffects"))
         return;
 
     int flashType = static_cast<int>(BZDB.eval("gmPuffEffect"));
 
-    if (flashType == 0)
+    if (flashType <= 1)
+        return;
+
+    if (flashType > 3)
         return;
 
     float rots[3] = {0};
@@ -434,10 +444,6 @@ void EffectsRenderer::addGMPuffEffect ( const float* pos, float rot[2], const fl
     BasicEffect *effect = NULL;
     switch (flashType)
     {
-    case 1:
-        // handled outside this manager in the "old" code
-        break;
-
     case 2:
         effect = new StdGMPuffEffect;
         break;
@@ -447,12 +453,9 @@ void EffectsRenderer::addGMPuffEffect ( const float* pos, float rot[2], const fl
         break;
     }
 
-    if (effect)
     {
         effect->setPos(pos,rots);
         effect->setStartTime((float)TimeKeeper::getCurrent().getSeconds());
-        if (BZDB.isTrue("useVelOnShotEffects"))
-            effect->setVel(vel);
         effectsList.push_back(effect);
     }
 }
@@ -468,8 +471,9 @@ std::vector<std::string> EffectsRenderer::getGMPuffEffectTypes ( void )
     return ret;
 }
 
-DeathEffect* EffectsRenderer::addDeathEffect (const float *rgb, const float *pos, float rot,
-        int, Player* player, FlagType *)
+DeathEffect* EffectsRenderer::addDeathEffect (
+    const glm::vec3 &rgb, const glm::vec3 &pos, float rot,
+    int, Player* player, FlagType *)
 {
     if (!BZDB.isTrue("useFancyEffects"))
         return NULL;
@@ -514,7 +518,8 @@ std::vector<std::string> EffectsRenderer::getDeathEffectTypes ( void )
 }
 
 // landing effects
-void EffectsRenderer::addLandEffect ( const float* rgb, const float* pos, float rot )
+void EffectsRenderer::addLandEffect (
+    const glm::vec3 &rgb, const glm::vec3 &pos, float rot)
 {
     if (!BZDB.isTrue("useFancyEffects"))
         return;
@@ -554,35 +559,25 @@ std::vector<std::string> EffectsRenderer::getLandEffectTypes ( void )
     return ret;
 }
 
-void EffectsRenderer::addRicoEffect ( const float* pos, float rot[2], const float* vel)
+void EffectsRenderer::addRicoEffect(const glm::vec3 &pos, float rot[2])
 {
     if (!BZDB.isTrue("useFancyEffects"))
         return;
 
     int flashType = static_cast<int>(BZDB.eval("ricoEffect"));
 
-    if (flashType == 0)
+    if (flashType != 1)
         return;
 
     float rots[3] = {0};
     rots[2] = rot[0];
     rots[1] = rot[1];
 
-    BasicEffect *effect = NULL;
-    switch (flashType)
-    {
-    case 1:
-        effect = new StdRicoEffect;
-        break;
-    }
+    BasicEffect *effect = new StdRicoEffect;
 
-    if (effect)
     {
         effect->setPos(pos,rots);
         effect->setStartTime((float)TimeKeeper::getCurrent().getSeconds());
-        if (BZDB.isTrue("useVelOnShotEffects"))
-            effect->setVel(vel);
-
         effectsList.push_back(effect);
     }
 }
@@ -597,34 +592,25 @@ std::vector<std::string> EffectsRenderer::getRicoEffectTypes ( void )
     return ret;
 }
 
-void EffectsRenderer::addShotTeleportEffect ( const float* pos, float rot[2], const float* vel)
+void EffectsRenderer::addShotTeleportEffect(const glm::vec3 &pos, float rot[2])
 {
     if (!BZDB.isTrue("useFancyEffects"))
         return;
 
     int flashType = static_cast<int>(BZDB.eval("tpEffect"));
 
-    if (flashType == 0)
+    if (flashType != 1)
         return;
 
     float rots[3] = {0};
     rots[2] = rot[0];
     rots[1] = rot[1];
 
-    BasicEffect *effect = NULL;
-    switch (flashType)
-    {
-    case 1:
-        effect = new StdShotTeleportEffect;
-        break;
-    }
+    BasicEffect *effect = new StdShotTeleportEffect;
 
-    if (effect)
     {
         effect->setPos(pos,rots);
         effect->setStartTime((float)TimeKeeper::getCurrent().getSeconds());
-        if (BZDB.isTrue("useVelOnShotEffects"))
-            effect->setVel(vel);
         effectsList.push_back(effect);
     }
 }
@@ -644,10 +630,10 @@ std::vector<std::string> EffectsRenderer::getShotTeleportEffectTypes ( void )
 //****************** effects base class*******************************
 BasicEffect::BasicEffect(): age()
 {
-    position[0] = position[1] = position[2] = 0.0f;
+    position = glm::vec3(0.0f);
     rotation[0] = rotation[1] = rotation[2] = 0.0f;
-    velocity[0] = velocity[1] = velocity[2] = 0.0f;
-    color[0] = color[1] = color[2] = 0.0f;
+    velocity = glm::vec3(0.0f);
+    color = glm::vec3(0.0f);
     startTime = (float)TimeKeeper::getCurrent().getSeconds();
 
     lifetime = 0;
@@ -656,14 +642,9 @@ BasicEffect::BasicEffect(): age()
     lifeParam = 1.0;
 }
 
-void BasicEffect::setPos ( const float *pos, const float *rot )
+void BasicEffect::setPos(const glm::vec3 &pos, const float *rot)
 {
-    if (pos)
-    {
-        position[0] = pos[0];
-        position[1] = pos[1];
-        position[2] = pos[2];
-    }
+    position = pos;
 
     if (rot)
     {
@@ -673,21 +654,14 @@ void BasicEffect::setPos ( const float *pos, const float *rot )
     }
 }
 
-void BasicEffect::setVel ( const float *vel )
+void BasicEffect::setVel(const glm::vec3 &vel)
 {
-    if (vel)
-    {
-        velocity[0] = vel[0];
-        velocity[1] = vel[1];
-        velocity[2] = vel[2];
-    }
+    velocity = vel;
 }
 
-void BasicEffect::setColor ( const float *rgb )
+void BasicEffect::setColor (const glm::vec3 &rgb)
 {
-    color[0] = rgb[0];
-    color[1] = rgb[1];
-    color[2] = rgb[2];
+    color = rgb;
 }
 
 void BasicEffect::setStartTime ( float time )
@@ -936,11 +910,7 @@ void StdShotEffect::draw(const SceneRenderer &)
 {
     glPushMatrix();
 
-    float pos[3];
-
-    pos[0] = position[0] + velocity[0] * age;
-    pos[1] = position[1] + velocity[1] * age;
-    pos[2] = position[2] + velocity[2] * age;
+    auto pos = position + velocity * age;
 
     glTranslatef(pos[0],pos[1],pos[2]);
     glRotatef(180+rotation[2]/deg2Rad,0,0,1);
@@ -952,7 +922,7 @@ void StdShotEffect::draw(const SceneRenderer &)
 
     ringState.setState();
 
-    color[0] = color[1] = color[2] = 1;
+    color = glm::vec3(1.0f);
 
     float alpha = 0.5f-(age/lifetime);
     if (alpha < 0.001f)
@@ -1016,24 +986,15 @@ void FlashShotEffect::draw(const SceneRenderer &)
 
     glPushMatrix();
 
-    float pos[3];
-
-    pos[0] = position[0] + velocity[0] * age;
-    pos[1] = position[1] + velocity[1] * age;
-    pos[2] = position[2] + velocity[2] * age;
+    auto pos = position + velocity * age;
 
     glTranslatef(pos[0],pos[1],pos[2]);
     glRotatef(270+rotation[2]/deg2Rad,0,0,1);
     glTranslatef(0.0f, 0.52f, -0.04f);
 
     //barrel roll to camera
-    const float *playerpos = LocalPlayer::getMyTank()->getPosition();
-    float camerapos[3] =
-    {
-        playerpos[0] - pos[0],
-        playerpos[1] - pos[1],
-        playerpos[2] - pos[2]
-    };
+    const auto &playerpos = LocalPlayer::getMyTank()->getPosition();
+    auto camerapos = playerpos - pos;
     //camerapos[0] = camerapos[0] * cos(-rotation[2])
     //         - camerapos[1] * sin(-rotation[2]);
     camerapos[1] = camerapos[1] * cos(-rotation[2])
@@ -1043,7 +1004,7 @@ void FlashShotEffect::draw(const SceneRenderer &)
 
     ringState.setState();
 
-    color[0] = color[1] = color[2] = 1;
+    color = glm::vec3(1.0f);
 
     float alpha = 0.8f-(age/lifetime);
     if (alpha < 0.001f)
@@ -1094,18 +1055,17 @@ void SquishDeathEffect::draw ( const SceneRenderer& UNUSED(sr) )
 
 bool SquishDeathEffect::SetDeathRenderParams (TankDeathOverride::DeathParams &params)
 {
-    params.scale = fvec3(1,1,0);
-    params.pos = fvec3(0,0,0.1f);
+    params.scale = glm::vec3(1.0f, 1.0f, 0.0f);
+    params.pos   = glm::vec3(0.0f, 0.0f, 0.1f);
     return true;
 }
 
-bool SquishDeathEffect::GetDeathVector( fvec3 & vel )
+bool SquishDeathEffect::GetDeathVector(glm::vec3 &vel)
 {
     if (!player)
         return false;
 
-    const float *v = player->getVelocity();
-    vel = fvec3(v[0],v[1],v[2]);
+    vel = player->getVelocity();
     return true;
 }
 
@@ -1140,16 +1100,16 @@ bool FadeToHeaven::SetDeathRenderParams (TankDeathOverride::DeathParams &params)
     done = params.explodeParam  < 0.0001f;
 
     params.color[3] = params.explodeParam;
-    params.pos = fvec3(0,0,vertDist*params.explodeParam);
+    params.pos = glm::vec3(0.0f, 0.0f, vertDist * params.explodeParam);
 
     return true;
 }
 
-bool FadeToHeaven::GetDeathVector( fvec3 & vel )
+bool FadeToHeaven::GetDeathVector(glm::vec3 &vel)
 {
     if (!player)
         return false;
-    vel = fvec3(0,0,0);
+    vel = glm::vec3(0.0f);
     return true;
 }
 
@@ -1201,15 +1161,9 @@ void RingsDeathEffect::draw(const SceneRenderer &)
 
     ringState.setState();
 
-    color[0] = 108.0f/256.0f;
-    color[1] = 16.0f/256.0f;
-    color[2] = 16.0f/256.0f;
+    color = glm::vec3(108.0f / 256.0f, 16.0f / 256.0f, 16.0f / 256.0f);
 
-    float deltas[3];
-
-    deltas[0] = 1.0f - color[0];
-    deltas[1] = 1.0f - color[1];
-    deltas[2] = 1.0f - color[2];
+    const auto deltas = 1.0f - color;
 
     float ageParam = age/lifetime;
 
@@ -1217,9 +1171,7 @@ void RingsDeathEffect::draw(const SceneRenderer &)
     if (alpha < 0.005f)
         alpha = 0.005f;
 
-    color[0] += deltas[0] *ageParam;
-    color[1] += deltas[1] *ageParam;
-    color[2] += deltas[2] *ageParam;
+    color += deltas * ageParam;
 
     glColor4f(color[0],color[1],color[2],alpha);
     glDepthMask(0);
@@ -1267,13 +1219,14 @@ SpikesDeathEffect::SpikesDeathEffect() : DeathEffect()
         Spike s;
         s.alphaMod = ((float)bzfrand() * 0.5f) + 0.5f;
         s.size = ((float)bzfrand() * 1.5f) + 0.5f;
-        s.rots = fvec2((float)bzfrand()* 360.0f,(float)bzfrand() * 180.0f);
+        s.rots = glm::linearRand(glm::vec2(0.0f), glm::vec2(360.0f, 180.0f));
         Spikes.push_back(s);
     }
 
     int puffs = (int)((bzfrand() * 25)) + 10;
     for ( int i = 0; i < puffs; i++)
-        Puffs.push_back(fvec3((float)bzfrand()*4-2,(float)bzfrand()*4-2,(float)bzfrand()*2));
+        Puffs.push_back(glm::linearRand(glm::vec3(-2.0f, -2.0f, 0.0f),
+                                        glm::vec3(2.0f, 2.0f, 2.0f)));
 }
 
 SpikesDeathEffect::~SpikesDeathEffect()
@@ -1300,41 +1253,8 @@ void SpikesDeathEffect::draw(const SceneRenderer &)
     glTranslatef(position[0],position[1],position[2]);
     glRotatef(180+rotation[2]/deg2Rad,0,0,1);
 
-    color[0] = 108.0f/256.0f;
-    color[1] = 16.0f/256.0f;
-    color[2] = 16.0f/256.0f;
+    color = glm::vec3(108.0f / 256.0f, 16.0f / 256.0f, 16.0f / 256.0f);
 
-    /*float deltas[3];
-
-      deltas[0] = 1.0f - color[0];
-      deltas[1] = 1.0f - color[1];
-      deltas[2] = 1.0f - color[2];
-
-      float ageParam = age/lifetime;
-
-      float alpha = 1.0f-(ageParam*0.5f);
-      if (alpha < 0.005f)
-      alpha = 0.005f;
-
-      color[0] += deltas[0] *ageParam;
-      color[1] += deltas[1] *ageParam;
-      color[2] += deltas[2] *ageParam;
-
-      glColor4f(color[0],color[1],color[2],alpha);
-      glDepthMask(0);
-
-      glPushMatrix();
-      glTranslatef(0,0,0.5f);
-      drawRingXY(radius*0.75f,1.5f + (ageParam/1.0f * 10),0.5f*age,0.5f);
-      drawRingXY(radius,-0.5f,0.5f+ age,0.5f);
-
-      glTranslatef(-1.5,0,0);
-      glRotatef(90,0,0,1);
-      drawRingYZ(radius,3,0,0,position[2]+0.5f);
-      glPopMatrix();
-
-      glColor4f(1,1,1,1);
-      glDepthMask(1);*/
     glPopMatrix();
 }
 
@@ -1384,9 +1304,7 @@ void StdLandEffect::draw(const SceneRenderer &)
 
     ringState.setState();
 
-    color[0] = 1;
-    color[1] = 1;
-    color[2] = 1;
+    color = glm::vec3(1.0f);
 
     glColor4f(color[0],color[1],color[2],1.0f-(age/lifetime));
     glDepthMask(0);
@@ -1444,11 +1362,7 @@ void StdGMPuffEffect::draw(const SceneRenderer &)
 {
     glPushMatrix();
 
-    float pos[3];
-
-    pos[0] = position[0] + velocity[0] * age;
-    pos[1] = position[1] + velocity[1] * age;
-    pos[2] = position[2] + velocity[2] * age;
+    auto pos = position + velocity * age;
 
     glTranslatef(pos[0],pos[1],pos[2]);
     glRotatef(180+rotation[2]/deg2Rad,0,0,1);
@@ -1456,7 +1370,7 @@ void StdGMPuffEffect::draw(const SceneRenderer &)
 
     ringState.setState();
 
-    color[0] = color[1] = color[2] = 1;
+    color = glm::vec3(1.0f);
 
     float alpha = 0.5f-(age/lifetime);
     if (alpha < 0.000001f)
@@ -1556,13 +1470,9 @@ void SmokeGMPuffEffect::draw(const SceneRenderer &)
 {
     glPushMatrix();
 
-    float pos[3];
-
     float vertDrift = 1.5f * age;
 
-    pos[0] = position[0] + velocity[0] * age;
-    pos[1] = position[1] + velocity[1] * age;
-    pos[2] = position[2] + velocity[2] * age;
+    auto pos = position + velocity * age;
 
     glTranslatef(pos[0]+jitter.x,pos[1]+jitter.y,pos[2]+jitter.z+vertDrift);
 
@@ -1573,7 +1483,7 @@ void SmokeGMPuffEffect::draw(const SceneRenderer &)
     ringState.setState();
     glColor4f(1,1,1,1);
 
-    color[0] = color[1] = color[2] = 1;
+    color = glm::vec3(1.0f);
 
     float alpha = 0.5f-(age/lifetime);
     if (alpha < 0.000001f)
@@ -1633,11 +1543,7 @@ void StdRicoEffect::draw(const SceneRenderer &)
 {
     glPushMatrix();
 
-    float pos[3];
-
-    pos[0] = position[0] + velocity[0] * age;
-    pos[1] = position[1] + velocity[1] * age;
-    pos[2] = position[2] + velocity[2] * age;
+    auto pos = position + velocity * age;
 
     glTranslatef(pos[0],pos[1],pos[2]);
     glRotatef((rotation[2]/deg2Rad)+180,0,0,1);
@@ -1645,7 +1551,7 @@ void StdRicoEffect::draw(const SceneRenderer &)
 
     ringState.setState();
 
-    color[0] = color[1] = color[2] = 1;
+    color = glm::vec3(1.0f);
 
     float alpha = 0.5f-(age/lifetime);
     if (alpha < 0.000001f)
@@ -1704,11 +1610,7 @@ void StdShotTeleportEffect::draw(const SceneRenderer &)
 {
     glPushMatrix();
 
-    float pos[3];
-
-    pos[0] = position[0] + velocity[0] * age;
-    pos[1] = position[1] + velocity[1] * age;
-    pos[2] = position[2] + velocity[2] * age;
+    auto pos = position + velocity * age;
 
     glTranslatef(pos[0],pos[1],pos[2]);
     glRotatef((rotation[2]/deg2Rad),0,0,1);
@@ -1717,7 +1619,7 @@ void StdShotTeleportEffect::draw(const SceneRenderer &)
 
     ringState.setState();
 
-    color[0] = color[1] = color[2] = 1;
+    color = glm::vec3(1.0f);
 
     float alpha = 1.0f;
 
@@ -1736,82 +1638,70 @@ void StdShotTeleportEffect::draw(const SceneRenderer &)
 
 //******************************** geo utiliys********************************
 
-static void RadialToCartesian(float angle, float rad, float *pos)
+static glm::vec2 RadialToCartesian(float angle)
 {
-    pos[0] = sinf(angle*deg2Rad)*rad;
-    pos[1] = cosf(angle*deg2Rad)*rad;
+    float radians = angle * deg2Rad;
+    auto pos = glm::vec2(sin(radians), cos(radians));
+
+    return pos;
 }
 
 static void drawRingXY(float rad, float z, float topsideOffset, float bottomUV,
                        float topUV, int segments )
 {
+    auto nextNormal = glm::vec2(0.0f, 1.0f);
+    auto nextPos    = nextNormal * rad;
+    auto nextPos2   = nextNormal * (rad + topsideOffset);
+    glBegin(GL_TRIANGLE_STRIP);
     for ( int i = 0; i < segments; i ++)
     {
-        float thisAng = 360.0f/segments * i;
-        float nextAng = 360.0f/segments * (i+1);
+        float nextAng = 360.0f / segments * (i + 1);
         if ( i+1 >= segments )
             nextAng = 0;
 
-        float thispos[2];
-        float nextPos[2];
+        const auto thispos    = nextPos;
+        const auto thisNormal = nextNormal;
+        nextNormal = RadialToCartesian(nextAng);
+        nextPos    = nextNormal * rad;
 
-        float thispos2[2];
-        float nextPos2[2];
-
-        float thisNormal[3] = {0};
-        float nextNormal[3] = {0};
-
-        RadialToCartesian(thisAng,rad,thispos);
-        RadialToCartesian(thisAng,1,thisNormal);
-        RadialToCartesian(nextAng,rad,nextPos);
-        RadialToCartesian(nextAng,1,nextNormal);
-
-        RadialToCartesian(thisAng,rad+topsideOffset,thispos2);
-        RadialToCartesian(nextAng,rad+topsideOffset,nextPos2);
+        const auto thispos2 = nextPos2;
+        nextPos2 = nextNormal * (rad + topsideOffset);
 
         // the "inside"
-        glBegin(GL_TRIANGLE_STRIP);
-
-        glNormal3f(-thisNormal[0],-thisNormal[1],-thisNormal[2]);
+        glNormal(-thisNormal);
         glTexCoord2f(0,bottomUV);
-        glVertex3f(thispos[0],thispos[1],0);
+        glVertex(thispos);
 
-        glNormal3f(-nextNormal[0],-nextNormal[1],-nextNormal[2]);
+        glNormal(-nextNormal);
         glTexCoord2f(1,bottomUV);
-        glVertex3f(nextPos[0],nextPos[1],0);
+        glVertex(nextPos);
 
-        glNormal3f(-thisNormal[0],-thisNormal[1],-thisNormal[2]);
+        glNormal(-thisNormal);
         glTexCoord2f(0,topUV);
-        glVertex3f(thispos2[0],thispos2[1],z);
+        glVertex(thispos2, z);
 
-        glNormal3f(-nextNormal[0],-nextNormal[1],-nextNormal[2]);
+        glNormal(-nextNormal);
         glTexCoord2f(1,topUV);
-        glVertex3f(nextPos2[0],nextPos2[1],z);
-
-        glEnd();
+        glVertex(nextPos2, z);
 
         // the "outside"
-        glBegin(GL_TRIANGLE_STRIP);
-
-        glNormal3f(thisNormal[0],thisNormal[1],thisNormal[2]);
+        glNormal(thisNormal);
         glTexCoord2f(0,topUV);
-        glVertex3f(thispos2[0],thispos2[1],z);
+        glVertex(thispos2, z);
 
-        glNormal3f(nextNormal[0],nextNormal[1],nextNormal[2]);
+        glNormal(nextNormal);
         glTexCoord2f(1,topUV);
-        glVertex3f(nextPos2[0],nextPos2[1],z);
+        glVertex(nextPos2, z);
 
-        glNormal3f(thisNormal[0],thisNormal[1],thisNormal[2]);
+        glNormal(thisNormal);
         glTexCoord2f(0,bottomUV);
-        glVertex3f(thispos[0],thispos[1],0);
+        glVertex(thispos);
 
-        glNormal3f(nextNormal[0],nextNormal[1],nextNormal[2]);
+        glNormal(nextNormal);
         glTexCoord2f(1,bottomUV);
-        glVertex3f(nextPos[0],nextPos[1],0);
-
-        glEnd();
-
+        glVertex(nextPos);
     }
+    glEnd();
 }
 
 static float clampedZ(float z, float offset)
@@ -1824,72 +1714,63 @@ static float clampedZ(float z, float offset)
 static void drawRingYZ(float rad, float z, float topsideOffset, float bottomUV,
                        float ZOffset, float topUV, int segments)
 {
+    float nextAng = 0.0f;
+    auto nextNormal = glm::vec2(0.0f, 1.0f);
+    auto nextPos    = nextNormal * rad;
+    auto nextPos2   = nextNormal * (rad + topsideOffset);
+    glBegin(GL_TRIANGLE_STRIP);
     for ( int i = 0; i < segments; i ++)
     {
-        float thisAng = 360.0f/segments * i;
-        float nextAng = 360.0f/segments * (i+1);
+        nextAng = 360.0f/segments * (i+1);
         if ( i+1 >= segments )
             nextAng = 0;
 
-        float thispos[2];
-        float nextPos[2];
+        const auto thispos    = nextPos;
+        const auto thisNormal = nextNormal;
+        nextNormal = RadialToCartesian(nextAng);
+        nextPos    = nextNormal * rad;
+        nextPos.x = clampedZ(nextPos.x, ZOffset);
 
-        float thispos2[2];
-        float nextPos2[2];
-
-        float thisNormal[3] = {0};
-        float nextNormal[3] = {0};
-
-        RadialToCartesian(thisAng,rad,thispos);
-        RadialToCartesian(thisAng,1,thisNormal);
-        RadialToCartesian(nextAng,rad,nextPos);
-        RadialToCartesian(nextAng,1,nextNormal);
-
-        RadialToCartesian(thisAng,rad+topsideOffset,thispos2);
-        RadialToCartesian(nextAng,rad+topsideOffset,nextPos2);
+        const auto thispos2 = nextPos2;
+        nextPos2   = nextNormal * (rad + topsideOffset);
+        nextPos2.x = clampedZ(nextPos2.x, ZOffset);
 
         // the "inside"
-        glBegin(GL_TRIANGLE_STRIP);
-
-        glNormal3f(-thisNormal[0],-thisNormal[1],-thisNormal[2]);
+        glNormal(-thisNormal);
         glTexCoord2f(0,bottomUV);
-        glVertex3f(0,thispos[1],clampedZ(thispos[0],ZOffset));
+        glVertex3f(0, thispos.y, thispos.x);
 
-        glNormal3f(-nextNormal[0],-nextNormal[1],-nextNormal[2]);
+        glNormal(-nextNormal);
         glTexCoord2f(1,bottomUV);
-        glVertex3f(0,nextPos[1],clampedZ(nextPos[0],ZOffset));
+        glVertex3f(0, nextPos.y, nextPos.x);
 
-        glNormal3f(-thisNormal[0],-thisNormal[1],-thisNormal[2]);
+        glNormal(-thisNormal);
         glTexCoord2f(0,topUV);
-        glVertex3f(z,thispos2[1],clampedZ(thispos2[0],ZOffset));
+        glVertex3f(z, thispos2.y, thispos2.x);
 
-        glNormal3f(-nextNormal[0],-nextNormal[1],-nextNormal[2]);
+        glNormal(-nextNormal);
         glTexCoord2f(1,topUV);
-        glVertex3f(z,nextPos2[1],clampedZ(nextPos2[0],ZOffset));
-
-        glEnd();
+        glVertex3f(z, nextPos2.y, nextPos2.x);
 
         // the "outside"
-        glBegin(GL_TRIANGLE_STRIP);
-
-        glNormal3f(thisNormal[0],thisNormal[1],thisNormal[2]);
+        glNormal(thisNormal);
         glTexCoord2f(0,topUV);
-        glVertex3f(z,thispos2[1],clampedZ(thispos2[0],ZOffset));
+        glVertex3f(z, thispos2.y, thispos2.x);
 
-        glNormal3f(nextNormal[0],nextNormal[1],nextNormal[2]);
+        glNormal(nextNormal);
         glTexCoord2f(1,topUV);
-        glVertex3f(z,nextPos2[1],clampedZ(nextPos2[0],ZOffset));
+        glVertex3f(z, nextPos2.y, nextPos2.x);
 
-        glNormal3f(thisNormal[0],thisNormal[1],thisNormal[2]);
+        glNormal(thisNormal);
         glTexCoord2f(0,bottomUV);
-        glVertex3f(0,thispos[1],clampedZ(thispos[0],ZOffset));
+        glVertex3f(0, thispos.y, thispos.x);
 
-        glNormal3f(nextNormal[0],nextNormal[1],nextNormal[2]);
+        glNormal(nextNormal);
         glTexCoord2f(1,bottomUV);
-        glVertex3f(0,nextPos[1],clampedZ(nextPos[0],ZOffset));
+        glVertex3f(0, nextPos.y, nextPos.x);
 
-        glEnd();
     }
+    glEnd();
 }
 
 
