@@ -1451,6 +1451,7 @@ void            HUDRenderer::renderBox(SceneRenderer&)
     if (true /* always draw heading strip */)
     {
         // first clip to area
+        glPushAttrib(GL_SCISSOR_BIT);
         glScissor(ox + centerx - maxMotionSize, oy + height - viewHeight + centery + maxMotionSize - 5,
                   2 * maxMotionSize, 25 + (int)(headingFontSize + 0.5f));
 
@@ -1570,12 +1571,14 @@ void            HUDRenderer::renderBox(SceneRenderer&)
         }
         markers.clear();
         glPopMatrix();
+        glPopAttrib();
     }
 
     // draw altitude strip
     if (altitudeTape)
     {
         // clip to area
+        glPushAttrib(GL_SCISSOR_BIT);
         glScissor(ox + centerx + maxMotionSize - 5, oy + height - viewHeight + centery - maxMotionSize,
                   (int)altitudeLabelMaxWidth + 15, 2 * maxMotionSize);
 
@@ -1652,6 +1655,8 @@ void            HUDRenderer::renderBox(SceneRenderer&)
                 y += altitudeMarkSpacing;
             }
         }
+
+        glPopAttrib();
     }
 }
 
@@ -1705,7 +1710,6 @@ void            HUDRenderer::setOneToOnePrj()
     const int oy = window.getOriginY();
 
     // use one-to-one pixel projection
-    glScissor(ox, oy + height - viewHeight, width, viewHeight);
     glMatrixMode(GL_PROJECTION);
     window.setProjectionHUD();
     glMatrixMode(GL_MODELVIEW);

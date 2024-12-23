@@ -336,6 +336,7 @@ void            ControlPanel::render(SceneRenderer& _renderer)
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
+    glPushAttrib(GL_SCISSOR_BIT);
     OpenGLGState::resetState();
 
     FontManager &fm = FontManager::instance();
@@ -646,6 +647,7 @@ void            ControlPanel::render(SceneRenderer& _renderer)
 
     glColor4f(teamColor[0], teamColor[1], teamColor[2],1.0f );
 
+    glPopAttrib();
     glPopMatrix();
 
     fm.setOpacity(1.0f);

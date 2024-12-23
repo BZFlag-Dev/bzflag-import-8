@@ -47,14 +47,6 @@ public:
 
     void        render(SceneRenderer&, bool blank, bool observer);
 
-    void        renderFrame(SceneRenderer&);
-
-    void        renderObstacles(bool fastRadar, float range);
-    void        renderWalls();
-    void        renderBoxPyrMesh();
-    void        renderBoxPyrMeshFast(float range);
-    void        renderBasesAndTeles();
-
     int         getFrameTriangleCount() const;
 
 private:
@@ -72,6 +64,15 @@ private:
 
     static float    colorScale(const float z, const float h);
     static float    transScale(const float z, const float h);
+
+    void        renderFrame(SceneRenderer&);
+
+    void        renderObstacles(bool fastRadar, float range);
+    void        renderWalls();
+    void        renderBoxPyrMesh();
+    void        renderBoxPyrMeshFast(float range);
+    void        renderBasesAndTeles();
+
 
 private:
     World*      world;
