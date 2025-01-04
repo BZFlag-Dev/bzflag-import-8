@@ -943,8 +943,8 @@ void ControlPanel::saveMessages(const std::string& filename,
     fprintf(file, "----------------------------------------\n\n");
 
     // Iterate through the 'All' tab messages
-    std::deque<ControlPanelMessage>::const_iterator msg = messages[MessageAll].begin()++;
-    for (; msg != messages[MessageAll].end(); ++msg)
+    std::deque<ControlPanelMessage>::const_iterator msg = messages[messageMode].begin()++;
+    for (; msg != messages[messageMode].end(); ++msg)
     {
         const std::string line = msg->getString(timestamp);
         if (stripAnsi)
