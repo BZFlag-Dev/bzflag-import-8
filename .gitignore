@@ -135,3 +135,9 @@ Thumbs.db
 /MSVC/HoldTheFlag_Win32_Debug/*.ib_pdb_index
 *.ib_pdb_index
 
+# Python things
+__pycache__
+
+# vi files
+*~
+*.swp

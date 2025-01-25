@@ -17,6 +17,7 @@
 #include <string>
 
 #include "WorldEventManager.h"
+#include "bzfsPython.h"
 
 std::map<bz_Plugin*,bz_EventHandler*> HandlerMap;
 
@@ -93,6 +94,10 @@ void WorldEventManager::callEvents ( bz_eEventType eventType, bz_EventData  *eve
         if (eventList[i]->HasEvent(eventType))
             eventList[i]->process(eventData);
     }
+
+#ifdef BZ_PYTHON
+    bzPythonEvent(eventData);
+#endif
 
     callignEvents = callState;
     if (!callState)

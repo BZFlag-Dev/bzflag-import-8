@@ -87,6 +87,7 @@ const char *usageString =
     "[-lagdrop <num>] "
     "[-lagwarn <time/ms>] "
     "[-loadplugin <pluginname,commandline>] "
+    "[-loadpython <pluginname,commandline>] "
     "[-masterBanURL <URL>] "
     "[-maxidle <time/s>] "
     "[-mp {<count>|[<count>][,<count>][,<count>][,<count>][,<count>][,<count>]}] "
@@ -194,6 +195,7 @@ const char *extraUsageString =
     "\t-lagdrop: drop player after this many lag warnings\n"
     "\t-lagwarn: lag warning threshold time [ms]\n"
     "\t-loadplugin: load the specified plugin with the specified commandline\n"
+    "\t-loadpython: load the specified python file with the specified commandline\n"
     "\t\tstring\n"
     "\t-masterBanURL: URL to attempt to get the master ban list from <URL>\n"
     "\t-maxidle: idle kick threshold [s]\n"
@@ -868,6 +870,17 @@ void parse(int argc, char **argv, CmdLineOptions &options, bool fromWorldFile)
                 pDef.command = a[1];
             if (pDef.plugin.size())
                 options.pluginList.push_back(pDef);
+        }
+        else if (strcmp(argv[i], "-loadpython") == 0)
+        {
+            checkArgc(1, i, argc, argv[i]);
+            std::vector<std::string> a = TextUtils::tokenize(argv[i],std::string(","), 2);
+            CmdLineOptions::pluginDef pDef;
+            if (a.size() >= 1)
+                pDef.plugin = a[0];
+            if (a.size() >= 2)
+                pDef.command = a[1];
+            options.pythonPlugin = pDef;
         }
         else if (strcmp(argv[i], "-maxidle") == 0)
         {

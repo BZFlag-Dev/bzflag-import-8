@@ -130,6 +130,16 @@ MP_WITH_CURSES
 # build the server?
 AC_ARG_ENABLE(server, AS_HELP_STRING([--disable-server],[do not compile server]))
 
+# check whether python plugins are desired
+AC_ARG_ENABLE(python, AS_HELP_STRING([--disable-python],[do not compile python support]))
+if test "x$enable_python" != xno ; then
+    if test "x$enable_server" != xno ; then
+        AM_PATH_PYTHON([3.8])
+	AC_DEFINE(BZ_PYTHON, 1, [Enable python])
+    fi
+fi
+AM_CONDITIONAL(BUILD_PLUGINS, test "x$enable_plugins" != "xno")
+
 # check whether plugins are desired
 AC_ARG_ENABLE(plugins, AS_HELP_STRING([--disable-plugins],[do not compile plugins]))
 if test "x$enable_plugins" != xno ; then
