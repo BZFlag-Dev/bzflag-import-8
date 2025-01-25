@@ -736,11 +736,31 @@ void RadarRenderer::render(SceneRenderer& renderer, bool blank, bool observer)
         // always up
         glPopMatrix();
 
-        // forward tick
-        glBegin(GL_LINES);
-        glVertex2f(0.0f, radarRange - ps);
-        glVertex2f(0.0f, radarRange - 4.0f * ps);
+        // forward tick/line
+        bool isLineRadarMarker = (BZDB.eval("radarForwardMarker") == 1); 
+        if (isLineRadarMarker)
+        {
+            // spec for glPushAttrib not precise in this case,
+            // pushing both bits to be on the safe side here
+            glPushAttrib(GL_ENABLE_BIT | GL_LINE_BIT);
+            glLineStipple(1, 0xF0F0);
+            glEnable(GL_LINE_STIPPLE);
+            glColor3f(0.7f, 0.425f, 0.1f);
+
+            glBegin(GL_LINES);
+            glVertex2f(0.0f, radarRange - ps);
+            glVertex2f(0.0f, 0.0f);
+        }
+        else
+        {
+            glBegin(GL_LINES);
+            glVertex2f(0.0f, radarRange - ps);
+            glVertex2f(0.0f, radarRange - 4.0f * ps);
+        }
         glEnd();
+        if (isLineRadarMarker) glPopAttrib();
+
+
 
         if (!observer)
         {
